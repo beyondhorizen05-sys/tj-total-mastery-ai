@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.tj-data/
+*.local
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+.vite/

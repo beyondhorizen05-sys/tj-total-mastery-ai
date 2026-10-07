@@ -1,0 +1,33 @@
+{
+  "name": "tj-total-mastery-ai",
+  "version": "2.0.0",
+  "private": true,
+  "description": "TJ — Total Mastery AI. Personal AI operating environment: agents, memory, tools, workflows, connectors.",
+  "type": "module",
+  "packageManager": "pnpm@10.28.1",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "setup": "pnpm install && pnpm run migrate",
+    "dev": "pnpm -r --parallel --filter @tj/api --filter @tj/web run dev",
+    "dev:api": "pnpm --filter @tj/api run dev",
+    "dev:web": "pnpm --filter @tj/web run dev",
+    "migrate": "pnpm --filter @tj/api run migrate",
+    "typecheck": "pnpm -r run typecheck",
+    "lint": "eslint .",
+    "test": "pnpm -r run test",
+    "test:e2e": "pnpm --filter @tj/api run test:e2e",
+    "build": "pnpm -r run build",
+    "start": "pnpm --filter @tj/api run start",
+    "package": "pnpm run build && pnpm --filter @tj/desktop run package",
+    "desktop:dev": "pnpm --filter @tj/desktop run dev"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.0.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.1"
+  }
+}
