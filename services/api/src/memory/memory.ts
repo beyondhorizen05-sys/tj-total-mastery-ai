@@ -55,11 +55,14 @@ export class MemoryService {
   /** Awaitable embedding (used by tests and bulk re-embed). */
   async embedOne(id: string, content: string, sensitivity: string) {
     if (!this.router || sensitivity === 'secret') return;
+    const current = this.get(id);
+    if (!current || current.content !== content || current.sensitivity === 'secret') return;
     try {
       const r = await this.router.embed([content.slice(0, 6000)]);
       if (!r) return;
       const buf = Buffer.from(new Float32Array(r.vectors[0]).buffer);
-      this.db.run('UPDATE memories SET embedding=?, has_embedding=1, embedding_model=? WHERE id=?', [buf, r.model_id, id]);
+      // An older embedding request may finish after an edit or sensitivity change.
+      this.db.run("UPDATE memories SET embedding=?, has_embedding=1, embedding_model=? WHERE id=? AND content=? AND sensitivity != 'secret'", [buf, r.model_id, id, content]);
     } catch { /* embeddings are optional */ }
   }
 
@@ -77,9 +80,10 @@ export class MemoryService {
       this.db.run('UPDATE memories SET content=?, version=?, has_embedding=0, embedding=NULL, updated_at=? WHERE id=?', [patch.content, v, ts, id]);
       this.db.run('INSERT INTO memory_versions (memory_id, version, content, changed_at) VALUES (?,?,?,?)', [id, v, patch.content, ts]);
       if (this.db.ftsAvailable) { this.db.run('DELETE FROM memories_fts WHERE memory_id = ?', [id]); this.db.run('INSERT INTO memories_fts (content, memory_id) VALUES (?,?)', [patch.content, id]); }
-      void this.embedOne(id, patch.content, m.sensitivity);
+      void this.embedOne(id, patch.content, patch.sensitivity ?? m.sensitivity);
     }
     for (const k of ['confidence', 'sensitivity', 'retention'] as const) if (patch[k] != null) this.db.run(`UPDATE memories SET ${k}=?, updated_at=? WHERE id=?`, [patch[k], ts, id]);
+    if (patch.sensitivity === 'secret') this.db.run('UPDATE memories SET embedding=NULL, has_embedding=0, embedding_model=NULL WHERE id=?', [id]);
     if (patch.archived != null) this.db.run('UPDATE memories SET archived=?, updated_at=? WHERE id=?', [patch.archived ? 1 : 0, ts, id]);
     this.bus.emit({ name: 'memory.updated', summary: `Memory updated: ${id.slice(0, 8)}`, data: { memory_id: id } });
     return this.get(id)!;

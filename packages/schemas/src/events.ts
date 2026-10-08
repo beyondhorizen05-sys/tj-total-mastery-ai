@@ -8,6 +8,7 @@ export const EVENT_NAMES = [
   'message.completed',
   'agent.created',
   'agent.updated',
+  'agent.deleted',
   'agent.started',
   'agent.message',
   'agent.completed',
@@ -51,10 +52,18 @@ export const EVENT_NAMES = [
   'project.created',
   'system.health_changed',
   'system.state_changed',
+  'system.persona_changed',
+  'system.settings_changed',
   'system.stop_all',
   'security.event',
   'audit.logged',
   'notification.created',
+  'voice.listening',
+  'voice.speaking',
+  'voice.stopped',
+  'voice.transcript',
+  'voice.response',
+  'voice.error',
 ] as const;
 
 export const EventName = z.enum(EVENT_NAMES);

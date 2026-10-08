@@ -31,6 +31,32 @@ describe('WorkflowEngine', () => {
     expect(peak).toBeGreaterThanOrEqual(3);
   });
 
+  it('keeps a paused run persisted while an active step finishes', async () => {
+    let release!: () => void;
+    const firstStarted = new Promise<void>((resolve) => {
+      engine.registerExecutor('tool', async (s) => {
+        if (s.id === 'a') {
+          resolve();
+          await new Promise<void>((done) => { release = done; });
+        }
+        return s.id;
+      });
+    });
+    const wf = engine.save({ name: 'pause', steps: [step('a'), step('b', ['a'])] });
+    const run = engine.start(wf.id);
+    await firstStarted;
+    engine.pause(run.id);
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(engine.getRun(run.id)?.status).toBe('paused');
+    expect(engine.getRun(run.id)?.step_state.a.status).toBe('completed');
+    expect(engine.getRun(run.id)?.step_state.b.status).toBe('pending');
+    engine.resume(run.id);
+    const done = await engine.wait(run.id);
+    expect(done.status).toBe('completed');
+    expect(done.step_state.b.status).toBe('completed');
+  });
+
   it('retries with backoff and then succeeds', async () => {
     let calls = 0;
     engine.registerExecutor('tool', async () => { calls++; if (calls < 3) throw new Error('flaky'); return 'ok'; });

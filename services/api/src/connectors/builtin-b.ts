@@ -52,8 +52,6 @@ export const genericWebhook: ConnectorRuntime = {
 
 /** Planned connectors are listed honestly with no runtime. */
 export const PLANNED = [
-  { id: 'google_calendar', name: 'Google Calendar', category: 'productivity', note: 'Requires OAuth2 client registration (Google Cloud project). Connector architecture is ready; OAuth app credentials needed.' },
-  { id: 'gmail', name: 'Gmail', category: 'productivity', note: 'Requires OAuth2 client registration and Google verification for restricted scopes.' },
   { id: 'microsoft365', name: 'Microsoft 365 (Outlook/Calendar)', category: 'productivity', note: 'Requires an Azure AD app registration.' },
   { id: 'shopify', name: 'Shopify', category: 'business', note: 'Requires a Shopify custom app token.' },
   { id: 'alpaca', name: 'Alpaca (paper trading)', category: 'finance', note: 'Planned. Real-money trading additionally needs limits, kill switch and immutable audit log.' },

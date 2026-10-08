@@ -52,6 +52,11 @@ export class TaskService {
     return this.db.all<{ depends_on_task_id: string }>('SELECT depends_on_task_id FROM task_dependencies WHERE task_id = ?', [id]).map((r) => r.depends_on_task_id);
   }
 
+  addDependency(taskId: string, dependsOnTaskId: string) {
+    if (taskId === dependsOnTaskId || !this.get(taskId) || !this.get(dependsOnTaskId)) throw new Error('Invalid task dependency');
+    this.db.run('INSERT OR IGNORE INTO task_dependencies (task_id, depends_on_task_id) VALUES (?,?)', [taskId, dependsOnTaskId]);
+  }
+
   allDependencies(projectId: string): Array<{ task_id: string; depends_on_task_id: string }> {
     return this.db.all('SELECT d.task_id, d.depends_on_task_id FROM task_dependencies d JOIN tasks t ON t.id = d.task_id WHERE t.project_id = ?', [projectId]);
   }

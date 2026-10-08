@@ -43,8 +43,9 @@ export class EventBus {
       summary: input.summary,
       data: input.data ?? {},
     };
-    // High-frequency streaming deltas are not persisted (they'd flood the activity log).
-    if (ev.name !== 'message.delta') {
+    // Raw voice transcripts and replies can contain dictated private content.
+    // They reach live subscribers, but are not copied into the Activity database.
+    if (!['message.delta', 'voice.transcript', 'voice.response'].includes(ev.name)) {
       this.db.run(
         `INSERT INTO events (id, name, ts, severity, project_id, agent_id, task_id, workflow_run_id, conversation_id, connector_id, model_id, summary, data)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,

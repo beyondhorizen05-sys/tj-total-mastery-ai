@@ -4,6 +4,8 @@ import type { Vault } from '../security/vault.js';
 import type { ConnectorRuntime } from './sdk.js';
 import { brave, github, openweather, tavily } from './builtin-a.js';
 import { genericWebhook, homeAssistant, PLANNED, slackWebhook } from './builtin-b.js';
+import { gmail, googleCalendar } from './google.js';
+import { createProductivityConnector } from './productivity.js';
 
 export interface ConnectorServiceDeps {
   db: Database;
@@ -21,6 +23,9 @@ export class ConnectorService {
     this.register(homeAssistant);
     this.register(slackWebhook);
     this.register(genericWebhook);
+    this.register(googleCalendar);
+    this.register(gmail);
+    this.register(createProductivityConnector(this, deps.db));
   }
 
   register(r: ConnectorRuntime) {
@@ -53,6 +58,9 @@ export class ConnectorService {
   async setConfig(connectorId: string, values: Record<string, string>): Promise<void> {
     const r = this.runtimes.get(connectorId);
     if (!r) throw new Error(`Unknown connector: ${connectorId}`);
+    const allowed = new Set(r.manifest.config_fields.map((field) => field.key));
+    const invalid = Object.keys(values).find((key) => !allowed.has(key));
+    if (invalid) throw new Error(`Unknown config field "${invalid}" for connector "${connectorId}"`);
     for (const [k, v] of Object.entries(values)) {
       const ref = `connector:${connectorId}:${k}`;
       if (v === '' || v === null || v === undefined) {
@@ -66,6 +74,7 @@ export class ConnectorService {
         });
       }
     }
+    if (Object.keys(values).length) this.deps.db.run('UPDATE connector_configs SET health = ?, last_error = NULL, last_checked_at = NULL, updated_at = ? WHERE connector_id = ?', ['unknown', new Date().toISOString(), connectorId]);
   }
 
   /**
@@ -91,12 +100,12 @@ export class ConnectorService {
     );
 
     let status: CapabilityStatus = 'NEEDS_API_KEY';
-    let health: HealthState = (row?.health as HealthState) ?? 'unknown';
+    const health: HealthState = (row?.health as HealthState) ?? 'unknown';
 
     if (missing.length === 0) {
-      status = health === 'degraded' || health === 'offline' ? 'UNAVAILABLE' : 'CONNECTED';
+      status = health === 'healthy' ? 'CONNECTED' : health === 'unknown' ? (r.manifest.config_fields.length === 0 && r.manifest.auth_scheme === 'none' ? 'AVAILABLE' : 'NEEDS_SETUP') : 'UNAVAILABLE';
     } else {
-      status = r.manifest.auth_scheme === 'none' ? 'AVAILABLE' : 'NEEDS_API_KEY';
+      status = r.manifest.config_fields.some((field) => missing.includes(field.key) && field.secret) ? 'NEEDS_API_KEY' : 'NEEDS_SETUP';
     }
 
     return {
@@ -106,7 +115,7 @@ export class ConnectorService {
       last_error: row?.last_error ?? null,
       last_checked_at: row?.last_checked_at ?? null,
       configured_keys: configuredKeys,
-      missing: missing.length > 0 ? missing.join(', ') : null,
+      missing: missing.length > 0 ? missing.join(', ') : status === 'NEEDS_SETUP' ? 'Run Test Connection to verify the configuration' : null,
     };
   }
 

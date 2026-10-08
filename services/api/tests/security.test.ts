@@ -5,6 +5,8 @@ import { Audit } from '../src/security/audit.js';
 import { PermissionEngine } from '../src/security/permissions.js';
 import { ApprovalService } from '../src/security/approvals.js';
 import { EventBus } from '../src/core/event-bus.js';
+import { ToolRegistry } from '../src/tools/registry.js';
+import { ok, type ToolContext } from '../src/tools/types.js';
 
 describe('Permissions & Approvals', () => {
   let db: Database;
@@ -127,5 +129,48 @@ describe('Permissions & Approvals', () => {
 
     const list = approvals.list();
     expect(list.every((a) => a.status === 'denied')).toBe(true);
+  });
+
+  it('requires approval for a high-risk tool and rejects an edited target', async () => {
+    settings.set('autonomy_level', 5);
+    const tools = new ToolRegistry(permissions, approvals, bus, audit);
+    let executions = 0;
+    tools.register({
+      id: 'test_high_risk', name: 'High-risk test', description: 'Test tool', domain: 'test',
+      input_schema: {}, permission: 'memory.read', risk: 'high', reversible: false,
+      resource: (args) => String(args.target),
+      execute: async () => { executions++; return ok('done'); },
+    });
+    const ctx: ToolContext = { workspace_id: 'default', project_id: null, project_root: null, agent_id: null, agent_permissions: null, task_id: null, workflow_run_id: null };
+    const run = tools.execute('test_high_risk', { target: 'approved-target' }, ctx);
+    expect(approvals.pendingCount()).toBe(1);
+    const approval = approvals.list('pending')[0];
+    expect(approval.risk).toBe('high');
+    await expect(async () => {
+      approvals.decide(approval.id, 'edit', 'test_user', { tool: 'test_high_risk', args: { target: 'different-target' } });
+      await run;
+    }).rejects.toThrow(/changes the approved resource/);
+    expect(executions).toBe(0);
+  });
+
+  it('keeps computer typing text out of persisted approval records', async () => {
+    const tools = new ToolRegistry(permissions, approvals, bus, audit);
+    const secret = 'private dictated text for a desktop app';
+    let executed = '';
+    tools.register({
+      id: 'computer_write', name: 'Write text', description: 'Test typing', domain: 'computer',
+      input_schema: {}, permission: 'computer.control', risk: 'medium', reversible: false,
+      describe: (args) => ({ action: 'Write text', target: `${String(args.text).length} characters in focused app`, why: 'User requested typing', risks: [] }),
+      execute: async (args) => { executed = String(args.text); return ok('done'); },
+    });
+    const ctx: ToolContext = { workspace_id: 'default', project_id: null, project_root: null, agent_id: null, agent_permissions: null, task_id: null, workflow_run_id: null };
+    const run = tools.execute('computer_write', { text: secret }, ctx);
+    const approval = approvals.list('pending')[0];
+    expect(approval).toBeDefined();
+    expect(JSON.stringify(approval)).not.toContain(secret);
+    expect(approval.target).toContain(`${secret.length} characters`);
+    approvals.decide(approval.id, 'approve_once', 'test_user');
+    expect((await run).ok).toBe(true);
+    expect(executed).toBe(secret);
   });
 });

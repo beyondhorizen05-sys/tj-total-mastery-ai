@@ -37,4 +37,9 @@ export const MODEL_HINTS: Record<string, ModelHint> = {
   'llama-3.3-70b-versatile': { in: 0.59, out: 0.79, ctx: 128000, quality: 'strong', tools: true },
   'llama-3.1-8b-instant': { in: 0.05, out: 0.08, ctx: 128000, quality: 'light', tools: true },
   'qwen/qwen3-32b': { in: 0.29, out: 0.59, ctx: 131072, quality: 'strong', tools: true },
+  'qwen-2.5-72b': { in: 0.35, out: 0.4, ctx: 131072, quality: 'strong', tools: true },
+  'command-r-plus': { in: 2.5, out: 10, ctx: 128000, quality: 'strong', tools: true },
+  'command-r': { in: 0.15, out: 0.6, ctx: 128000, quality: 'standard', tools: true },
+  'sonar-pro': { in: 3, out: 15, ctx: 200000, quality: 'frontier' },
+  'sonar': { in: 1, out: 1, ctx: 128000, quality: 'standard' },
 };

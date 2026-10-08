@@ -13,11 +13,22 @@ export class WorkspaceService {
   userId = '';
   constructor(private db: Database, private bus: EventBus, private projectsDir: string, private dataDir: string) {}
 
+  projectStorageDir() { return this.projectsDir; }
+
+  setProjectStorageDir(directory: string) {
+    const resolved = path.resolve(directory);
+    fs.mkdirSync(resolved, { recursive: true });
+    const probe = path.join(resolved, `.tj-write-test-${uuid()}`);
+    try { fs.writeFileSync(probe, ''); } finally { if (fs.existsSync(probe)) fs.unlinkSync(probe); }
+    this.projectsDir = resolved;
+    return resolved;
+  }
+
   /** Ensure a default local user + workspace exist (first launch). */
   init() {
     let ws = this.db.get<any>('SELECT * FROM workspaces LIMIT 1');
     if (!ws) {
-      const uid = uuid(), wid = uuid(), ts = now();
+      const uid = 'user_default', wid = 'default', ts = now();
       const loc = Intl.DateTimeFormat().resolvedOptions();
       this.db.run('INSERT INTO users (id, display_name, locale, time_zone, created_at) VALUES (?,?,?,?,?)', [uid, 'You', loc.locale, loc.timeZone, ts]);
       this.db.run('INSERT INTO workspaces (id, name, owner_id, data_dir, created_at) VALUES (?,?,?,?,?)', [wid, 'Personal', uid, this.dataDir, ts]);

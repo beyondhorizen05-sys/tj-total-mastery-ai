@@ -13,6 +13,7 @@ export interface StepContext {
   signal: AbortSignal;
 }
 export type StepExecutor = (step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => Promise<unknown>;
+const SUPPORTED_STEP_KINDS = new Set(['agent', 'tool', 'model', 'approval', 'wait', 'connector', 'transform']);
 
 const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((res) => {
   const t = setTimeout(res, ms);
@@ -25,7 +26,7 @@ const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((res) => {
  */
 export class WorkflowEngine {
   private executors = new Map<string, StepExecutor>();
-  private live = new Map<string, { ctrl: AbortController; paused: boolean; promise: Promise<WorkflowRun> }>();
+  private live = new Map<string, { ctrl: AbortController; paused: boolean; run: WorkflowRun; promise: Promise<WorkflowRun> }>();
 
   constructor(private db: Database, private bus: EventBus, private workspaceId: () => string) {}
 
@@ -33,6 +34,8 @@ export class WorkflowEngine {
 
   // ---- definitions ----
   save(def: { id?: string; name: string; description?: string; project_id?: string | null; steps: WorkflowStep[] }): Workflow {
+    if (!def || typeof def.name !== 'string' || !def.name.trim()) throw new Error('Workflow name is required');
+    if (!Array.isArray(def.steps)) throw new Error('Workflow steps must be an array');
     this.validate(def.steps);
     const ts = now();
     const existing = def.id ? this.get(def.id) : undefined;
@@ -56,6 +59,10 @@ export class WorkflowEngine {
   /** Reject duplicate ids, unknown dependencies and cycles. */
   validate(steps: WorkflowStep[]) {
     if (!steps.length) throw new Error('Workflow needs at least one step');
+    for (const step of steps) {
+      if (!step || typeof step.id !== 'string' || !step.id.trim()) throw new Error('Every workflow step needs an id');
+      if (!SUPPORTED_STEP_KINDS.has(step.kind) && !this.executors.has(step.kind)) throw new Error(`Workflow step kind "${step.kind}" is not available in this build`);
+    }
     const ids = new Set(steps.map((s) => s.id));
     if (ids.size !== steps.length) throw new Error('Duplicate step ids');
     for (const s of steps) for (const d of s.depends_on ?? []) if (!ids.has(d)) throw new Error(`Step ${s.id} depends on unknown step ${d}`);
@@ -111,7 +118,7 @@ export class WorkflowEngine {
 
   private launch(run: WorkflowRun, wf: Workflow) {
     const ctrl = new AbortController();
-    const entry = { ctrl, paused: false, promise: Promise.resolve(run) as Promise<WorkflowRun> };
+    const entry = { ctrl, paused: false, run, promise: Promise.resolve(run) as Promise<WorkflowRun> };
     entry.promise = this.execute(run, wf, entry).finally(() => this.live.delete(run.id));
     this.live.set(run.id, entry);
   }
@@ -160,7 +167,7 @@ export class WorkflowEngine {
     if (entry.ctrl.signal.aborted) {
       for (const [, s] of steps) if (['pending', 'running', 'retrying', 'awaiting_approval'].includes(s.status)) s.status = 'cancelled';
       this.setRunStatus(run, 'cancelled', 'workflow.cancelled', `Workflow cancelled: ${wf.name}`, 'warning');
-    } else if (anyFailed || steps.some(([, s]) => s.status === 'pending')) {
+    } else if (run.error || anyFailed || steps.some(([, s]) => s.status === 'pending')) {
       run.error = run.error ?? steps.filter(([, s]) => s.status === 'failed').map(([id, s]) => `${id}: ${s.error}`).join('; ');
       this.setRunStatus(run, 'failed', 'workflow.failed', `Workflow failed: ${wf.name} — ${run.error}`, 'error');
     } else {
@@ -218,17 +225,15 @@ export class WorkflowEngine {
   // ---- controls ----
   pause(runId: string) {
     const l = this.live.get(runId);
-    const run = this.getRun(runId);
-    if (!l || !run) throw new Error('Run is not active');
+    if (!l) throw new Error('Run is not active');
     l.paused = true;
-    this.setRunStatus(run, 'paused', 'workflow.paused', 'Workflow paused', 'warning');
+    this.setRunStatus(l.run, 'paused', 'workflow.paused', 'Workflow paused', 'warning');
   }
   resume(runId: string) {
     const l = this.live.get(runId);
-    const run = this.getRun(runId);
-    if (!l || !run) throw new Error('Run is not active');
+    if (!l) throw new Error('Run is not active');
     l.paused = false;
-    this.setRunStatus(run, 'running', 'workflow.resumed', 'Workflow resumed');
+    this.setRunStatus(l.run, 'running', 'workflow.resumed', 'Workflow resumed');
   }
   cancel(runId: string) {
     const l = this.live.get(runId);
@@ -242,10 +247,37 @@ export class WorkflowEngine {
     let n = 0;
     for (const run of stale) {
       const wf = this.get(run.workflow_id);
-      if (!wf) continue;
-      for (const s of Object.values(run.step_state)) if (['running', 'retrying', 'awaiting_approval'].includes(s.status)) { s.status = 'pending'; }
+      const version = this.db.get<{ steps: string }>('SELECT steps FROM workflow_versions WHERE workflow_id = ? AND version = ?', [run.workflow_id, run.workflow_version]);
+      if (!wf || !version) {
+        run.error = `Cannot recover workflow: saved definition v${run.workflow_version} is unavailable`;
+        run.completed_at = now();
+        this.setRunStatus(run, 'failed', 'workflow.failed', `Workflow recovery failed: ${run.error}`, 'error');
+        n++;
+        continue;
+      }
+      const savedSteps = J.parse<WorkflowStep[] | null>(version.steps, null);
+      if (!Array.isArray(savedSteps) || savedSteps.length !== Object.keys(run.step_state).length || savedSteps.some((s) => !s?.id || !run.step_state[s.id])) {
+        run.error = `Cannot recover workflow: saved definition v${run.workflow_version} does not match run state`;
+        run.completed_at = now();
+        this.setRunStatus(run, 'failed', 'workflow.failed', `Workflow recovery failed: ${run.error}`, 'error');
+        n++;
+        continue;
+      }
+      const interrupted = Object.entries(run.step_state).filter(([, s]) => ['running', 'retrying', 'awaiting_approval'].includes(s.status));
+      if (interrupted.length) {
+        // The external action may already have happened. Replaying it could duplicate writes,
+        // messages or payments, so require a new explicit run after inspection.
+        const ids = interrupted.map(([id]) => id);
+        run.error = `Recovery stopped: interrupted step outcome is unknown (${ids.join(', ')}). Inspect the external result before starting a new run.`;
+        for (const [, s] of interrupted) { s.status = 'failed'; s.error = run.error; s.completed_at = now(); }
+        for (const s of Object.values(run.step_state)) if (s.status === 'pending') { s.status = 'skipped'; s.error = 'Recovery stopped after an uncertain action'; s.completed_at = now(); }
+        run.completed_at = now();
+        this.setRunStatus(run, 'failed', 'workflow.failed', `Workflow recovery failed: ${run.error}`, 'error');
+        n++;
+        continue;
+      }
       run.checkpoint = { ...run.checkpoint, recovered_at: now() };
-      this.launch(run, wf);
+      this.launch(run, { ...wf, version: run.workflow_version, steps: savedSteps });
       n++;
     }
     return n;

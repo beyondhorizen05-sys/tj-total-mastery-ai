@@ -84,6 +84,7 @@ export const TJState = z.enum([
   'hearing',
   'understanding',
   'thinking',
+  'planning',
   'speaking',
   'executing',
   'awaiting_approval',

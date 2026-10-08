@@ -1,5 +1,9 @@
 # TJ — Total Mastery AI
 
+**Status:** active development. The web UI and local API run today; many master-prompt capabilities are partial or require external accounts. See [the section audit](docs/master-prompt-audit.md) before relying on a capability. The Tauri desktop installer is not yet a complete distribution of the API.
+
+TJ is released under the [MIT License](LICENSE). Do not commit `.env`, `.tj-data`, API keys, OAuth tokens, personal databases, or vault files. Report security issues privately as described in [SECURITY.md](SECURITY.md).
+
 > Local-first AI operating environment: multi-agent autonomous orchestration, durable DAG workflows, hybrid FTS5/vector memory, encrypted vault secrets, sandboxed execution, and human-in-the-loop action governance.
 
 ---
@@ -35,7 +39,7 @@ TJ Monorepo Architecture
 
 ## 🛡️ Core Security & Absolute Guarantees
 
-1. **Deny-by-Default Permission Engine**: Autonomy levels (1: Read-Only, 2: Draft, 3: Supervised, 4: Autonomous). Agents only possess explicit permissions; any out-of-scope operation is blocked or routed to the human approval gate.
+1. **Permission Engine**: Autonomy levels (1: Read-Only, 2: Draft, 3: Supervised, 4: Autonomous). Tool actions are checked against permissions and approval policies.
 2. **Encrypted Vault**: All provider keys and connector tokens are encrypted with AES-256-GCM. Plaintext secrets are never stored in database rows or leaked to log streams.
 3. **STOP ALL Killswitch**: One-click immediate killswitch halts all active task runs, aborts model generation, rejects pending approvals, and resets agent states to idle.
 4. **Sandboxed Tools**: Path traversal attempts (relative dot-dot navigation, root escapes, system paths) are blocked with strict containment validation.
@@ -51,7 +55,7 @@ TJ Monorepo Architecture
 ### Installation & Database Setup
 ```bash
 # Clone and enter directory
-cd C:\Projects\tj-total-mastery-ai
+cd tj-total-mastery-ai
 
 # Install dependencies across all workspace packages
 pnpm install

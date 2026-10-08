@@ -38,8 +38,11 @@ export function registerConnectorRoutes(
   });
 
   // POST /api/v1/connectors/:id/test
-  app.post('/api/v1/connectors/:id/test', async (req) => {
+  app.post('/api/v1/connectors/:id/test', async (req, reply) => {
     const p = req.params as { id: string };
+    const permission = deps.permissions?.evaluate({ permission: 'network.http', resource: `${p.id}:test` });
+    if (permission?.decision === 'deny') return reply.status(403).send({ error: permission.reason });
+    if (permission?.decision === 'require_approval') return reply.status(403).send({ error: 'Connector test requires approval under the current policy' });
     const res = await deps.connectors.test(p.id);
     return res;
   });
@@ -59,18 +62,16 @@ export function registerConnectorRoutes(
 
     // 1. Evaluate permissions if engine available
     if (deps.permissions) {
-      const evalRes = deps.permissions.evaluate({
-        permission: 'connector.use',
+      const checks = [...new Set(['connector.use', ...runtime.manifest.permissions])].map((permission) => deps.permissions!.evaluate({
+        permission: permission as Parameters<PermissionEngine['evaluate']>[0]['permission'],
         agent_id: agentId,
         resource: `${p.id}:${p.action}`,
-      });
-
-      if (evalRes.decision === 'deny') {
-        return reply.status(403).send({ error: evalRes.reason });
-      }
+      }));
+      const denied = checks.find((check) => check.decision === 'deny');
+      if (denied) return reply.status(403).send({ error: denied.reason });
 
       // If high or critical risk, or decision is require_approval -> route through approval gate
-      if (evalRes.decision === 'require_approval' || risk === 'high' || risk === 'critical') {
+      if (checks.some((check) => check.decision === 'require_approval') || risk === 'high' || risk === 'critical') {
         if (!deps.approvals) {
           return reply.status(403).send({ error: `Action requires approval but ApprovalService is not configured` });
         }

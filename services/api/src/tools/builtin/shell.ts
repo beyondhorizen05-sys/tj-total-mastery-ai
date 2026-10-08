@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { Tool } from '../types.js';
-import { ok, fail } from '../types.js';
+import { fail } from '../types.js';
 
 /** Commands that are never run, even with approval (Spec §20 destructive/privileged). */
 const BLOCKED = [

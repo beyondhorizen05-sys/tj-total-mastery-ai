@@ -1,0 +1,16 @@
+.tj-a11y-view :is(button, input, select, textarea, a, summary):focus-visible {
+  outline: 2px solid #66e8ff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 900px) {
+  .tj-a11y-view .tj-responsive-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .tj-a11y-view .tj-compact-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

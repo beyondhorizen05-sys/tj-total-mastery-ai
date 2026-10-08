@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { CreateAgentRequest } from '@tj/schemas';
 import type { AgentService } from '../../agents/service.js';
+import { buildTownState } from '../../agents/town.js';
 
 export function registerAgentRoutes(
   app: FastifyInstance,
@@ -18,6 +19,8 @@ export function registerAgentRoutes(
     const q = req.query as { project_id?: string; status?: string };
     return { agents: deps.agents.list({ project_id: q.project_id ?? null, status: q.status }) };
   });
+
+  app.get('/api/v1/town/state', async () => ({ agents: buildTownState(deps.agents.list({ project_id: null })) }));
 
   // GET /api/v1/agents/:id
   app.get('/api/v1/agents/:id', async (req, reply) => {
@@ -55,6 +58,6 @@ export function registerAgentRoutes(
   app.get('/api/v1/agents/:id/messages', async (req) => {
     const p = req.params as { id: string };
     const q = req.query as { project_id?: string; limit?: string };
-    return { messages: deps.agents.messages({ project_id: q.project_id, limit: Number(q.limit ?? 100) }) };
+    return { messages: deps.agents.messages({ agent_id: p.id, project_id: q.project_id, limit: Number(q.limit ?? 100) }) };
   });
 }

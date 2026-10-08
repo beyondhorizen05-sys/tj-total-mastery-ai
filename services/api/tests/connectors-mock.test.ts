@@ -35,14 +35,14 @@ describe('Connectors Integration with Mocked Fetch', () => {
     await connectors.setConfig('tavily', { api_key: 'tvly-test-12345678' });
     const updated = await connectors.get('tavily');
     expect(updated?.configured_keys).toContain('api_key');
-    expect(updated?.status).toBe('CONNECTED');
+    expect(updated?.status).toBe('NEEDS_SETUP');
   });
 
   it('executes actions and performs health test with mocked network', async () => {
     await connectors.setConfig('tavily', { api_key: 'tvly-test-12345678' });
 
     // Mock global fetch
-    const fetchMock = vi.fn().mockImplementation(async (url: string, opts: any) => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, _opts: any) => {
       if (url.includes('tavily.com/search')) {
         return {
           ok: true,
@@ -59,6 +59,10 @@ describe('Connectors Integration with Mocked Fetch', () => {
     // Test health check
     const testRes = await connectors.test('tavily');
     expect(testRes.ok).toBe(true);
+    expect((await connectors.get('tavily'))?.status).toBe('CONNECTED');
+    await connectors.setConfig('tavily', { api_key: 'tvly-changed-key' });
+    expect((await connectors.get('tavily'))?.status).toBe('NEEDS_SETUP');
+    await expect(connectors.setConfig('tavily', { bogus: 'value' })).rejects.toThrow(/Unknown config field/);
 
     // Test search action
     const searchRes = (await connectors.execute('tavily', 'search', { query: 'test search' })) as any;

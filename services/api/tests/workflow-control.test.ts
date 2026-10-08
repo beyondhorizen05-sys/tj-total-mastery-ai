@@ -55,6 +55,50 @@ describe('WorkflowEngine controls', () => {
     expect(engine2.recover()).toBe(1);
     expect((await engine2.wait(run.id)).status).toBe('completed');
   });
+
+  it('does not replay an action whose outcome is unknown after a crash', async () => {
+    engine.registerExecutor('tool', async () => 'original action');
+    const wf = engine.save({ name: 'uncertain', steps: [step('send'), step('followup', ['send'])] });
+    const run = engine.start(wf.id);
+    await engine.wait(run.id);
+    const state = engine.getRun(run.id)!.step_state;
+    state.send.status = 'running';
+    state.send.output = null;
+    state.followup.status = 'pending';
+    db.run('UPDATE workflow_runs SET status=?, step_state=?, completed_at=NULL WHERE id=?', ['running', JSON.stringify(state), run.id]);
+
+    let replays = 0;
+    const restarted = new WorkflowEngine(db, bus, () => 'ws1');
+    restarted.registerExecutor('tool', async () => { replays++; return 'duplicate'; });
+    expect(restarted.recover()).toBe(1);
+    const recovered = restarted.getRun(run.id)!;
+    expect(recovered.status).toBe('failed');
+    expect(recovered.error).toContain('outcome is unknown');
+    expect(recovered.step_state.send.status).toBe('failed');
+    expect(recovered.step_state.followup.status).toBe('skipped');
+    expect(replays).toBe(0);
+  });
+
+  it('recovers pending work using the saved workflow version', async () => {
+    engine.registerExecutor('tool', async () => 'first');
+    const v1 = engine.save({ name: 'versioned', steps: [step('original')] });
+    const run = engine.start(v1.id);
+    await engine.wait(run.id);
+    const state = engine.getRun(run.id)!.step_state;
+    state.original.status = 'pending';
+    state.original.output = null;
+    db.run('UPDATE workflow_runs SET status=?, step_state=?, completed_at=NULL WHERE id=?', ['queued', JSON.stringify(state), run.id]);
+    engine.save({ id: v1.id, name: 'versioned', steps: [step('replacement')] });
+
+    const executed: string[] = [];
+    const restarted = new WorkflowEngine(db, bus, () => 'ws1');
+    restarted.registerExecutor('tool', async (s) => { executed.push(s.id); return s.id; });
+    expect(restarted.recover()).toBe(1);
+    const recovered = await restarted.wait(run.id);
+    expect(recovered.status).toBe('completed');
+    expect(recovered.workflow_version).toBe(1);
+    expect(executed).toEqual(['original']);
+  });
 });
 
 describe('template helpers', () => {

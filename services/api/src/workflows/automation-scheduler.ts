@@ -65,6 +65,21 @@ export class AutomationScheduler {
     trigger: { kind: 'schedule' | 'webhook' | 'event' | 'file_changed' | 'manual'; config: Record<string, unknown> };
     workflow_id: string;
   }): Automation {
+    if (!data || typeof data.name !== 'string' || !data.name.trim()) throw new Error('Automation name is required');
+    if (!data.workflow_id || !this.deps.engine.get(data.workflow_id)) throw new Error('Automation requires an existing workflow');
+    if (data.trigger?.kind !== 'schedule' && data.trigger?.kind !== 'manual') throw new Error(`Automation trigger "${data.trigger?.kind ?? 'missing'}" is not available in this build`);
+    if (data.trigger.kind === 'schedule') {
+      const expression = String(data.trigger.config?.cron ?? '');
+      if (!expression) throw new Error('Scheduled automation requires a cron expression');
+      const timezone = data.trigger.config?.timezone;
+      if (timezone !== undefined) {
+        if (typeof timezone !== 'string' || !timezone.trim()) throw new Error('Schedule timezone must be an IANA timezone');
+        try { new Intl.DateTimeFormat('en', { timeZone: timezone }); }
+        catch { throw new Error(`Invalid schedule timezone: ${timezone}`); }
+      }
+      const probe = new Cron(expression, { paused: true, ...(timezone ? { timezone: String(timezone) } : {}) }, () => {});
+      probe.stop();
+    }
     const ts = now();
     const id = data.id ?? uuid();
     const workspaceId = data.workspace_id ?? 'default';
@@ -88,8 +103,10 @@ export class AutomationScheduler {
     this.unschedule(id);
     if (auto.enabled) {
       this.schedule(auto);
+    } else {
+      this.deps.db.run('UPDATE automations SET next_run_at = NULL WHERE id = ?', [id]);
     }
-    return auto;
+    return this.get(id)!;
   }
 
   delete(id: string): boolean {
@@ -104,7 +121,8 @@ export class AutomationScheduler {
     if (!cronExpr) return;
 
     try {
-      const job = new Cron(cronExpr, async () => {
+      const timezone = auto.trigger.config.timezone;
+      const job = new Cron(cronExpr, { ...(timezone ? { timezone: String(timezone) } : {}) }, async () => {
         await this.trigger(auto.id, 'schedule');
       });
       this.jobs.set(auto.id, job);
@@ -130,6 +148,7 @@ export class AutomationScheduler {
     const auto = this.get(id);
     if (!auto) return null;
 
+    const run = this.deps.engine.start(auto.workflow_id, {}, `automation:${id}:${reason}`);
     const ts = now();
     this.deps.db.run(
       `UPDATE automations
@@ -146,7 +165,6 @@ export class AutomationScheduler {
       }
     }
 
-    const run = await this.deps.engine.start(auto.workflow_id, {}, `automation:${id}:${reason}`);
     this.deps.bus.emit({
       name: 'system.health_changed',
       summary: `Automation "${auto.name}" started workflow run ${run.id}`,

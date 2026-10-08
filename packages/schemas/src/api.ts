@@ -21,7 +21,7 @@ export const AddProviderRequest = z.object({
   api_key: z.string().optional().nullable(),
   organization: z.string().optional().nullable(),
   /** well-known preset id (openai, anthropic, groq, ...) */
-  preset: z.string().optional(),
+  preset: z.string().nullable().optional(),
 });
 export type AddProviderRequest = z.infer<typeof AddProviderRequest>;
 

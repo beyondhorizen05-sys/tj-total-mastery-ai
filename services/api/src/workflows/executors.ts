@@ -33,7 +33,7 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
   engine.registerExecutor('tool', async (step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
     const toolName = String(config.tool ?? step.name);
     const input = (config.input as Record<string, unknown>) ?? {};
-    return await deps.tools.execute(
+    const result = await deps.tools.execute(
       toolName,
       input,
       {
@@ -47,6 +47,8 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
         signal: ctx.signal,
       }
     );
+    if (!result.ok) throw new Error(result.error ?? result.output ?? `Tool ${toolName} failed`);
+    return result;
   });
 
   // 2. Model step
@@ -69,13 +71,13 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
 
   // 3. Agent step
   engine.registerExecutor('agent', async (step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
-    const agentId = String(config.agent_id ?? 'generalist');
+    const agentId = String(config.agent_id ?? '');
     const instruction = String(config.instruction ?? step.name);
-    const agent = deps.agentService.get(agentId) ?? deps.agentService.list()[0];
+    const agent = agentId ? deps.agentService.get(agentId) : undefined;
     if (!agent) {
-      throw new Error(`Agent not found: ${agentId}`);
+      throw new Error(agentId ? `Agent not found: ${agentId}` : 'Agent step requires a deployed agent_id');
     }
-    return await deps.agentRuntime.run({
+    const result = await deps.agentRuntime.run({
       agent,
       instruction,
       workspace_id: 'default',
@@ -85,13 +87,32 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
       workflow_run_id: ctx.run.id,
       signal: ctx.signal,
     });
+    if (!result.ok) throw new Error(result.error ?? result.output ?? `Agent ${agent.name} failed`);
+    return result;
   });
 
   // 4. Connector step
-  engine.registerExecutor('connector', async (_step: WorkflowStep, config: Record<string, unknown>) => {
+  engine.registerExecutor('connector', async (_step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
     const connectorId = String(config.connector_id);
     const action = String(config.action);
     const input = (config.input as Record<string, any>) ?? {};
+    const runtime = deps.connectors.getRuntime(connectorId);
+    const actionDef = runtime?.manifest.actions.find((item) => item.id === action);
+    if (!runtime || !actionDef) throw new Error(`Connector action ${connectorId}:${action} is unavailable`);
+    const decisions = [...new Set(['connector.use', ...runtime.manifest.permissions])].map((permission) => deps.permissions.evaluate({ permission: permission as Parameters<PermissionEngine['evaluate']>[0]['permission'], resource: `${connectorId}:${action}`, workflow_run_id: ctx.run.id, actor: 'workflow' }));
+    const denied = decisions.find((decision) => decision.decision === 'deny');
+    if (denied) throw Object.assign(new Error(denied.reason), { noRetry: true });
+    if (decisions.some((decision) => decision.decision === 'require_approval') || actionDef.risk === 'high' || actionDef.risk === 'critical') {
+      const request = deps.approvals.request({
+        workspace_id: 'default', project_id: ctx.run.project_id, workflow_run_id: ctx.run.id,
+        action: `connector:${connectorId}:${action}`, target: connectorId,
+        why: `Workflow connector action ${action} requires approval`, tools: [`connector:${connectorId}`],
+        resources_affected: [`${connectorId}:${action}`], risks: [`Action risk: ${actionDef.risk}`], rollback_available: false,
+        permission: runtime.manifest.permissions[0] ?? 'connector.use', risk: actionDef.risk, payload: input,
+      });
+      const decision = await deps.approvals.waitFor(request.id);
+      if (decision.status !== 'approved' && decision.status !== 'approved_workflow') throw Object.assign(new Error(`Connector action ${decision.status}`), { noRetry: true });
+    }
     return await deps.connectors.execute(connectorId, action, input);
   });
 

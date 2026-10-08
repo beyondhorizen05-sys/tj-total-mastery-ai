@@ -85,15 +85,24 @@ export class AgentService {
     return this.get(id)!;
   }
 
-  delete(id: string) { this.db.run('DELETE FROM agents WHERE id = ?', [id]); }
+  delete(id: string) {
+    const agent = this.get(id);
+    this.db.run('DELETE FROM agents WHERE id = ?', [id]);
+    if (agent) this.bus.emit({ name: 'agent.deleted', summary: `Agent deleted: ${agent.name}`, agent_id: id, project_id: agent.project_id });
+  }
 
   setStatus(id: string, status: AgentStatus, taskId?: string | null) {
+    const before = this.get(id);
+    if (!before || (before.status === status && before.current_task_id === (taskId ?? null))) return;
     this.db.run('UPDATE agents SET status = ?, current_task_id = ?, updated_at = ? WHERE id = ?', [status, taskId ?? null, now(), id]);
+    this.bus.emit({ name: 'agent.updated', summary: `${before.name} status: ${status}`, agent_id: id, task_id: taskId ?? null, project_id: before.project_id, data: { status } });
   }
 
   /** Reset any agents left mid-flight (crash recovery / STOP ALL). */
   resetActive(to: AgentStatus = 'idle') {
+    const affected = this.list({ project_id: null }).filter((agent) => ['thinking','working','waiting_approval','meeting'].includes(agent.status));
     this.db.run("UPDATE agents SET status = ?, current_task_id = NULL, updated_at = ? WHERE status IN ('thinking','working','waiting_approval','meeting')", [to, now()]);
+    for (const agent of affected) this.bus.emit({ name: 'agent.updated', summary: `${agent.name} status: ${to}`, agent_id: agent.id, project_id: agent.project_id, data: { status: to } });
   }
 
   addMetrics(id: string, d: { tasks_completed?: number; tasks_failed?: number; tool_calls?: number; tokens?: number; cost?: number; confidence?: number }) {
@@ -111,8 +120,9 @@ export class AgentService {
     return id;
   }
 
-  messages(f: { project_id?: string; task_id?: string; limit?: number } = {}) {
+  messages(f: { agent_id?: string; project_id?: string; task_id?: string; limit?: number } = {}) {
     const where: string[] = []; const p: unknown[] = [];
+    if (f.agent_id) { where.push('(from_agent_id = ? OR to_agent_id = ?)'); p.push(f.agent_id, f.agent_id); }
     if (f.project_id) { where.push('project_id = ?'); p.push(f.project_id); }
     if (f.task_id) { where.push('task_id = ?'); p.push(f.task_id); }
     p.push(Math.min(f.limit ?? 100, 500));

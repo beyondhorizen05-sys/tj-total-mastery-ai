@@ -56,6 +56,16 @@ describe('ModelRouter Failover & Fallback', () => {
     expect(res.provider_id).toBe('test');
   });
 
+  it('stores and replaces a custom provider API key in the vault', () => {
+    const provider = registry.addProvider({ name: 'FreeLLM Router', kind: 'openai-compatible', base_url: 'https://router.example.test/v1', api_key: 'first-test-key' });
+    expect(provider.credential_ref).toBeTruthy();
+    expect(vault.get(provider.credential_ref!, `provider:${provider.id}`, 'test')).toBe('first-test-key');
+    const updated = registry.updateProvider(provider.id, { api_key: 'replacement-test-key' });
+    expect(updated.credential_ref).toBe(provider.credential_ref);
+    expect(vault.get(updated.credential_ref!, `provider:${provider.id}`, 'test')).toBe('replacement-test-key');
+    expect(updated.health).toBe('unknown');
+  });
+
   it('records health penalty when failure occurs and tracks error', async () => {
     // Put test provider in failure mode
     TestProviderControl.failKind = 'unavailable';

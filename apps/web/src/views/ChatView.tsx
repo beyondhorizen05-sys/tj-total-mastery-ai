@@ -8,7 +8,7 @@ interface Message {
   content: string;
 }
 
-export const ChatView: React.FC = () => {
+export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -104,7 +104,7 @@ export const ChatView: React.FC = () => {
           {messages.length === 0 && (
             <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
               <Sparkles size={40} style={{ margin: '0 auto 12px', color: 'var(--accent-cyan)' }} />
-              <h3>How can TJ assist you today?</h3>
+              <h3>How can {personaName} assist you today?</h3>
               <p style={{ fontSize: '0.85rem', marginTop: 6 }}>Type an instruction in Auto mode to let TJ plan and orchestrate autonomous agents.</p>
             </div>
           )}

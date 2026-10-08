@@ -30,7 +30,7 @@ export type RoutedChatResult = ChatResult & { model_id: string; provider_id: str
 const QUALITY_SCORE = { frontier: 4, strong: 3, standard: 2, light: 1, unknown: 1.5 } as const;
 const COST_SCORE = { free: 0, low: 1, medium: 2, high: 3, unknown: 2 } as const;
 const SPEED_SCORE = { fast: 3, medium: 2, slow: 1, unknown: 2 } as const;
-const NON_CHAT = /embed|whisper|tts|dall-e|moderation|rerank|audio|realtime|image|transcri|guard/i;
+const NON_CHAT = /embed|whisper|tts|dall-e|moderation|rerank|audio|realtime|image|transcri|guard|:batch$/i;
 
 /**
  * Intelligent Model Router (Spec §5).
@@ -94,8 +94,11 @@ export class ModelRouter {
     const explicit = req.model_id ?? (mode === 'manual' ? defaultId : null);
     let cands = this.candidates(req).sort((a, b) => this.score(b, req, prefer) - this.score(a, req, prefer));
     if (explicit) {
-      const m = this.registry.getModel(explicit);
-      if (m && !req.exclude?.includes(m.id)) cands = [m, ...cands.filter((c) => c.id !== m.id)];
+      const m = cands.find((candidate) => candidate.id === explicit);
+      if (!m) throw new ProviderError(`Selected model ${explicit} is unavailable under the current provider, privacy, and capability settings.`, 'unavailable', undefined, false);
+      // A chosen model is a spending and privacy choice. Never fall back to a
+      // different model when that choice fails, especially from a free model.
+      cands = [m];
     }
     if (!cands.length) throw new ProviderError('No model available. Add a provider with a valid API key (Models → Add Provider) or start a local model server such as Ollama.', 'unavailable', undefined, false);
     const chain = cands.slice(0, 4);
@@ -105,19 +108,29 @@ export class ModelRouter {
   /** Execute a chat with automatic fallback across the chain (Spec §87). */
   async chat(req: RouteRequest, opts: Omit<ChatOptions, 'model'>, ctx: { project_id?: string | null; agent_id?: string | null } = {}): Promise<RoutedChatResult> {
     const decision = this.route(req);
+    const limits = {
+      daily: this.settings.get<number | null>('budget_daily_usd', null),
+      monthly: this.settings.get<number | null>('budget_monthly_usd', null),
+      request: this.settings.get<number | null>('max_request_cost_usd', null),
+    };
+    const constrained = Object.values(limits).some((value) => value !== null);
+    const boundedOpts = constrained && opts.max_tokens == null ? { ...opts, max_tokens: 2048 } : opts;
+    const eligible = constrained ? decision.chain.filter((model) => this.withinBudget(model, boundedOpts, limits)) : decision.chain;
+    if (decision.reason === 'explicit selection' && eligible[0]?.id !== decision.model.id) throw new ProviderError('Selected model exceeds the configured estimated spending limit or has unknown pricing.', 'bad_request', undefined, false);
+    if (!eligible.length) throw new ProviderError('No model fits the configured estimated spending limits. Adjust limits or select a model with known pricing.', 'bad_request', undefined, false);
     let lastErr: any = null;
     let fallback_from: string | undefined;
-    for (let i = 0; i < decision.chain.length; i++) {
-      const m = decision.chain[i];
+    for (let i = 0; i < eligible.length; i++) {
+      const m = eligible[i];
       const adapter = this.registry.adapter(m.provider_id);
       this.bus.emit({
         name: i === 0 ? 'model.selected' : 'model.fallback', severity: i === 0 ? 'debug' : 'warning',
-        summary: i === 0 ? `Model ${m.id} selected (${decision.reason})` : `Falling back to ${m.id} after failure of ${decision.chain[i - 1].id}`,
+        summary: i === 0 ? `Model ${m.id} selected (${decision.reason})` : `Falling back to ${m.id} after failure of ${eligible[i - 1].id}`,
         model_id: m.id, agent_id: ctx.agent_id, project_id: ctx.project_id, data: { reason: decision.reason, attempt: i + 1 },
       });
       const t = performance.now();
       try {
-        const r = await this.withRetry(() => adapter.chat({ ...opts, model: m.model }), 2);
+        const r = await this.withRetry(() => adapter.chat({ ...boundedOpts, model: m.model }), 2);
         const cost = this.registry.recordUsage({ model_id: m.id, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: r.usage.tokens_in, tokens_out: r.usage.tokens_out, latency_ms: r.latency_ms, success: true });
         return { ...r, model_id: m.id, provider_id: m.provider_id, fallback_from, cost_usd: cost };
       } catch (e: any) {
@@ -133,6 +146,24 @@ export class ModelRouter {
       }
     }
     throw lastErr ?? new ProviderError('All models in fallback chain failed', 'unavailable');
+  }
+
+  private withinBudget(model: Model, opts: Omit<ChatOptions, 'model'>, limits: { daily: number | null; monthly: number | null; request: number | null }): boolean {
+    const inputTokens = Math.ceil(JSON.stringify(opts.messages).length / 3);
+    const estimate = this.estimateCost(model.id, inputTokens, opts.max_tokens ?? 2048);
+    if (estimate == null) return false;
+    if (limits.request != null && estimate > limits.request) return false;
+    if (estimate === 0) return true;
+    const now = new Date();
+    if (limits.daily != null) {
+      const daily = this.registry.costSince(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString());
+      if (daily.unknown_cost_calls > 0 || daily.cost_usd + estimate > limits.daily) return false;
+    }
+    if (limits.monthly != null) {
+      const monthly = this.registry.costSince(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString());
+      if (monthly.unknown_cost_calls > 0 || monthly.cost_usd + estimate > limits.monthly) return false;
+    }
+    return true;
   }
 
   private async withRetry<T>(fn: () => Promise<T>, retries: number): Promise<T> {

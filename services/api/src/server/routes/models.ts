@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { AddProviderRequest } from '@tj/schemas';
 import type { ModelRegistry } from '../../models/registry.js';
 import type { ModelRouter } from '../../models/router.js';
+import { z } from 'zod';
 
 export function registerModelRoutes(
   app: FastifyInstance,
@@ -32,6 +33,12 @@ export function registerModelRoutes(
       organization: body.organization ?? null,
     });
     return p;
+  });
+
+  app.patch('/api/v1/models/providers/:id', async (req) => {
+    const p = req.params as { id: string };
+    const body = z.object({ name: z.string().min(1).optional(), base_url: z.string().url().nullable().optional(), api_key: z.string().min(1).optional(), organization: z.string().nullable().optional(), enabled: z.boolean().optional() }).strict().parse(req.body);
+    return deps.registry.updateProvider(p.id, body);
   });
 
   // POST /api/v1/models/providers/:id/test

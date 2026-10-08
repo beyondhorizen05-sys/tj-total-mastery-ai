@@ -7,6 +7,8 @@ import type { ChatMessage } from '../models/types.js';
 import { ToolDenied } from '../tools/types.js';
 import type { ToolContext } from '../tools/types.js';
 import type { AgentRunInput, AgentRunResult } from './runtime-types.js';
+import type { SettingsRepo } from '../db/repo.js';
+import { getPersona, personaStyleInstruction } from '../core/persona.js';
 
 export type { AgentRunInput, AgentRunResult } from './runtime-types.js';
 
@@ -18,7 +20,7 @@ const DEFAULT_MAX_STEPS = 12;
  * Agent status/current task are updated against real execution so Agent Town reflects truth.
  */
 export class AgentRuntime {
-  constructor(private router: ModelRouter, private tools: ToolRegistry, private agents: AgentService, private bus: EventBus) {}
+  constructor(private router: ModelRouter, private tools: ToolRegistry, private agents: AgentService, private bus: EventBus, private settings: SettingsRepo) {}
 
   async run(input: AgentRunInput): Promise<AgentRunResult> {
     const { agent } = input;
@@ -41,7 +43,9 @@ export class AgentRuntime {
     try {
       for (let step = 0; step < maxSteps; step++) {
         if (input.signal?.aborted) throw new Error('Cancelled');
-        if (this.overBudget(agent.id)) { res.error = 'Agent budget exhausted'; break; }
+        // Model usage is only persisted in finish(). Include this run's usage so
+        // multi-step runs cannot bypass the budget until their final step.
+        if (this.overBudget(agent.id, res.cost_usd)) { res.error = 'Agent budget exhausted'; break; }
         res.steps = step + 1;
         this.agents.setStatus(agent.id, 'thinking', input.task_id);
         const r = await this.router.chat(
@@ -52,7 +56,15 @@ export class AgentRuntime {
         res.tokens_in += r.usage.tokens_in; res.tokens_out += r.usage.tokens_out; res.cost_usd += r.cost_usd ?? 0; res.model_id = r.model_id;
         if (r.fallback_from) res.fallback_from = r.fallback_from;
 
-        if (!r.tool_calls.length) { res.ok = true; res.output = r.text; break; }
+        if (!r.tool_calls.length) {
+          const failed = res.tool_calls.filter((call) => !call.ok);
+          res.ok = failed.length === 0;
+          if (failed.length) {
+            res.error = `Tool action failed: ${failed.map((call) => call.tool).join(', ')}. Check the tool result before treating this task as complete.`;
+            res.output = `I could not verify completion. ${res.error}`;
+          } else res.output = r.text;
+          break;
+        }
 
         messages.push({ role: 'assistant', content: r.text, tool_calls: r.tool_calls });
         this.agents.setStatus(agent.id, 'working', input.task_id);
@@ -73,7 +85,8 @@ export class AgentRuntime {
     let content: string;
     try {
       const tr = await this.tools.execute(tc.name, tc.arguments, ctx);
-      res.tool_calls.push({ tool: tc.name, ok: tr.ok, summary: tr.output.slice(0, 160), duration_ms: tr.duration_ms });
+      res.tool_calls.push({ tool: tc.name, ok: tr.ok, summary: tr.output.slice(0, 160), duration_ms: tr.duration_ms,
+        test_command: tc.name === 'shell_exec' && isTestCommand(String(tc.arguments.command ?? '')) });
       if (tr.artifacts) res.artifacts.push(...tr.artifacts);
       content = tr.output.slice(0, 12000);
     } catch (e: any) {
@@ -91,9 +104,9 @@ export class AgentRuntime {
     this.bus.emit({ name: res.ok ? 'agent.completed' : 'agent.failed', severity: res.ok ? 'info' : 'error', summary: `${agent.name} ${res.ok ? 'completed' : 'failed'} (${res.tool_calls.length} tool calls)`, agent_id: agent.id, task_id: input.task_id, project_id: input.project_id, workflow_run_id: input.workflow_run_id ?? null, data: { error: res.error, steps: res.steps } });
   }
 
-  private overBudget(agentId: string): boolean {
+  private overBudget(agentId: string, pendingCost = 0): boolean {
     const a = this.agents.get(agentId);
-    return !!a && a.budget_usd != null && a.spent_usd >= a.budget_usd;
+    return !!a && a.budget_usd != null && a.spent_usd + pendingCost >= a.budget_usd;
   }
 
   private systemPrompt(agent: Agent, input: AgentRunInput): string {
@@ -101,9 +114,15 @@ export class AgentRuntime {
       `You are ${agent.name}, role: ${agent.role}. ${agent.description}`,
       agent.personality ? `Personality: ${agent.personality}` : '',
       agent.system_instructions,
+      'For user-facing text, use TJ’s saved presentation and language preferences. Your specialist role and tool permissions stay the same.',
+      personaStyleInstruction(getPersona(this.settings)),
       input.project_root ? `Project directory (relative paths resolve here): ${input.project_root}` : '',
       `Available tools: ${agent.tools.join(', ') || 'none'}. Platform: ${process.platform}.`,
       'Finish with a concise final answer stating exactly what you did, what you verified, and what remains.',
     ].filter(Boolean).join('\n');
   }
+}
+
+export function isTestCommand(command: string): boolean {
+  return /(?:^|[;&|]\s*)(?:(?:pnpm|npm|yarn|bun)(?:\s+--filter\s+\S+)?\s+(?:run\s+)?test\b|(?:pnpm|npm|yarn|bun)\s+(?:exec\s+)?(?:vitest|jest)\b|(?:npx\s+)?(?:vitest|jest|pytest)\b|python(?:\d+(?:\.\d+)?)?\s+-m\s+pytest\b|go\s+test\b|cargo\s+test\b|dotnet\s+test\b)/i.test(command.trim());
 }

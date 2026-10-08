@@ -72,4 +72,37 @@ describe('Hybrid Memory Store', () => {
     const versions = memory.versions(mem.id);
     expect(versions.length).toBe(2);
   });
+
+  it('does not persist a stale embedding after an edit or secret classification', async () => {
+    const pending: Array<(value: { vectors: number[][]; model_id: string }) => void> = [];
+    const router = {
+      embed: () => new Promise<{ vectors: number[][]; model_id: string }>((resolve) => pending.push(resolve)),
+    };
+    memory.setRouter(router as any);
+    const item = await memory.create({ workspace_id: 'default', type: 'working', content: 'First version' });
+    expect(pending).toHaveLength(1);
+
+    memory.update(item.id, { content: 'Second version' });
+    expect(pending).toHaveLength(2);
+    pending[0]({ vectors: [[1, 0]], model_id: 'test' });
+    await Promise.resolve();
+    expect(memory.get(item.id)?.has_embedding).toBe(false);
+
+    pending[1]({ vectors: [[0, 1]], model_id: 'test' });
+    await Promise.resolve();
+    expect(memory.get(item.id)?.has_embedding).toBe(true);
+
+    memory.update(item.id, { sensitivity: 'secret' });
+    expect(memory.get(item.id)?.has_embedding).toBe(false);
+    expect(db.get<{ embedding: Uint8Array | null }>('SELECT embedding FROM memories WHERE id=?', [item.id])?.embedding).toBeNull();
+
+    memory.update(item.id, { content: 'Secret replacement' });
+    expect(pending).toHaveLength(2);
+
+    const later = await memory.create({ workspace_id: 'default', type: 'working', content: 'Pending classification' });
+    memory.update(later.id, { sensitivity: 'secret' });
+    pending[2]({ vectors: [[1, 1]], model_id: 'test' });
+    await Promise.resolve();
+    expect(memory.get(later.id)?.has_embedding).toBe(false);
+  });
 });

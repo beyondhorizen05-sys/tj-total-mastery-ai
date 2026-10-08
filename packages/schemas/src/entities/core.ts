@@ -101,5 +101,11 @@ export const Settings = z.object({
   microphone_granted: z.boolean().default(false),
   camera_granted: z.boolean().default(false),
   screen_granted: z.boolean().default(false),
+  computer_control_enabled: z.boolean().default(false),
+  voice_autostart: z.boolean().default(false),
+  voice_handsfree_mode: z.boolean().default(false),
+  voice_asr_provider: z.enum(['local', 'fish']).default('local'),
+  voice_recognition_mode: z.enum(['fast', 'accurate']).default('fast'),
+  voice_use_default_model: z.boolean().default(false),
 });
 export type Settings = z.infer<typeof Settings>;

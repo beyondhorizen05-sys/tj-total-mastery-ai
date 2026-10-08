@@ -13,6 +13,7 @@ import { uuid, now } from '../core/ids.js';
 import { J } from '../db/repo.js';
 import { scheduleRows, summarizeRun } from './scheduler.js';
 import type { PlanRow, TaskResultRow } from './scheduler.js';
+import { assessGoalEvidence, snapshotProjectFiles, type GoalEvidence, type SuccessfulTool } from './evidence.js';
 
 export interface GoalRunResult {
   plan_id: string;
@@ -24,6 +25,7 @@ export interface GoalRunResult {
   artifacts: Array<{ name: string; path?: string }>;
   cost_usd: number;
   plan_source: string;
+  evidence: GoalEvidence;
 }
 
 /**
@@ -74,10 +76,16 @@ export class Orchestrator {
     const taskRows: Array<{ pt: PlanTask; task: Task; agent: Agent }> = [];
     for (const pt of plan.tasks) {
       const agent = this.agentFor(pt.role, project.id, pt.tools);
-      const task = this.tasks.create({ workspace_id: this.ws.workspaceId, project_id: project.id, agent_id: agent.id, title: pt.title, description: pt.description, risk: pt.risk ?? 'low', depends_on: pt.depends_on.map((d) => idMap.get(d)).filter(Boolean) as string[] });
+      const task = this.tasks.create({ workspace_id: this.ws.workspaceId, project_id: project.id, agent_id: agent.id, title: pt.title, description: pt.description, risk: pt.risk ?? 'low' });
       idMap.set(pt.id, task.id);
       taskRows.push({ pt, task, agent });
       this.agents.message({ from: null, to: agent.id, kind: 'delegation', task_id: task.id, project_id: project.id, content: `Assigned: ${pt.title}` });
+    }
+    for (const { pt, task } of taskRows) {
+      for (const dep of pt.depends_on) {
+        const depId = idMap.get(dep);
+        if (depId) this.tasks.addDependency(task.id, depId);
+      }
     }
     return { project, plan_id: planId, tasks: taskRows };
   }
@@ -91,6 +99,8 @@ export class Orchestrator {
     const outputs = new Map<string, string>();
     const results: TaskResultRow[] = [];
     const artifacts: GoalRunResult['artifacts'] = [];
+    const beforeFiles = snapshotProjectFiles(project.root_path);
+    const successfulTools: SuccessfulTool[] = [];
     let cost = 0;
 
     const runRow = async (row: PlanRow, extra = ''): Promise<boolean> => {
@@ -103,6 +113,7 @@ export class Orchestrator {
         task_type: /code|implement|build|develop/i.test(pt.title) ? 'coding' : /research/i.test(pt.title) ? 'research' : 'chat',
       });
       cost += r.cost_usd;
+      for (const call of r.tool_calls) if (call.ok) successfulTools.push({ tool: call.tool, task_title: pt.title, summary: call.summary, test_command: call.test_command });
       outputs.set(task.id, r.output);
       for (const a of r.artifacts) {
         artifacts.push({ name: a.name, path: a.path });
@@ -118,6 +129,11 @@ export class Orchestrator {
     };
 
     await scheduleRows(rows, runRow, this.tasks, ctrl.signal, opts.concurrency ?? 3);
+    for (const { pt, task, agent } of rows) {
+      if (results.some((r) => r.task_id === task.id)) continue;
+      const current = this.tasks.get(task.id);
+      results.push({ task_id: task.id, plan_task_id: pt.id, title: pt.title, agent: agent.name, status: current?.status ?? 'failed', output: '', error: current?.error ?? 'Task did not execute' });
+    }
 
     let verdict: GoalRunResult['verdict'] = null;
     const aborted = ctrl.signal.aborted;
@@ -134,9 +150,13 @@ export class Orchestrator {
       }
     }
 
+    const evidence = assessGoalEvidence(goal, plan, project.root_path, beforeFiles, successfulTools);
+    if (evidence.gaps.length && !aborted) {
+      verdict = { verdict: 'revise', confidence: 0, issues: [...(verdict?.issues ?? []), ...evidence.gaps], verified_by: null };
+    }
     const completed = results.filter((r) => r.status === 'completed').length;
     const allDone = rows.length > 0 && completed === rows.length;
-    const status: GoalRunResult['status'] = aborted ? 'cancelled' : allDone && (!verdict || verdict.verdict === 'pass') ? 'completed' : completed ? 'partial' : 'failed';
+    const status: GoalRunResult['status'] = aborted ? 'cancelled' : allDone && evidence.gaps.length === 0 && (!verdict || verdict.verdict === 'pass') ? 'completed' : completed ? 'partial' : 'failed';
     const summary = summarizeRun(goal, status, results, verdict);
     this.setPlanStatus(plan_id, status);
     this.ws.setProjectStatus(project.id, status === 'completed' ? 'completed' : 'active');
@@ -147,6 +167,6 @@ export class Orchestrator {
         content: `Goal: ${goal}\nOutcome: ${status}. ${verdict ? `Verifier: ${verdict.verdict} (${verdict.confidence}). ` : 'Not verified by a model. '}Tasks: ${results.map((r) => `${r.title}=${r.status}`).join(', ')}`,
       }).catch(() => null);
     }
-    return { plan_id, project_id: project.id, status, summary, task_results: results, verdict, artifacts, cost_usd: cost, plan_source: opts.plan_source ?? 'model' };
+    return { plan_id, project_id: project.id, status, summary, task_results: results, verdict, artifacts, cost_usd: cost, plan_source: opts.plan_source ?? 'model', evidence };
   }
 }

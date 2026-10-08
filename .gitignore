@@ -13,3 +13,8 @@ Thumbs.db
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
 .vite/
+services/api/tests/tmp-*/
+services/api/tests/**/*.sqlite
+services/api/tests/**/*.sqlite-shm
+services/api/tests/**/*.sqlite-wal
+services/api/tests/**/vault/

@@ -55,6 +55,10 @@ export class ModelRegistry {
     if (patch.base_url !== undefined) this.db.run('UPDATE model_providers SET base_url=? WHERE id=?', [patch.base_url, id]);
     if (patch.organization !== undefined) this.db.run('UPDATE model_providers SET organization=? WHERE id=?', [patch.organization, id]);
     if (patch.enabled != null) this.db.run('UPDATE model_providers SET enabled=? WHERE id=?', [patch.enabled ? 1 : 0, id]);
+    if (patch.api_key || patch.base_url !== undefined) {
+      this.db.run('UPDATE model_providers SET health=?, last_error=NULL, last_checked_at=NULL WHERE id=?', ['unknown', id]);
+      this.db.run('UPDATE models SET available=0 WHERE provider_id=?', [id]);
+    }
     this.adapterCache.delete(id);
     return this.getProvider(id)!;
   }
@@ -127,10 +131,11 @@ export class ModelRegistry {
     const supports_vision = d.supports_vision ?? hint?.vision ?? /vision|gpt-4o|gpt-4\.1|gpt-5|gemini|claude|llava|pixtral|grok-4/i.test(d.id);
     const supports_tools = d.supports_tools ?? hint?.tools ?? !/embed|whisper|tts|dall-e|moderation|rerank/i.test(d.id);
     const isEmbedding = /embed/i.test(d.id);
-    const cost_class = p.privacy_class === 'local' ? 'free' : hint ? (hint.out >= 15 ? 'high' : hint.out >= 2 ? 'medium' : 'low') : 'unknown';
+    const free = p.privacy_class === 'local' || /:free$/i.test(d.id);
+    const cost_class = free ? 'free' : hint ? (hint.out >= 15 ? 'high' : hint.out >= 2 ? 'medium' : 'low') : 'unknown';
     const quality = hint?.quality ?? (p.privacy_class === 'local' ? 'standard' : 'unknown');
     const speed = hint ? (hint.quality === 'light' || hint.quality === 'standard' ? 'fast' : 'medium') : 'unknown';
-    const vals = [p.id, d.id, d.display_name ?? d.id, JSON.stringify(isEmbedding ? ['text'] : supports_vision ? ['text', 'image'] : ['text']), supports_tools ? 1 : 0, 1, supports_vision ? 1 : 0, d.context_length ?? hint?.ctx ?? null, speed, quality, cost_class, p.privacy_class, hint?.in ?? (p.privacy_class === 'local' ? 0 : null), hint?.out ?? (p.privacy_class === 'local' ? 0 : null), 1, ts, id];
+    const vals = [p.id, d.id, d.display_name ?? d.id, JSON.stringify(isEmbedding ? ['text'] : supports_vision ? ['text', 'image'] : ['text']), supports_tools ? 1 : 0, 1, supports_vision ? 1 : 0, d.context_length ?? hint?.ctx ?? null, speed, quality, cost_class, p.privacy_class, free ? 0 : hint?.in ?? null, free ? 0 : hint?.out ?? null, 1, ts, id];
     if (existing) this.db.run('UPDATE models SET provider_id=?, model=?, display_name=?, modalities=?, supports_tools=?, supports_streaming=?, supports_vision=?, context_length=?, speed_class=?, quality_class=?, cost_class=?, privacy_class=?, price_in_per_m=?, price_out_per_m=?, available=?, discovered_at=? WHERE id=?', vals);
     else this.db.run('INSERT INTO models (provider_id, model, display_name, modalities, supports_tools, supports_streaming, supports_vision, context_length, speed_class, quality_class, cost_class, privacy_class, price_in_per_m, price_out_per_m, available, discovered_at, id, health) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,\'unknown\')', vals);
   }

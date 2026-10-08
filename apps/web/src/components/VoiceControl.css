@@ -1,0 +1,17 @@
+.tj-voice-control { position: fixed; right: 22px; bottom: 20px; z-index: 110; width: min(360px, calc(100vw - 32px)); color: #e9fcff; font-family: inherit; }
+.tj-voice-pill { margin-left: auto; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 46px; padding: 0 16px; border: 1px solid rgba(0,242,254,.5); border-radius: 24px; background: rgba(5,16,31,.94); color: #c9faff; box-shadow: 0 8px 32px rgba(0,0,0,.45), 0 0 18px rgba(0,242,254,.14); cursor: pointer; letter-spacing: .12em; font-size: 11px; font-weight: 750; }
+.tj-voice-pill.listening { border-color: #6ef4bf; box-shadow: 0 0 24px rgba(110,244,191,.28); }
+.tj-voice-pill.speaking { border-color: #8bdcff; box-shadow: 0 0 24px rgba(97,195,255,.36); }
+.tj-voice-dot { width: 7px; height: 7px; border-radius: 50%; background: #687e8b; }
+.tj-voice-pill.listening .tj-voice-dot { background: #6ef4bf; box-shadow: 0 0 8px #6ef4bf; animation: tjVoicePulse 1.4s infinite; }
+.tj-voice-pill.speaking .tj-voice-dot { background: #8bdcff; box-shadow: 0 0 8px #8bdcff; animation: tjVoicePulse .7s infinite; }
+.tj-welcome ~ .tj-voice-control { z-index: 10001; }
+.tj-voice-panel { margin-top: 10px; padding: 18px; border: 1px solid rgba(0,242,254,.35); border-radius: 16px; background: rgba(7,17,33,.96); box-shadow: 0 16px 48px rgba(0,0,0,.55); backdrop-filter: blur(18px); }
+.tj-voice-heading { display: flex; align-items: center; gap: 9px; color: #a2faff; }
+.tj-voice-panel p { margin: 12px 0; font-size: 13px; line-height: 1.5; color: #b7c9d4; }
+.tj-voice-toggle { display: block; width: 100%; padding: 11px 14px; border: 1px solid #6ce9ee; border-radius: 8px; color: #041321; background: #8dfaff; font-weight: 750; cursor: pointer; }
+.tj-voice-toggle:disabled { opacity: .45; cursor: not-allowed; }
+.tj-voice-panel small { display: block; margin-top: 12px; line-height: 1.5; color: #91aab7; }
+.tj-voice-panel .tj-voice-line { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.12); overflow-wrap: anywhere; }
+.tj-voice-panel .tj-voice-error { color: #ff9fac; }
+@keyframes tjVoicePulse { 50% { opacity: .3; transform: scale(.7); } }

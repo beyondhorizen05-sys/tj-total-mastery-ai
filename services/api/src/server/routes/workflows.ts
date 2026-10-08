@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import type { WorkflowEngine } from '../../workflows/engine.js';
 import type { AutomationScheduler } from '../../workflows/automation-scheduler.js';
+import { WorkflowStep } from '@tj/schemas';
+import { weekdaySummaryDefinition } from '../../workflows/template.js';
 
 export function registerWorkflowRoutes(
   app: FastifyInstance,
@@ -25,7 +27,7 @@ export function registerWorkflowRoutes(
   // POST /api/v1/workflows
   app.post('/api/v1/workflows', async (req) => {
     const body = (req.body as any) ?? {};
-    return deps.engine.save(body);
+    return deps.engine.save({ ...body, steps: WorkflowStep.array().parse(body.steps) });
   });
 
   // POST /api/v1/workflows/:id/run
@@ -74,6 +76,24 @@ export function registerWorkflowRoutes(
   // GET /api/v1/automations
   app.get('/api/v1/automations', async () => {
     return { automations: deps.scheduler.list() };
+  });
+
+  // Explicit creation only. The caller must choose a timezone and opt in to enabling it.
+  app.post('/api/v1/automations/weekday-summary', async (req, reply) => {
+    const body = (req.body as { timezone?: string; enabled?: boolean; name?: string }) ?? {};
+    if (!body.timezone || typeof body.timezone !== 'string') return reply.status(400).send({ error: 'Choose an IANA timezone, e.g. Asia/Dubai' });
+    try { new Intl.DateTimeFormat('en', { timeZone: body.timezone }); }
+    catch { return reply.status(400).send({ error: `Invalid timezone: ${body.timezone}` }); }
+    if (body.enabled !== undefined && typeof body.enabled !== 'boolean') return reply.status(400).send({ error: 'enabled must be a boolean' });
+    const name = typeof body.name === 'string' && body.name.trim() ? body.name.trim() : weekdaySummaryDefinition.name;
+    const workflow = deps.engine.save({ ...weekdaySummaryDefinition, name });
+    const automation = deps.scheduler.save({
+      name, description: weekdaySummaryDefinition.description, enabled: body.enabled === true,
+      workflow_id: workflow.id,
+      trigger: { kind: 'schedule', config: { cron: '0 8 * * 1-5', timezone: body.timezone } },
+    });
+    return reply.status(201).send({ workflow_id: workflow.id, automation_id: automation.id, enabled: automation.enabled,
+      timezone: body.timezone, next_run_at: automation.next_run_at, action: 'tj_productivity:weekday_summary' });
   });
 
   // POST /api/v1/automations

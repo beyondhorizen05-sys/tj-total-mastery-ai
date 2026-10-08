@@ -21,6 +21,7 @@ import { Sandbox } from '../tools/sandbox.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { fsTools } from '../tools/builtin/fs.js';
 import { shellTools } from '../tools/builtin/shell.js';
+import { computerTools } from '../tools/builtin/computer.js';
 import { webTools } from '../tools/builtin/web.js';
 import { memoryTools } from '../tools/builtin/memory-tools.js';
 import { MemoryService } from '../memory/memory.js';
@@ -35,6 +36,16 @@ import { AutomationScheduler } from '../workflows/automation-scheduler.js';
 import { ConnectorService } from '../connectors/service.js';
 import { HealthMonitor } from '../core/health.js';
 import { CapabilityRegistry } from '../core/capabilities.js';
+import { SkillService } from '../skills/service.js';
+import { LearningService } from '../learning/service.js';
+import { GraphService } from '../graph/service.js';
+import { ApiWorkbench } from '../workbench/service.js';
+import { EducationService } from '../education/service.js';
+import { BusinessService } from '../business/service.js';
+import { MediaLibrary } from '../media/service.js';
+import { FinanceService } from '../finance/service.js';
+import { PaperTradingService } from '../trading/paper-service.js';
+import { WellnessService } from '../wellness/service.js';
 
 import { registerSystemRoutes } from './routes/system.js';
 import { registerChatRoutes } from './routes/chat.js';
@@ -45,12 +56,25 @@ import { registerConnectorRoutes } from './routes/connectors.js';
 import { registerModelRoutes } from './routes/models.js';
 import { registerSecurityRoutes } from './routes/security.js';
 import { registerMemoryRoutes } from './routes/memory.js';
+import { registerVoiceRoutes } from './routes/voice.js';
+import { registerVisionRoutes } from './routes/vision.js';
+import { registerSkillRoutes } from './routes/skills.js';
+import { registerLearningRoutes } from './routes/learning.js';
+import { registerDataRoutes } from './routes/data.js';
+import { registerGraphRoutes } from './routes/graph.js';
+import { registerWorkbenchRoutes } from './routes/workbench.js';
+import { registerEducationRoutes } from './routes/education.js';
+import { registerBusinessRoutes } from './routes/business.js';
+import { registerMediaRoutes } from './routes/media.js';
+import { registerFinanceRoutes } from './routes/finance.js';
+import { registerPaperTradingRoutes } from './routes/paper-trading.js';
+import { registerWellnessRoutes } from './routes/wellness.js';
 
 export async function createServer(config: TJConfig) {
   const app = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 });
 
   await app.register(cors, {
-    origin: (origin, cb) => cb(null, true),
+    origin: (origin, cb) => cb(null, !origin || /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin) || ['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost'].includes(origin)),
     credentials: true,
   });
 
@@ -61,19 +85,31 @@ export async function createServer(config: TJConfig) {
   const log = new Logger('tj', config.logsDir);
   const settings = new SettingsRepo(db);
   const audit = new Audit(db);
+  const skills = new SkillService(config.dataDir, audit);
+  const learning = new LearningService(db, audit);
+  const education = new EducationService(db);
+  const media = new MediaLibrary(db, path.join(config.dataDir, 'media'));
   const vault = new Vault(db, config.vaultPath);
+  const finance = new FinanceService(db, vault);
+  const wellness = new WellnessService(db, vault);
   const permissions = new PermissionEngine(db, audit, settings);
   const approvals = new ApprovalService(db, bus, audit, permissions);
-  const ws = new WorkspaceService(db, bus, config.projectsDir, config.dataDir);
+  const workbench = new ApiWorkbench(db, vault);
+  const ws = new WorkspaceService(db, bus, settings.get<string>('project_storage_dir', config.projectsDir), config.dataDir);
+  ws.init();
+  const graph = new GraphService(db, () => ws.workspaceId);
+  const business = new BusinessService(db, audit, () => ws.workspaceId);
+  const paper = new PaperTradingService(db, audit, () => ws.workspaceId);
 
   const modelRegistry = new ModelRegistry(db, vault, bus, log, config.enableTestProvider);
   const router = new ModelRouter(modelRegistry, settings, bus);
   const memory = new MemoryService(db, bus, router);
 
-  const sandbox = new Sandbox(() => [config.projectsDir, config.artifactsDir]);
+  const sandbox = new Sandbox(() => [ws.projectStorageDir(), config.artifactsDir]);
   const tools = new ToolRegistry(permissions, approvals, bus, audit);
   for (const t of fsTools(sandbox, db, config.backupsDir)) tools.register(t);
   for (const t of shellTools()) tools.register(t);
+  for (const t of computerTools(settings, config.artifactsDir, router)) tools.register(t);
   for (const t of memoryTools(memory)) tools.register(t);
 
   const connectors = new ConnectorService({ db, vault });
@@ -82,7 +118,7 @@ export async function createServer(config: TJConfig) {
   }
 
   const agentService = new AgentService(db, bus);
-  const agentRuntime = new AgentRuntime(router, tools, agentService, bus);
+  const agentRuntime = new AgentRuntime(router, tools, agentService, bus, settings);
   const taskService = new TaskService(db, bus);
 
   const cognitive = new CognitiveEngine(router);
@@ -98,19 +134,11 @@ export async function createServer(config: TJConfig) {
   const scheduler = new AutomationScheduler({ db, engine: workflowEngine, bus });
   await scheduler.start();
 
-  const health = new HealthMonitor({ db, router, approvals, version: config.version });
+  const health = new HealthMonitor({ db, router, approvals, settings, version: config.version });
   const capabilities = new CapabilityRegistry({ db, router, tools, connectors, vault });
 
-  const existingUser = db.get('SELECT id FROM users LIMIT 1');
-  if (!existingUser) {
-    db.run('INSERT INTO users (id, display_name, created_at) VALUES (?, ?, ?)',
-      ['user_default', 'TJ User', new Date().toISOString()]);
-    db.run('INSERT INTO workspaces (id, name, owner_id, data_dir, created_at) VALUES (?, ?, ?, ?, ?)',
-      ['default', 'Default Workspace', 'user_default', config.dataDir, new Date().toISOString()]);
-  }
-
-  registerSystemRoutes(app, { db, bus, health, capabilities, settings, orchestrator, approvals, agents: agentService });
-  registerChatRoutes(app, { ws, router, cognitive, orchestrator, health });
+  registerSystemRoutes(app, { db, bus, health, capabilities, settings, orchestrator, approvals, agents: agentService, workspace: ws, coreDataDir: config.dataDir });
+  registerChatRoutes(app, { ws, router, cognitive, orchestrator, health, settings });
   registerAgentRoutes(app, { agents: agentService });
   registerTaskRoutes(app, { tasks: taskService, db });
   registerWorkflowRoutes(app, { engine: workflowEngine, scheduler });
@@ -118,6 +146,19 @@ export async function createServer(config: TJConfig) {
   registerModelRoutes(app, { registry: modelRegistry, router });
   registerSecurityRoutes(app, { approvals, permissions });
   registerMemoryRoutes(app, { memory });
+  registerVoiceRoutes(app, { settings, bus, health, orchestrator, tools, runtime: agentRuntime, agents: agentService, approvals, vault, router, dataDir: config.dataDir });
+  registerVisionRoutes(app, { router, settings });
+  registerSkillRoutes(app, { skills });
+  registerLearningRoutes(app, { learning });
+  registerDataRoutes(app);
+  registerGraphRoutes(app, { graph });
+  registerWorkbenchRoutes(app, { workbench, permissions, approvals, audit });
+  registerEducationRoutes(app, { education });
+  registerBusinessRoutes(app, { business });
+  registerMediaRoutes(app, { media });
+  registerFinanceRoutes(app, { finance });
+  registerPaperTradingRoutes(app, { paper });
+  registerWellnessRoutes(app, { wellness });
 
   const webDist = path.resolve(REPO_ROOT, 'apps', 'web', 'dist');
   if (fs.existsSync(webDist)) {
@@ -128,6 +169,6 @@ export async function createServer(config: TJConfig) {
   return {
     app, db, bus, health, capabilities, scheduler, tools, router,
     orchestrator, connectors, vault, approvals, permissions,
-    agentService, taskService, memory, workflowEngine,
+    agentService, taskService, memory, workflowEngine, skills, learning, graph, workbench, education, business, media, finance, paper, wellness,
   };
 }

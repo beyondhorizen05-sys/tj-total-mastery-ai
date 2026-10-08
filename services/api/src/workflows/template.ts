@@ -44,11 +44,23 @@ export function evalCondition(expr: string, scope: Record<string, unknown>): boo
   if (!m) return !!val(expr);
   const a: any = val(m[1]), b: any = val(m[3]);
   switch (m[2]) {
-    case '==': return a == b; // eslint-disable-line eqeqeq
-    case '!=': return a != b; // eslint-disable-line eqeqeq
+    case '==': return a == b;
+    case '!=': return a != b;
     case '>': return a > b;
     case '<': return a < b;
     case '>=': return a >= b;
     default: return a <= b;
   }
 }
+
+/** Definition used by the explicit weekday briefing setup endpoint. */
+export const weekdaySummaryDefinition = {
+  name: 'Weekday 8 AM briefing',
+  description: 'Calendar, important Gmail, and active TJ tasks. Each source reports its actual connection state.',
+  steps: [{
+    id: 'briefing', name: 'Assemble authorized briefing', kind: 'connector' as const,
+    depends_on: [], config: { connector_id: 'tj_productivity', action: 'weekday_summary', input: {} },
+    retry: { max_attempts: 1, backoff_ms: 1000, max_backoff_ms: 1000 }, timeout_ms: 120000,
+    permissions: ['network.http' as const], risk: 'low' as const, continue_on_error: false,
+  }],
+};

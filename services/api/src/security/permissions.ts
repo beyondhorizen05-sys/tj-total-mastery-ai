@@ -4,6 +4,7 @@ import type { Database } from '../db/database.js';
 import type { Audit } from './audit.js';
 import type { SettingsRepo } from '../db/repo.js';
 import { uuid, now } from '../core/ids.js';
+import path from 'node:path';
 
 export interface PermissionContext {
   agent_id?: string | null;
@@ -39,14 +40,19 @@ export class PermissionEngine {
     const autonomy = ctx.autonomy_override ?? this.settings.get<number>('autonomy_level', 2);
 
     // 1. Agent must hold the permission at all (least privilege). Agent-less (user-initiated) calls skip this.
-    if (ctx.agent_id && ctx.agent_permissions && !ctx.agent_permissions.includes(ctx.permission)) {
+    if (ctx.agent_id && !ctx.agent_permissions?.includes(ctx.permission)) {
       return this.record(ctx, { decision: 'deny', risk, reason: `Agent does not hold permission ${ctx.permission}` });
+    }
+
+    if (this.settings.get<string>('privacy_mode', 'balanced') === 'local-only' && ['network.http', 'connector.use', 'external.publish'].includes(ctx.permission)) {
+      return this.record(ctx, { decision: 'deny', risk, reason: 'Local-only privacy mode blocks outbound network and connector actions' });
     }
 
     // 2. Explicit policies (user-defined trusted automation rules, workflow-scoped approvals, denies).
     const policies = this.listPolicies().filter((p) => this.policyMatches(p, ctx));
     const deny = policies.find((p) => p.decision === 'deny');
     if (deny) return this.record(ctx, { decision: 'deny', risk, reason: `Denied by policy "${deny.name}"`, matched_policy: deny.id });
+    if (risk === 'high' || risk === 'critical') return this.record(ctx, { decision: 'require_approval', risk, reason: `${risk} risk always requires just-in-time approval` });
     const allow = policies.find((p) => p.decision === 'allow');
     if (allow) return this.record(ctx, { decision: 'allow', risk, reason: `Allowed by policy "${allow.name}"`, matched_policy: allow.id });
 
@@ -69,17 +75,15 @@ export class PermissionEngine {
       if (risk === 'low' || risk === 'medium') return this.record(ctx, { decision: 'allow', risk, reason: 'Workflow autonomy: medium-risk auto-approved' });
       return this.record(ctx, { decision: 'require_approval', risk, reason: `${risk} risk requires just-in-time approval` });
     }
-    // Level 5: high/critical ALWAYS need JIT approval (Spec §11 — never bypass the owner).
-    if (risk === 'high' || risk === 'critical') return this.record(ctx, { decision: 'require_approval', risk, reason: `${risk} risk always requires just-in-time approval` });
     return this.record(ctx, { decision: 'allow', risk, reason: 'Privileged autonomy' });
   }
 
   private isSandboxed(resource?: string | null): boolean {
     if (!resource) return false;
     const sandbox = this.settings.get<string>('sandbox_root', '');
-    if (!sandbox) return false;
-    const norm = (s: string) => s.replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '');
-    return norm(resource).startsWith(norm(sandbox));
+    if (!sandbox || !path.isAbsolute(resource)) return false;
+    const relative = path.relative(path.resolve(sandbox), path.resolve(resource));
+    return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
   }
 
   private record(ctx: PermissionContext, r: PermissionResult): PermissionResult {

@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
 import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import type { Approval } from '@tj/schemas';
 
 export const ApprovalsView: React.FC = () => {
-  const [approvals, setApprovals] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
 
   const load = () => {
-    apiFetch<{ approvals: any[] }>('/api/v1/approvals')
-      .then((res) => setApprovals(res.approvals))
-      .catch(console.error);
+    apiFetch<{ approvals: Approval[] }>('/api/v1/approvals')
+      .then((res) => { setApprovals(res.approvals); setLoadError(null); })
+      .catch((reason) => setLoadError(reason instanceof Error ? reason.message : 'Could not load approvals'));
   };
 
   useEffect(() => {
@@ -18,6 +22,9 @@ export const ApprovalsView: React.FC = () => {
   }, []);
 
   const handleDecide = async (id: string, decision: 'approve_once' | 'deny') => {
+    if (busyId) return;
+    setBusyId(id);
+    setDecisionError(null);
     try {
       await apiFetch(`/api/v1/approvals/${id}/decide`, {
         method: 'POST',
@@ -25,8 +32,8 @@ export const ApprovalsView: React.FC = () => {
       });
       load();
     } catch (e) {
-      console.error(e);
-    }
+      setDecisionError(e instanceof Error ? e.message : 'Could not save the decision');
+    } finally { setBusyId(null); }
   };
 
   const pending = approvals.filter((a) => a.status === 'pending');
@@ -38,6 +45,7 @@ export const ApprovalsView: React.FC = () => {
       <p style={{ color: 'var(--text-muted)', marginBottom: 24, fontSize: '0.9rem' }}>
         Human-in-the-loop permission approvals for high-risk tools, shell execution, and irreversible operations.
       </p>
+      {(loadError || decisionError) && <p role="alert" style={{ color: '#fb7185', marginBottom: 16 }}>{decisionError || loadError}</p>}
 
       <h3 style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
         <AlertTriangle size={18} color="#fbbf24" /> Pending Approvals ({pending.length})
@@ -66,10 +74,16 @@ export const ApprovalsView: React.FC = () => {
                 <div style={{ fontWeight: 700, fontSize: '1rem', color: '#fff' }}>{a.action}</div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 4 }}>Target: {a.target}</div>
                 <div style={{ fontSize: '0.85rem', color: '#fbbf24', marginTop: 4 }}>Why: {a.why}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 8 }}>Risk: {a.risk.toUpperCase()} · Permission: {a.permission} · Rollback: {a.rollback_available ? 'available' : 'unavailable'}</div>
+                {a.tools.length > 0 && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>Tools: {a.tools.join(', ')}</div>}
+                {a.resources_affected.length > 0 && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>Affected: {a.resources_affected.join(', ')}</div>}
+                {a.risks.length > 0 && <div style={{ fontSize: '0.8rem', color: '#fbbf24', marginTop: 4 }}>Known risks: {a.risks.join('; ')}</div>}
+                {a.estimated_cost && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>Estimated cost: {a.estimated_cost}</div>}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   onClick={() => handleDecide(a.id, 'approve_once')}
+                  disabled={busyId !== null}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -83,10 +97,11 @@ export const ApprovalsView: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  <CheckCircle size={16} /> Approve
+                  <CheckCircle size={16} /> {busyId === a.id ? 'Saving…' : 'Approve once'}
                 </button>
                 <button
                   onClick={() => handleDecide(a.id, 'deny')}
+                  disabled={busyId !== null}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

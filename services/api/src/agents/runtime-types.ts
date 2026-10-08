@@ -21,7 +21,7 @@ export interface AgentRunResult {
   ok: boolean;
   output: string;
   steps: number;
-  tool_calls: Array<{ tool: string; ok: boolean; summary: string; duration_ms?: number }>;
+  tool_calls: Array<{ tool: string; ok: boolean; summary: string; duration_ms?: number; test_command?: boolean }>;
   artifacts: Array<{ kind: string; name: string; path?: string; mime?: string; summary?: string }>;
   tokens_in: number;
   tokens_out: number;

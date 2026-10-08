@@ -1,20 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
 import { Badge } from '../components/Badges';
-import { CheckCircle2, Clock, AlertTriangle, Play, RefreshCw, Filter } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Play, RefreshCw } from 'lucide-react';
 import type { Task } from '@tj/schemas';
 
 export const TasksView: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<'all' | 'running' | 'completed' | 'failed' | 'queued'>('all');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadTasks = async () => {
     try {
       const res = await apiFetch<{ tasks: Task[] }>('/api/v1/tasks');
       setTasks(res.tasks ?? []);
+      setError(null);
     } catch (e) {
-      console.error(e);
+      setError(e instanceof Error ? e.message : 'Could not load tasks');
     } finally {
       setLoading(false);
     }
@@ -34,7 +36,7 @@ export const TasksView: React.FC = () => {
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0 }}>Task Execution Queue</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-            Live status of autonomous tasks across agents and workflows
+            Live status of tasks assigned to agents
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -71,9 +73,10 @@ export const TasksView: React.FC = () => {
           </button>
         </div>
       </div>
+      {error && <p role="alert" style={{ color: 'var(--accent-rose)' }}>{error}</p>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {filtered.length === 0 ? (
+        {loading ? <p style={{ color: 'var(--text-muted)' }}>Loading tasks…</p> : filtered.length === 0 && !error ? (
           <div style={{ padding: 40, textAlign: 'center', background: 'var(--bg-card)', borderRadius: 8, color: 'var(--text-muted)' }}>
             No tasks found matching filter.
           </div>

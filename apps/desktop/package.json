@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "echo 'Desktop dev requires cargo/tauri-cli installed'",
-    "package": "echo 'Desktop package requires cargo/tauri-cli installed'",
-    "build": "echo 'Desktop build placeholder'"
+    "dev": "cargo tauri dev",
+    "package": "cargo tauri build",
+    "build": "cargo check --manifest-path src-tauri/Cargo.toml"
   }
 }
