@@ -70,6 +70,8 @@ import { registerMediaRoutes } from './routes/media.js';
 import { registerFinanceRoutes } from './routes/finance.js';
 import { registerPaperTradingRoutes } from './routes/paper-trading.js';
 import { registerWellnessRoutes } from './routes/wellness.js';
+import { SelfImprovementService } from '../self-improvement/service.js';
+import { registerSelfImprovementRoutes } from './routes/self-improvement.js';
 
 export async function createServer(config: TJConfig) {
   const app = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 });
@@ -119,6 +121,7 @@ export async function createServer(config: TJConfig) {
     if (provider && provider.enabled !== config.enableChatGPTPlanSignIn) modelRegistry.updateProvider(account.id, { enabled: config.enableChatGPTPlanSignIn });
   }
   const router = new ModelRouter(modelRegistry, settings, bus);
+  const improvements = new SelfImprovementService(REPO_ROOT, router, config.dataDir);
   const memory = new MemoryService(db, bus, router);
 
   const sandbox = new Sandbox(() => [ws.projectStorageDir(), config.artifactsDir]);
@@ -175,6 +178,7 @@ export async function createServer(config: TJConfig) {
   registerFinanceRoutes(app, { finance });
   registerPaperTradingRoutes(app, { paper });
   registerWellnessRoutes(app, { wellness });
+  registerSelfImprovementRoutes(app, improvements);
 
   const webDist = path.resolve(REPO_ROOT, 'apps', 'web', 'dist');
   if (fs.existsSync(webDist)) {

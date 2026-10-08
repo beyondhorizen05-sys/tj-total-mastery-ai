@@ -8,12 +8,23 @@ interface Message {
   content: string;
 }
 
+interface ImprovementRun {
+  id: string;
+  state: 'queued' | 'planning' | 'editing' | 'verifying' | 'completed' | 'failed' | 'rolled_back';
+  stage: string;
+  files: string[];
+  checks: Array<{ command: string; exit_code: number }>;
+  diff: string;
+  error: string | null;
+}
+
 export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [mode, setMode] = useState<'auto' | 'chat' | 'build'>('auto');
+  const [mode, setMode] = useState<'auto' | 'chat' | 'build' | 'improve'>('auto');
+  const [improvement, setImprovement] = useState<ImprovementRun | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -42,6 +53,23 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
   useEffect(() => { loadConversations(); }, []);
   useEffect(() => { if (activeConvId) loadMessages(activeConvId); }, [activeConvId]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+  useEffect(() => {
+    if (!improvement || ['completed', 'failed', 'rolled_back'].includes(improvement.state)) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await apiFetch<ImprovementRun>(`/api/v1/self-improvement/runs/${improvement.id}`);
+        setImprovement(next);
+        if (next.state === 'completed') {
+          setMessages((prev) => [...prev, { id: `improvement-${next.id}`, role: 'assistant', content: `TJ source updated: ${next.files.join(', ')}. ${next.checks.length} checks passed. Review the diff below. Source changes to the API need a server restart before they are live.` }]);
+          setLoading(false);
+        } else if (next.state === 'failed') {
+          setError(next.error ?? 'TJ could not verify this change. Original files were restored.');
+          setLoading(false);
+        }
+      } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not read improvement status'); setLoading(false); }
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [improvement?.id, improvement?.state]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,6 +82,11 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
     setMessages((prev) => [...prev, { id: 'temp-' + Date.now(), role: 'user', content: userText }]);
 
     try {
+      if (mode === 'improve') {
+        const run = await apiFetch<ImprovementRun>('/api/v1/self-improvement/runs', { method: 'POST', body: JSON.stringify({ prompt: userText }) });
+        setImprovement(run);
+        return;
+      }
       const res = await apiFetch<any>('/api/v1/chat', {
         method: 'POST',
         body: JSON.stringify({ conversation_id: activeConvId ?? undefined, content: userText, mode }),
@@ -65,8 +98,9 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
       setMessages((prev) => [...prev, { id: res.message?.id ?? 'bot-' + Date.now(), role: 'assistant', content: res.content }]);
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setLoading(false);
+    } finally {
+      if (mode !== 'improve') setLoading(false);
     }
   };
 
@@ -128,9 +162,21 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
 
           {loading && (
             <div style={{ alignSelf: 'flex-start', background: 'var(--bg-card)', padding: '10px 16px', borderRadius: 8, fontSize: '0.85rem', color: 'var(--accent-cyan)', fontStyle: 'italic' }}>
-              Thinking and orchestrating...
+              {mode === 'improve' ? improvement?.stage ?? 'Starting TJ improvement...' : 'Thinking and orchestrating...'}
             </div>
           )}
+
+          {improvement?.state === 'completed' && <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 12 }}>
+            <strong>Verified source diff</strong>
+            <pre style={{ maxHeight: 340, overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: 11 }}>{improvement.diff || 'No diff available'}</pre>
+            <button type="button" onClick={async () => {
+              try {
+                const run = await apiFetch<ImprovementRun>(`/api/v1/self-improvement/runs/${improvement.id}/rollback`, { method: 'POST' });
+                setImprovement(run);
+                setMessages((prev) => [...prev, { id: `rollback-${run.id}`, role: 'assistant', content: 'TJ restored the original source files.' }]);
+              } catch (reason) { setError(reason instanceof Error ? reason.message : 'Rollback failed'); }
+            }} style={{ padding: '7px 12px', background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>Undo this change</button>
+          </div>}
 
           {error && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(244, 63, 94, 0.1)', color: '#fb7185', padding: '10px 14px', borderRadius: 6, fontSize: '0.85rem' }}>
@@ -143,7 +189,7 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
         {/* Input */}
         <form onSubmit={handleSend} style={{ marginTop: 16 }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            {(['auto', 'chat', 'build'] as const).map((m) => (
+            {(['auto', 'chat', 'build', 'improve'] as const).map((m) => (
               <button
                 type="button" key={m} onClick={() => setMode(m)}
                 style={{
@@ -160,7 +206,7 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               type="text" value={input} onChange={(e) => setInput(e.target.value)}
-              placeholder="Give TJ a task or ask a question..." disabled={loading}
+              placeholder={mode === 'improve' ? 'Tell TJ what to improve in its own source...' : 'Give TJ a task or ask a question...'} disabled={loading}
               style={{ flex: 1, padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-main)', fontSize: '0.9rem', outline: 'none' }}
             />
             <button

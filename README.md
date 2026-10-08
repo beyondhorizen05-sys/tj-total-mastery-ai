@@ -6,6 +6,8 @@ TJ is released under the [MIT License](LICENSE). Do not commit `.env`, `.tj-data
 
 The optional development preview for [ChatGPT plan sign-in](docs/chatgpt-signin.md) is separate from OpenAI API-key access and disabled by default.
 
+In Chat, select **Improve** and describe a change to TJ's own source. TJ chooses up to three tracked source files, edits them with the configured coding model, runs relevant checks, and restores the original files if verification fails. The completed run shows its diff and offers **Undo this change**. This requires a clean source checkout and a working model provider; API source changes require a server restart to become live. It does not commit or publish changes automatically.
+
 > Local-first AI operating environment: multi-agent autonomous orchestration, durable DAG workflows, hybrid FTS5/vector memory, encrypted vault secrets, sandboxed execution, and human-in-the-loop action governance.
 
 ---
