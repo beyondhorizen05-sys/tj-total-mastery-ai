@@ -4,6 +4,8 @@
 
 TJ is released under the [MIT License](LICENSE). Do not commit `.env`, `.tj-data`, API keys, OAuth tokens, personal databases, or vault files. Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
+The optional development preview for [ChatGPT plan sign-in](docs/chatgpt-signin.md) is separate from OpenAI API-key access and disabled by default.
+
 > Local-first AI operating environment: multi-agent autonomous orchestration, durable DAG workflows, hybrid FTS5/vector memory, encrypted vault secrets, sandboxed execution, and human-in-the-loop action governance.
 
 ---

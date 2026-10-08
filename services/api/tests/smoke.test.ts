@@ -65,6 +65,16 @@ describe('Fastify Server Injection Smoke Tests', () => {
     expect(res.body).not.toContain('disposable-test-key');
   });
 
+  it('keeps ChatGPT plan sign-in gated until the development flag is enabled', async () => {
+    const status = await serverInstance.app.inject({ method: 'GET', url: '/api/v1/models/chatgpt-plan/status' });
+    expect(status.statusCode).toBe(200);
+    expect(status.json()).toMatchObject({ enabled: false, pending: false, accounts: [] });
+    const signIn = await serverInstance.app.inject({ method: 'POST', url: '/api/v1/models/chatgpt-plan/sign-in', payload: {} });
+    expect(signIn.statusCode).toBe(403);
+    const forged = await serverInstance.app.inject({ method: 'POST', url: '/api/v1/models/providers', payload: { name: 'Fake ChatGPT account', kind: 'chatgpt-plan' } });
+    expect(forged.statusCode).toBe(400);
+  });
+
   it('blocks connector health checks and actions in local-only privacy mode', async () => {
     const privacy = await serverInstance.app.inject({ method: 'PATCH', url: '/api/v1/settings', payload: { privacy_mode: 'local-only' } });
     expect(privacy.statusCode).toBe(200);

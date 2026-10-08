@@ -142,6 +142,8 @@ export class ModelRouter {
         else if (kind === 'rate_limit') this.registry.setHealth(m.provider_id, 'rate-limited', e.message, null);
         else if (kind === 'unavailable' || kind === 'timeout') this.registry.setHealth(m.provider_id, 'offline', e.message, null);
         if (opts.signal?.aborted) throw e;
+        // A subscription-backed request must never silently fall back to a billable API.
+        if (this.registry.getProvider(m.provider_id)?.kind === 'chatgpt-plan') throw e;
         fallback_from = fallback_from ?? m.id;
       }
     }

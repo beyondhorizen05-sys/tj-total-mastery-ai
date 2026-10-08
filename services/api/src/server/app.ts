@@ -17,6 +17,7 @@ import { PermissionEngine } from '../security/permissions.js';
 import { ApprovalService } from '../security/approvals.js';
 import { ModelRegistry } from '../models/registry.js';
 import { ModelRouter } from '../models/router.js';
+import { ChatGPTPlanService } from '../models/chatgpt-plan.js';
 import { Sandbox } from '../tools/sandbox.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { fsTools } from '../tools/builtin/fs.js';
@@ -101,7 +102,22 @@ export async function createServer(config: TJConfig) {
   const business = new BusinessService(db, audit, () => ws.workspaceId);
   const paper = new PaperTradingService(db, audit, () => ws.workspaceId);
 
-  const modelRegistry = new ModelRegistry(db, vault, bus, log, config.enableTestProvider);
+  const chatgptPlan = new ChatGPTPlanService(db, vault, config.enableChatGPTPlanSignIn,
+    async (account) => {
+      if (!modelRegistry.getProvider(account.id)) modelRegistry.addProvider({ id: account.id, name: `ChatGPT Account (${account.email ?? account.id})`, kind: 'chatgpt-plan' });
+      else modelRegistry.updateProvider(account.id, { enabled: true });
+      try { await modelRegistry.fetchModels(account.id); } catch { modelRegistry.setHealth(account.id, 'unknown', 'Connected; model discovery needs retry.', null); }
+    },
+    (account) => modelRegistry.removeProvider(account.id),
+  );
+  const modelRegistry = new ModelRegistry(db, vault, bus, log, config.enableTestProvider, chatgptPlan);
+  for (const account of chatgptPlan.accounts()) {
+    if (account.credential_ref && vault.has(account.credential_ref) && !modelRegistry.getProvider(account.id)) {
+      modelRegistry.addProvider({ id: account.id, name: `ChatGPT Account (${account.email ?? account.id})`, kind: 'chatgpt-plan' });
+    }
+    const provider = modelRegistry.getProvider(account.id);
+    if (provider && provider.enabled !== config.enableChatGPTPlanSignIn) modelRegistry.updateProvider(account.id, { enabled: config.enableChatGPTPlanSignIn });
+  }
   const router = new ModelRouter(modelRegistry, settings, bus);
   const memory = new MemoryService(db, bus, router);
 
@@ -143,7 +159,7 @@ export async function createServer(config: TJConfig) {
   registerTaskRoutes(app, { tasks: taskService, db });
   registerWorkflowRoutes(app, { engine: workflowEngine, scheduler });
   registerConnectorRoutes(app, { connectors, permissions, approvals, audit });
-  registerModelRoutes(app, { registry: modelRegistry, router });
+  registerModelRoutes(app, { registry: modelRegistry, router, chatgptPlan });
   registerSecurityRoutes(app, { approvals, permissions });
   registerMemoryRoutes(app, { memory });
   registerVoiceRoutes(app, { settings, bus, health, orchestrator, tools, runtime: agentRuntime, agents: agentService, approvals, vault, router, dataDir: config.dataDir });
@@ -165,6 +181,8 @@ export async function createServer(config: TJConfig) {
     await app.register(fastifyStatic, { root: webDist, prefix: '/' });
     app.setNotFoundHandler((_req, reply) => { reply.sendFile('index.html'); });
   }
+
+  app.addHook('onClose', async () => { chatgptPlan.close(); });
 
   return {
     app, db, bus, health, capabilities, scheduler, tools, router,

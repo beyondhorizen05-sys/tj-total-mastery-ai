@@ -33,6 +33,7 @@ export interface TJConfig {
   logsDir: string;
   allowedOrigins: string[];
   enableTestProvider: boolean;
+  enableChatGPTPlanSignIn: boolean;
   version: string;
 }
 
@@ -58,6 +59,7 @@ export function loadConfig(overrides: Partial<TJConfig> = {}): TJConfig {
       'https://tauri.localhost',
     ],
     enableTestProvider: process.env.TJ_ENABLE_TEST_PROVIDER === '1',
+    enableChatGPTPlanSignIn: process.env.TJ_CHATGPT_PLAN_SIGNIN_ENABLED === '1',
     version: '2.0.0',
     ...overrides,
   };

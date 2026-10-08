@@ -3,12 +3,14 @@ import { AddProviderRequest } from '@tj/schemas';
 import type { ModelRegistry } from '../../models/registry.js';
 import type { ModelRouter } from '../../models/router.js';
 import { z } from 'zod';
+import type { ChatGPTPlanService } from '../../models/chatgpt-plan.js';
 
 export function registerModelRoutes(
   app: FastifyInstance,
   deps: {
     registry: ModelRegistry;
     router: ModelRouter;
+    chatgptPlan: ChatGPTPlanService;
   }
 ) {
   // GET /api/v1/models/presets
@@ -22,8 +24,9 @@ export function registerModelRoutes(
   });
 
   // POST /api/v1/models/providers
-  app.post('/api/v1/models/providers', async (req) => {
+  app.post('/api/v1/models/providers', async (req, reply) => {
     const body = AddProviderRequest.parse(req.body);
+    if (body.kind === 'chatgpt-plan') return reply.code(400).send({ error: 'Use Continue with ChatGPT to add this provider.' });
     const p = deps.registry.addProvider({
       name: body.name,
       kind: body.kind,
@@ -33,6 +36,20 @@ export function registerModelRoutes(
       organization: body.organization ?? null,
     });
     return p;
+  });
+
+  app.get('/api/v1/models/chatgpt-plan/status', async () => deps.chatgptPlan.status());
+
+  app.post('/api/v1/models/chatgpt-plan/sign-in', async (req, reply) => {
+    if (!deps.chatgptPlan.enabled) return reply.code(403).send({ error: 'ChatGPT plan sign-in requires an eligible open-source or approved private client and is disabled in this build.' });
+    const body = z.object({ account_id: z.string().optional() }).strict().parse(req.body ?? {});
+    await deps.chatgptPlan.begin(body.account_id);
+    return { pending: true };
+  });
+
+  app.post('/api/v1/models/chatgpt-plan/disconnect', async (req) => {
+    const body = z.object({ account_id: z.string() }).strict().parse(req.body);
+    return deps.chatgptPlan.disconnect(body.account_id);
   });
 
   app.patch('/api/v1/models/providers/:id', async (req) => {

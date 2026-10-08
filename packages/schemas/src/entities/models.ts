@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { HealthState } from '../status.js';
 import { ISO } from './core.js';
 
-export const ProviderKind = z.enum(['openai', 'openai-compatible', 'anthropic', 'google', 'ollama', 'test']);
+export const ProviderKind = z.enum(['openai', 'openai-compatible', 'anthropic', 'google', 'ollama', 'chatgpt-plan', 'test']);
 export type ProviderKind = z.infer<typeof ProviderKind>;
 
 export const ModelProvider = z.object({

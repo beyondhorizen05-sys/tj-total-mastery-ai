@@ -3,6 +3,8 @@ import { apiFetch } from '../api';
 import { Cpu, Plus, Trash2, ExternalLink } from 'lucide-react';
 
 export const ModelsView: React.FC = () => {
+  const [chatgptPlan, setChatgptPlan] = useState<{ enabled: boolean; pending: boolean; accounts: Array<{ id: string; email: string | null; name: string | null; connected: boolean }>; active_account_id: string | null; last_error: string | null } | null>(null);
+  const [chatgptWorking, setChatgptWorking] = useState(false);
   const [providers, setProviders] = useState<any[]>([]);
   const [presets, setPresets] = useState<any[]>([]);
   const [models, setModels] = useState<any[]>([]);
@@ -30,6 +32,27 @@ export const ModelsView: React.FC = () => {
     apiFetch<{ settings: Record<string, any> }>('/api/v1/settings')
       .then((r) => setDefaultModelId(r.settings?.default_model_id ?? null))
       .catch(console.error);
+    apiFetch<typeof chatgptPlan>('/api/v1/models/chatgpt-plan/status').then(setChatgptPlan).catch(() => {});
+  };
+
+  const handleChatGPTSignIn = async (accountId?: string) => {
+    setChatgptWorking(true); setErrorMsg(null);
+    try {
+      await apiFetch('/api/v1/models/chatgpt-plan/sign-in', { method: 'POST', body: JSON.stringify(accountId ? { account_id: accountId } : {}) });
+      setNoticeMsg('ChatGPT sign-in opened in your system browser. Complete consent there, then return to TJ.');
+      load();
+    } catch (e: any) { setErrorMsg(e.message || 'Could not start ChatGPT sign-in'); }
+    finally { setChatgptWorking(false); }
+  };
+
+  const handleChatGPTDisconnect = async (accountId: string) => {
+    setChatgptWorking(true); setErrorMsg(null);
+    try {
+      const result = await apiFetch<{ remote_revocation_confirmed: boolean }>('/api/v1/models/chatgpt-plan/disconnect', { method: 'POST', body: JSON.stringify({ account_id: accountId }) });
+      setNoticeMsg(result.remote_revocation_confirmed ? 'ChatGPT account disconnected.' : 'Local ChatGPT credentials cleared. Remote revocation could not be confirmed; check ChatGPT Settings.');
+      load();
+    } catch (e: any) { setErrorMsg(e.message || 'Could not disconnect ChatGPT'); }
+    finally { setChatgptWorking(false); }
   };
 
   const handleSetDefault = async (modelId: string) => {
@@ -49,6 +72,11 @@ export const ModelsView: React.FC = () => {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!chatgptPlan?.pending) return;
+    const timer = window.setInterval(() => load(), 2500);
+    return () => window.clearInterval(timer);
+  }, [chatgptPlan?.pending]);
 
   const handleTest = async (id: string) => {
     setTesting(id);
@@ -157,6 +185,26 @@ export const ModelsView: React.FC = () => {
       </div>
       {errorMsg && !showAddModal && <p role="alert" style={{ color: 'var(--accent-rose)', marginBottom: 12 }}>{errorMsg}</p>}
       {noticeMsg && <p role="status" style={{ color: 'var(--accent-emerald)', marginBottom: 12 }}>{noticeMsg}</p>}
+      {chatgptPlan && <section style={{ background: 'rgba(10, 18, 34, 0.75)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 18, marginBottom: 24 }} aria-label="ChatGPT account connection">
+        <div style={{ fontWeight: 800, color: '#fff', marginBottom: 6 }}>ChatGPT Account</div>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0 0 12px' }}>
+          Separate from the OpenAI API key provider. Eligible accounts can authorize supported text inference through their ChatGPT plan. Usage is subject to account and app limits.
+        </p>
+        {!chatgptPlan.enabled ? <p style={{ color: 'var(--accent-amber)', fontSize: '0.8rem' }}>
+          Sign-in is disabled. This development feature requires an eligible open-source or approved private client and TJ_CHATGPT_PLAN_SIGNIN_ENABLED=1.
+        </p> : <>
+          <button type="button" disabled={chatgptWorking || chatgptPlan.pending} onClick={() => void handleChatGPTSignIn()}
+            style={{ padding: '8px 12px', borderRadius: 6, background: 'var(--accent-cyan)', border: 0, color: '#000', fontWeight: 700, cursor: 'pointer' }}>
+            {chatgptPlan.pending ? 'Waiting for browser sign-in...' : 'Continue with ChatGPT'}
+          </button>
+          {chatgptPlan.accounts.map((account) => <div key={account.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 12, color: '#fff', fontSize: '0.8rem' }}>
+            <span>{account.name || account.email || account.id} — {account.connected ? 'Connected' : 'Disconnected'}</span>
+            <button type="button" disabled={chatgptWorking || chatgptPlan.pending} onClick={() => void handleChatGPTSignIn(account.id)} style={{ background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--accent-cyan)', padding: '5px 8px', cursor: 'pointer' }}>Reconnect</button>
+            <button type="button" disabled={chatgptWorking} onClick={() => void handleChatGPTDisconnect(account.id)} style={{ background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--accent-rose)', padding: '5px 8px', cursor: 'pointer' }}>Disconnect</button>
+          </div>)}
+          {chatgptPlan.last_error && <p role="alert" style={{ color: 'var(--accent-rose)', fontSize: '0.8rem' }}>{chatgptPlan.last_error}</p>}
+        </>}
+      </section>}
       <h3 style={{ fontSize: '0.95rem', fontFamily: 'JetBrains Mono', color: 'var(--accent-cyan)', marginBottom: 14 }}>
         CONFIGURED PROVIDERS ({providers.length})
       </h3>

@@ -16,7 +16,7 @@ export type ChatRequest = z.infer<typeof ChatRequest>;
 
 export const AddProviderRequest = z.object({
   name: z.string().min(1),
-  kind: z.enum(['openai', 'openai-compatible', 'anthropic', 'google', 'ollama', 'test']),
+  kind: z.enum(['openai', 'openai-compatible', 'anthropic', 'google', 'ollama', 'chatgpt-plan', 'test']),
   base_url: z.string().url().optional().nullable(),
   api_key: z.string().optional().nullable(),
   organization: z.string().optional().nullable(),

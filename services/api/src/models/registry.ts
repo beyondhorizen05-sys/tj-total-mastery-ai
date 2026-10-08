@@ -8,6 +8,8 @@ import { mapRow } from '../db/repo.js';
 import { PROVIDER_PRESETS, presetById, hintFor } from './presets.js';
 import type { ProviderAdapter, ProviderCredentials, DiscoveredModel } from './types.js';
 import { createAdapter } from './adapters/factory.js';
+import { ChatGPTPlanAdapter } from './adapters/chatgpt-plan.js';
+import type { ChatGPTPlanService } from './chatgpt-plan.js';
 
 const MODEL_JSON = ['modalities'];
 const MODEL_BOOL = ['supports_tools', 'supports_streaming', 'supports_vision', 'available'];
@@ -16,7 +18,7 @@ const MODEL_BOOL = ['supports_tools', 'supports_streaming', 'supports_vision', '
 export class ModelRegistry {
   private adapterCache = new Map<string, ProviderAdapter>();
 
-  constructor(private db: Database, private vault: Vault, private bus: EventBus, private log: Logger, private enableTestProvider: boolean) {}
+  constructor(private db: Database, private vault: Vault, private bus: EventBus, private log: Logger, private enableTestProvider: boolean, private chatgptPlan?: ChatGPTPlanService) {}
 
   presets() { return PROVIDER_PRESETS; }
 
@@ -85,7 +87,9 @@ export class ModelRegistry {
     const p = this.getProvider(providerId);
     if (!p) throw new Error(`Provider ${providerId} not found`);
     const creds: ProviderCredentials = { api_key: p.credential_ref ? this.vault.get(p.credential_ref, `provider:${p.id}`, 'model call') : null, base_url: p.base_url, organization: p.organization };
-    const a = createAdapter(p.kind, creds, p.preset);
+    const a = p.kind === 'chatgpt-plan'
+      ? this.chatgptPlan ? new ChatGPTPlanAdapter(this.chatgptPlan, p.id) : (() => { throw new Error('ChatGPT plan sign-in is unavailable'); })()
+      : createAdapter(p.kind, creds, p.preset);
     this.adapterCache.set(providerId, a);
     return a;
   }
