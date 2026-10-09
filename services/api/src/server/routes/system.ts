@@ -8,6 +8,7 @@ import type { Orchestrator } from '../../orchestrator/orchestrator.js';
 import type { ApprovalService } from '../../security/approvals.js';
 import type { AgentService } from '../../agents/service.js';
 import type { WorkspaceService } from '../../core/workspace.js';
+import type { SelfImprovementService } from '../../self-improvement/service.js';
 import { TJPersona } from '@tj/schemas';
 import { getPersona } from '../../core/persona.js';
 import { listLocalVoices } from '../../core/voice-listener.js';
@@ -23,6 +24,7 @@ export function registerSystemRoutes(
     capabilities: CapabilityRegistry;
     settings: SettingsRepo;
     orchestrator: Orchestrator;
+    improvements: SelfImprovementService;
     approvals: ApprovalService;
     agents: AgentService;
     workspace: WorkspaceService;
@@ -74,6 +76,7 @@ export function registerSystemRoutes(
   app.post('/api/v1/system/stop-all', async () => {
     deps.health.setStopAll(true);
     deps.orchestrator.stopAll();
+    deps.improvements.stopAll();
     deps.approvals.denyAllPending('stop_all');
     deps.agents.resetActive('idle');
     deps.bus.emit({

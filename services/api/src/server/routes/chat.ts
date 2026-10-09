@@ -7,6 +7,7 @@ import type { Orchestrator } from '../../orchestrator/orchestrator.js';
 import type { HealthMonitor } from '../../core/health.js';
 import type { SettingsRepo } from '../../db/repo.js';
 import { getPersona, personaInstruction } from '../../core/persona.js';
+import type { CapabilityWorkflowService } from '../../self-improvement/capability-workflow.js';
 
 export function registerChatRoutes(
   app: FastifyInstance,
@@ -17,6 +18,7 @@ export function registerChatRoutes(
     orchestrator: Orchestrator;
     health: HealthMonitor;
     settings: SettingsRepo;
+    capabilityWorkflow: CapabilityWorkflowService;
   }
 ) {
   // GET /api/v1/conversations
@@ -62,6 +64,20 @@ export function registerChatRoutes(
     });
 
     deps.health.setState('thinking');
+
+    if (body.mode === 'auto' || body.mode === 'build') {
+      const gap = await deps.capabilityWorkflow.assess(body.content);
+      if (gap) {
+        const approval = deps.capabilityWorkflow.request({
+          request: body.content, ...gap, conversation_id: convId,
+          project_id: body.project_id ?? null, model_id: body.model_id ?? null,
+        });
+        const content = `TJ does not currently have ${gap.capability_name}. ${gap.reason} Approve adding this ability before I continue your task.`;
+        deps.ws.addMessage({ conversation_id: convId, role: 'assistant', content });
+        deps.health.setState('idle');
+        return { conversation_id: convId, content, status: 'approval_required', approval_id: approval.id, capability_workflow_id: approval.id, capability_id: gap.capability_id };
+      }
+    }
 
     // Auto/Build/Research modes -> dispatch orchestrator
     if (body.mode === 'auto' || body.mode === 'build' || body.mode === 'research') {
@@ -160,5 +176,10 @@ export function registerChatRoutes(
       deps.health.setState('error');
       return reply.status(500).send({ error: e.message });
     }
+  });
+
+  app.get('/api/v1/chat/capability-workflows/:id', async (req, reply) => {
+    const status = await deps.capabilityWorkflow.progress((req.params as { id: string }).id);
+    return status ?? reply.status(404).send({ error: 'Capability workflow not found' });
   });
 }

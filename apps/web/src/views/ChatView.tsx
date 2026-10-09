@@ -10,21 +10,33 @@ interface Message {
 
 interface ImprovementRun {
   id: string;
-  state: 'queued' | 'planning' | 'editing' | 'verifying' | 'completed' | 'failed' | 'rolled_back';
+  state: 'queued' | 'planning' | 'editing' | 'verifying' | 'awaiting_approval' | 'completed' | 'failed' | 'rolled_back';
   stage: string;
   files: string[];
   checks: Array<{ command: string; exit_code: number }>;
   diff: string;
   error: string | null;
+  approval_id?: string | null;
 }
 
-export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => {
+interface CapabilityWorkflow {
+  approval_id: string;
+  status: 'pending_approval' | 'denied' | 'adding_ability' | 'awaiting_activation' | 'running_original_task' | 'completed' | 'failed';
+  capability_name: string;
+  reason: string;
+  message: string;
+  result?: string | { content?: string };
+}
+
+export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string) => void }> = ({ personaName, onNavigate }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<'auto' | 'chat' | 'build' | 'improve'>('auto');
   const [improvement, setImprovement] = useState<ImprovementRun | null>(null);
+  const [capabilityFlow, setCapabilityFlow] = useState<CapabilityWorkflow | null>(null);
+  const reportedFlows = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -51,6 +63,10 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
   };
 
   useEffect(() => { loadConversations(); }, []);
+  useEffect(() => {
+    const id = localStorage.getItem('tj-capability-workflow');
+    if (id) void apiFetch<CapabilityWorkflow>(`/api/v1/chat/capability-workflows/${id}`).then(setCapabilityFlow).catch(() => {});
+  }, []);
   useEffect(() => { if (activeConvId) loadMessages(activeConvId); }, [activeConvId]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
   useEffect(() => {
@@ -62,14 +78,33 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
         if (next.state === 'completed') {
           setMessages((prev) => [...prev, { id: `improvement-${next.id}`, role: 'assistant', content: `TJ source updated: ${next.files.join(', ')}. ${next.checks.length} checks passed. Review the diff below. Source changes to the API need a server restart before they are live.` }]);
           setLoading(false);
-        } else if (next.state === 'failed') {
-          setError(next.error ?? 'TJ could not verify this change. Original files were restored.');
+        } else if (next.state === 'failed' || next.state === 'awaiting_approval') {
+          setError(next.error ?? (next.state === 'awaiting_approval' ? 'TJ could not verify this change. Review its rollback request.' : 'TJ could not complete this change.'));
+          setLoading(false);
+        } else if (next.state === 'rolled_back') {
+          setMessages((prev) => [...prev, { id: `auto-rollback-${next.id}`, role: 'assistant', content: 'After your approval, TJ restored the previous source files.' }]);
           setLoading(false);
         }
       } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not read improvement status'); setLoading(false); }
     }, 1500);
     return () => window.clearInterval(timer);
   }, [improvement?.id, improvement?.state]);
+  useEffect(() => {
+    if (!capabilityFlow || ['completed', 'denied', 'failed'].includes(capabilityFlow.status)) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const next = await apiFetch<CapabilityWorkflow>(`/api/v1/chat/capability-workflows/${capabilityFlow.approval_id}`);
+        setCapabilityFlow(next);
+        if (['completed', 'denied', 'failed'].includes(next.status)) localStorage.removeItem('tj-capability-workflow');
+        if (next.status === 'completed' && !reportedFlows.current.has(next.approval_id)) {
+          reportedFlows.current.add(next.approval_id);
+          const result = typeof next.result === 'string' ? next.result : next.result?.content;
+          setMessages((prev) => [...prev, { id: `capability-result-${next.approval_id}`, role: 'assistant', content: result || next.message }]);
+        }
+      } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not read capability status'); }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [capabilityFlow?.approval_id, capabilityFlow?.status]);
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,6 +131,10 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
         loadConversations();
       }
       setMessages((prev) => [...prev, { id: res.message?.id ?? 'bot-' + Date.now(), role: 'assistant', content: res.content }]);
+      if (res.status === 'approval_required' && res.approval_id) {
+        localStorage.setItem('tj-capability-workflow', res.approval_id);
+        setCapabilityFlow({ approval_id: res.approval_id, status: 'pending_approval', capability_name: res.capability_id ?? 'New ability', reason: res.content, message: res.content });
+      }
     } catch (err: any) {
       setError(err.message);
       setLoading(false);
@@ -177,6 +216,8 @@ export const ChatView: React.FC<{ personaName: string }> = ({ personaName }) => 
               } catch (reason) { setError(reason instanceof Error ? reason.message : 'Rollback failed'); }
             }} style={{ padding: '7px 12px', background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>Undo this change</button>
           </div>}
+          {improvement?.state === 'awaiting_approval' && <div role="status" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent-amber)', borderRadius: 10, padding: 14 }}><strong>Verification needs your decision</strong><p style={{ color: 'var(--text-muted)', margin: '7px 0' }}>TJ tried a repair. The change still failed a check; it has requested approval before restoring the previous source.</p><button type="button" onClick={() => onNavigate?.('approvals')} style={{ padding: '8px 12px', background: 'var(--accent-amber)', color: '#17120a', border: 0, borderRadius: 6, cursor: 'pointer' }}>Review rollback approval</button></div>}
+          {capabilityFlow && <div role="status" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glow)', borderRadius: 10, padding: 14 }}><strong>{capabilityFlow.capability_name}</strong><p style={{ color: 'var(--text-muted)', margin: '7px 0' }}>{capabilityFlow.message}</p><small style={{ color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>{capabilityFlow.status.replaceAll('_', ' ')}</small>{capabilityFlow.status === 'pending_approval' && <button type="button" onClick={() => onNavigate?.('approvals')} style={{ display: 'block', marginTop: 10, padding: '8px 12px', background: 'var(--accent-cyan)', color: '#061018', border: 0, borderRadius: 6, cursor: 'pointer' }}>Review ability approval</button>}</div>}
 
           {error && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(244, 63, 94, 0.1)', color: '#fb7185', padding: '10px 14px', borderRadius: 6, fontSize: '0.85rem' }}>

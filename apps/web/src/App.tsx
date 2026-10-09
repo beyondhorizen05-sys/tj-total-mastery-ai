@@ -223,10 +223,11 @@ export const App: React.FC = () => {
     { id: 'recent', label: 'Open recent results', detail: 'Inspect live activity and completed work', keywords: 'history events', run: () => setActiveTab('activity') },
     { id: 'tasks', label: 'Open tasks', detail: 'Review active and saved tasks', keywords: 'projects', run: () => setActiveTab('tasks') },
     { id: 'approvals', label: 'Open approvals', detail: 'Review pending actions and their risks', keywords: 'permissions', run: () => setActiveTab('approvals') },
+    { id: 'themes', label: 'Change atmosphere', detail: 'Choose from ten TJ interface themes', keywords: 'theme color appearance design', run: () => setActiveTab('settings') },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg-primary)' }}>
+    <div className="tj-app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg-primary)' }}>
       <TopBar
         status={status}
         stopping={stopping}
@@ -234,9 +235,9 @@ export const App: React.FC = () => {
         onNavigate={(tab) => setActiveTab(tab)}
       />
 
-      <div style={{ display: 'flex', flex: 1, height: 'calc(100vh - 48px)', overflow: 'hidden' }}>
-        <aside style={{
-          width: 60, background: 'rgba(5, 10, 22, 0.95)', borderRight: '1px solid var(--border-subtle)', overflowY: 'auto',
+      <div style={{ display: 'flex', flex: 1, height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
+        <aside className="tj-side-rail" style={{
+          width: 60, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)', overflowY: 'auto',
           display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 6, zIndex: 10,
         }}>
           <button type="button" onClick={() => setPaletteOpen(true)} title="Search commands (Ctrl+K)" aria-label="Open command palette" style={{ width: 42, height: 42, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'rgba(0, 242, 254, 0.07)', color: 'var(--accent-cyan)', display: 'grid', placeItems: 'center', cursor: 'pointer', marginBottom: 8 }}><Search size={18} /></button>
@@ -247,6 +248,7 @@ export const App: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
+                className={`tj-side-rail-button ${isActive ? 'is-active' : ''}`}
                 title={navLabel(item.id, item.label, uiLanguage(locale))}
                 aria-label={navLabel(item.id, item.label, uiLanguage(locale))}
                 style={{
@@ -295,7 +297,7 @@ export const App: React.FC = () => {
         ) : (
           <div style={{ flex: 1, height: '100%', overflow: 'hidden', padding: 16 }}>
             <Suspense fallback={<div role="status" style={{ padding: 24, color: 'var(--text-muted)' }}>Loading workspace…</div>}>
-            {activeTab === 'chat' && <ChatView personaName={persona.name} />}
+            {activeTab === 'chat' && <ChatView personaName={persona.name} onNavigate={setActiveTab} />}
             {activeTab === 'vision' && <VisionView />}
             {activeTab === 'data' && <DataIntelligenceView />}
             {activeTab === 'education' && <EducationView />}

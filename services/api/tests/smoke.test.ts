@@ -19,6 +19,7 @@ describe('Fastify Server Injection Smoke Tests', () => {
       backupsDir: path.join(testDir, 'backups'),
       logsDir: path.join(testDir, 'logs'),
       enableTestProvider: true,
+      enableChatGPTPlanSignIn: false,
     });
     serverInstance = await createServer(cfg);
   });
@@ -73,6 +74,12 @@ describe('Fastify Server Injection Smoke Tests', () => {
     expect(signIn.statusCode).toBe(403);
     const forged = await serverInstance.app.inject({ method: 'POST', url: '/api/v1/models/providers', payload: { name: 'Fake ChatGPT account', kind: 'chatgpt-plan' } });
     expect(forged.statusCode).toBe(400);
+  });
+
+  it('blocks self improvement while STOP ALL is engaged', async () => {
+    await serverInstance.app.inject({ method: 'POST', url: '/api/v1/system/stop-all', payload: {} });
+    const result = await serverInstance.app.inject({ method: 'POST', url: '/api/v1/self-improvement/runs', payload: { prompt: 'Improve the welcome screen.' } });
+    expect(result.statusCode).toBe(403);
   });
 
   it('blocks connector health checks and actions in local-only privacy mode', async () => {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
 import { PersonaSettings } from '../components/PersonaSettings';
+import { THEMES, loadTheme, setTheme, type ThemeId } from '../themes';
 
 export const SettingsView: React.FC = () => {
   const [settings, setSettings] = useState<Record<string, any>>({});
@@ -9,6 +10,7 @@ export const SettingsView: React.FC = () => {
   const [fishKey, setFishKey] = useState('');
   const [fishStatus, setFishStatus] = useState('');
   const [profile, setProfile] = useState<{ display_name: string; locale: string; time_zone: string } | null>(null);
+  const [theme, chooseTheme] = useState<ThemeId>(loadTheme);
 
   const load = () => {
     apiFetch<{ settings: Record<string, any> }>('/api/v1/settings').then((r) => setSettings(r.settings)).catch((reason) => setError(reason.message ?? 'Could not load settings'));
@@ -63,6 +65,15 @@ export const SettingsView: React.FC = () => {
       {error && <p role="alert" style={{ color: '#fb7185', marginBottom: 12 }}>{error}</p>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <section className="tj-theme-section">
+          <div className="tj-theme-heading"><span>APPEARANCE / 01</span><h3>Choose your atmosphere</h3><p>Ten live themes. Your choice stays on this device.</p></div>
+          <div className="tj-theme-grid">
+            {THEMES.map((item) => <button key={item.id} data-theme-id={item.id} type="button" className={`tj-theme-option ${theme === item.id ? 'is-active' : ''}`} aria-pressed={theme === item.id} onClick={() => { chooseTheme(item.id); setTheme(item.id); }}>
+              <span className="tj-theme-preview" style={{ background: item.colors[0] }}><i style={{ background: item.colors[1] }} /><b style={{ background: item.colors[2] }} /><em style={{ borderColor: item.colors[1] }} /></span>
+              <strong>{item.name}</strong><small>{item.description}</small>
+            </button>)}
+          </div>
+        </section>
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 16 }}>
           <h3 style={{ fontSize: '1rem', marginBottom: 6 }}>Language / زبان</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>Choose the language used for primary navigation and welcome. TJ replies in the language you speak or type when a model is available.</p>

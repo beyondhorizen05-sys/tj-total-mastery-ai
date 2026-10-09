@@ -17,9 +17,9 @@ export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onN
 
   return (
     <header className="tj-topbar" style={{
-      height: 48, background: 'rgba(5, 10, 22, 0.92)', backdropFilter: 'blur(16px)',
+      height: 60, background: 'var(--bg-secondary)', backdropFilter: 'blur(22px)',
       borderBottom: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center',
-      justifyContent: 'space-between', padding: '0 16px', zIndex: 50,
+      justifyContent: 'space-between', padding: '0 20px', zIndex: 50,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

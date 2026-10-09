@@ -19,8 +19,9 @@ import { FishHandsFreeListener } from '../../core/fish-listener.js';
 import { LocalASR } from '../../core/local-asr.js';
 import { getPersona, personaInstruction } from '../../core/persona.js';
 import { WAKE, isComputerIntent, isScreenObservationCommand, isVisualScreenCommand, takeSpeakableChunk } from '../../core/voice-intent.js';
+import type { CapabilityWorkflowService } from '../../self-improvement/capability-workflow.js';
 
-type Deps = { settings: SettingsRepo; bus: EventBus; health: HealthMonitor; orchestrator: Orchestrator; tools: ToolRegistry; runtime: AgentRuntime; agents: AgentService; approvals: ApprovalService; vault: Vault; router: ModelRouter; dataDir: string };
+type Deps = { settings: SettingsRepo; bus: EventBus; health: HealthMonitor; orchestrator: Orchestrator; tools: ToolRegistry; runtime: AgentRuntime; agents: AgentService; approvals: ApprovalService; vault: Vault; router: ModelRouter; dataDir: string; capabilityWorkflow?: CapabilityWorkflowService };
 const commandSchema = z.object({ text: z.string().trim().min(1).max(2000) });
 
 export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
@@ -203,9 +204,17 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     if (isScreenObservationCommand(phrase)) return execute('computer_observe', {}, phrase);
     if (isVisualScreenCommand(phrase)) return execute('computer_read_screen', { question: `Describe the visible screen and transcribe relevant text.${languageContext.getStore() ? ` Reply in language ${languageContext.getStore()}.` : ''}` });
     if (/^(capture|take) (?:a )?screenshot$/i.test(phrase)) return execute('computer_screenshot', {});
+    const offerMissingAbility = async (output: string) => {
+      if (!deps.capabilityWorkflow || !/(?:cannot|can't|unable|unsupported|not available|missing (?:tool|capability|ability)|don't have)/i.test(output)) return null;
+      if (/(?:model|provider|rate limit|authentication|api key|permission|disabled|offline|timeout)/i.test(output)) return null;
+      const workflow = await deps.capabilityWorkflow.assessAndMaybeRequest(phrase).catch(() => null);
+      if (!workflow) return null;
+      return respond(`${workflow.capability_name} is not available yet. I have saved your original task and asked for your approval to add this ability. Review the Approvals screen.`, false);
+    };
     if (!isComputerIntent(phrase)) {
       if (busy || conversing) return { ok: false, response: 'TJ is finishing the previous turn.' };
-      return converse(phrase);
+      const answer = await converse(phrase);
+      return await offerMissingAbility(answer.response) ?? answer;
     }
     if (conversing) return { ok: false, response: 'TJ is finishing the previous turn.' };
     if (busy) return respond('I am still working on your previous command.', true);
@@ -228,6 +237,10 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       const result = await deps.runtime.run({ agent: operatingAgent, instruction: phrase, context, workspace_id: 'default', project_id: null, project_root: null, task_id: null, max_steps: 8 });
       const output = result.output || result.error || 'No response';
       history.push({ user: phrase, assistant: output }); if (history.length > 12) history.shift();
+      if (!result.ok) {
+        const offer = await offerMissingAbility(output);
+        if (offer) return offer;
+      }
       return respond(output, !result.ok, true);
     } catch (error) { return respond(error instanceof Error ? error.message : String(error), true); }
     finally { busy = false; }

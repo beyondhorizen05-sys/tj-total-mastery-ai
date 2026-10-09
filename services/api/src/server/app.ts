@@ -72,6 +72,7 @@ import { registerPaperTradingRoutes } from './routes/paper-trading.js';
 import { registerWellnessRoutes } from './routes/wellness.js';
 import { SelfImprovementService } from '../self-improvement/service.js';
 import { registerSelfImprovementRoutes } from './routes/self-improvement.js';
+import { CapabilityWorkflowService } from '../self-improvement/capability-workflow.js';
 
 export async function createServer(config: TJConfig) {
   const app = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 });
@@ -121,7 +122,7 @@ export async function createServer(config: TJConfig) {
     if (provider && provider.enabled !== config.enableChatGPTPlanSignIn) modelRegistry.updateProvider(account.id, { enabled: config.enableChatGPTPlanSignIn });
   }
   const router = new ModelRouter(modelRegistry, settings, bus);
-  const improvements = new SelfImprovementService(REPO_ROOT, router, config.dataDir);
+  const improvements = new SelfImprovementService(REPO_ROOT, router, config.dataDir, approvals);
   const memory = new MemoryService(db, bus, router);
 
   const sandbox = new Sandbox(() => [ws.projectStorageDir(), config.artifactsDir]);
@@ -155,9 +156,10 @@ export async function createServer(config: TJConfig) {
 
   const health = new HealthMonitor({ db, router, approvals, settings, version: config.version });
   const capabilities = new CapabilityRegistry({ db, router, tools, connectors, vault });
+  const capabilityWorkflow = new CapabilityWorkflowService({ capabilities, router, approvals, improvements, ws, health, cognitive, orchestrator, dataDir: config.dataDir });
 
-  registerSystemRoutes(app, { db, bus, health, capabilities, settings, orchestrator, approvals, agents: agentService, workspace: ws, coreDataDir: config.dataDir });
-  registerChatRoutes(app, { ws, router, cognitive, orchestrator, health, settings });
+  registerSystemRoutes(app, { db, bus, health, capabilities, settings, orchestrator, improvements, approvals, agents: agentService, workspace: ws, coreDataDir: config.dataDir });
+  registerChatRoutes(app, { ws, router, cognitive, orchestrator, health, settings, capabilityWorkflow });
   registerAgentRoutes(app, { agents: agentService });
   registerTaskRoutes(app, { tasks: taskService, db });
   registerWorkflowRoutes(app, { engine: workflowEngine, scheduler });
@@ -165,7 +167,7 @@ export async function createServer(config: TJConfig) {
   registerModelRoutes(app, { registry: modelRegistry, router, chatgptPlan });
   registerSecurityRoutes(app, { approvals, permissions });
   registerMemoryRoutes(app, { memory });
-  registerVoiceRoutes(app, { settings, bus, health, orchestrator, tools, runtime: agentRuntime, agents: agentService, approvals, vault, router, dataDir: config.dataDir });
+  registerVoiceRoutes(app, { settings, bus, health, orchestrator, tools, runtime: agentRuntime, agents: agentService, approvals, vault, router, dataDir: config.dataDir, capabilityWorkflow });
   registerVisionRoutes(app, { router, settings });
   registerSkillRoutes(app, { skills });
   registerLearningRoutes(app, { learning });
@@ -178,7 +180,7 @@ export async function createServer(config: TJConfig) {
   registerFinanceRoutes(app, { finance });
   registerPaperTradingRoutes(app, { paper });
   registerWellnessRoutes(app, { wellness });
-  registerSelfImprovementRoutes(app, improvements);
+  registerSelfImprovementRoutes(app, improvements, health);
 
   const webDist = path.resolve(REPO_ROOT, 'apps', 'web', 'dist');
   if (fs.existsSync(webDist)) {
