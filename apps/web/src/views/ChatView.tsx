@@ -10,7 +10,7 @@ interface Message {
 
 interface ImprovementRun {
   id: string;
-  state: 'queued' | 'planning' | 'editing' | 'verifying' | 'awaiting_approval' | 'completed' | 'failed' | 'rolled_back';
+  state: 'queued' | 'planning' | 'editing' | 'verifying' | 'awaiting_approval' | 'awaiting_deployment_approval' | 'deploying' | 'completed' | 'failed' | 'rolled_back';
   stage: string;
   files: string[];
   checks: Array<{ command: string; exit_code: number }>;
@@ -76,10 +76,12 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
         const next = await apiFetch<ImprovementRun>(`/api/v1/self-improvement/runs/${improvement.id}`);
         setImprovement(next);
         if (next.state === 'completed') {
-          setMessages((prev) => [...prev, { id: `improvement-${next.id}`, role: 'assistant', content: `TJ source updated: ${next.files.join(', ')}. ${next.checks.length} checks passed. Review the diff below. Source changes to the API need a server restart before they are live.` }]);
+          setMessages((prev) => [...prev, { id: `improvement-${next.id}`, role: 'assistant', content: `After your deployment approval, TJ applied: ${next.files.join(', ')}. ${next.checks.length} checks passed. API source changes need a server restart before they are live.` }]);
           setLoading(false);
         } else if (next.state === 'failed' || next.state === 'awaiting_approval') {
           setError(next.error ?? (next.state === 'awaiting_approval' ? 'TJ could not verify this change. Review its rollback request.' : 'TJ could not complete this change.'));
+          setLoading(false);
+        } else if (next.state === 'awaiting_deployment_approval') {
           setLoading(false);
         } else if (next.state === 'rolled_back') {
           setMessages((prev) => [...prev, { id: `auto-rollback-${next.id}`, role: 'assistant', content: 'After your approval, TJ restored the previous source files.' }]);
@@ -205,16 +207,17 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
             </div>
           )}
 
-          {improvement?.state === 'completed' && <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 12 }}>
-            <strong>Verified source diff</strong>
+          {(improvement?.state === 'completed' || improvement?.state === 'awaiting_deployment_approval') && <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 12 }}>
+            <strong>{improvement.state === 'completed' ? 'Approved and deployed source diff' : 'Verified candidate · approval required to deploy'}</strong>
             <pre style={{ maxHeight: 340, overflow: 'auto', whiteSpace: 'pre-wrap', fontSize: 11 }}>{improvement.diff || 'No diff available'}</pre>
-            <button type="button" onClick={async () => {
+            {improvement.state === 'awaiting_deployment_approval' && <><p style={{ color: 'var(--text-muted)', margin: '7px 0' }}>{improvement.checks.length} isolated checks passed. TJ has not changed the application source.</p><button type="button" onClick={() => onNavigate?.('approvals')} style={{ padding: '7px 12px', background: 'var(--accent-amber)', color: '#17120a', border: 0, borderRadius: 6 }}>Review deployment approval</button></>}
+            {improvement.state === 'completed' && <button type="button" onClick={async () => {
               try {
                 const run = await apiFetch<ImprovementRun>(`/api/v1/self-improvement/runs/${improvement.id}/rollback`, { method: 'POST' });
                 setImprovement(run);
                 setMessages((prev) => [...prev, { id: `rollback-${run.id}`, role: 'assistant', content: 'TJ restored the original source files.' }]);
               } catch (reason) { setError(reason instanceof Error ? reason.message : 'Rollback failed'); }
-            }} style={{ padding: '7px 12px', background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>Undo this change</button>
+            }} style={{ padding: '7px 12px', background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>Undo this change</button>}
           </div>}
           {improvement?.state === 'awaiting_approval' && <div role="status" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent-amber)', borderRadius: 10, padding: 14 }}><strong>Verification needs your decision</strong><p style={{ color: 'var(--text-muted)', margin: '7px 0' }}>TJ tried a repair. The change still failed a check; it has requested approval before restoring the previous source.</p><button type="button" onClick={() => onNavigate?.('approvals')} style={{ padding: '8px 12px', background: 'var(--accent-amber)', color: '#17120a', border: 0, borderRadius: 6, cursor: 'pointer' }}>Review rollback approval</button></div>}
           {capabilityFlow && <div role="status" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glow)', borderRadius: 10, padding: 14 }}><strong>{capabilityFlow.capability_name}</strong><p style={{ color: 'var(--text-muted)', margin: '7px 0' }}>{capabilityFlow.message}</p><small style={{ color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>{capabilityFlow.status.replaceAll('_', ' ')}</small>{capabilityFlow.status === 'pending_approval' && <button type="button" onClick={() => onNavigate?.('approvals')} style={{ display: 'block', marginTop: 10, padding: '8px 12px', background: 'var(--accent-cyan)', color: '#061018', border: 0, borderRadius: 6, cursor: 'pointer' }}>Review ability approval</button>}</div>}

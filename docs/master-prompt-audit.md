@@ -99,7 +99,7 @@ During this audit, we fixed an empty-POST client bug that made buttons such as c
 | 80 No-placeholder rule | Partial | Planned integrations are explicitly marked; missing feature modules remain. |
 | 81 No-fake-AI rule | Partial | Real providers required for inference; all user-facing paths not audited. |
 | 82 No-fake-success rule | Partial | Major failure paths fixed; full execution audit remains. |
-| 83 Self-improvement rule | Partial | Evidence-backed proposals support explicit review. Isolated source changes, security checks, deployment and rollback remain absent. |
+| 83 Self-improvement rule | Partial | User-prompted source edits use an isolated candidate, retain a diff, run focused/type/security/API E2E/build checks, allow one evidence-based repair, require explicit approval before deployment, protect concurrent user edits, restore interrupted deployments, persist pending approvals across restart, and support guarded rollback. Focused tests pass 16/16 and API/web typecheck/build plus API E2E pass. Automatic analysis of logs/tests/workflows/model choices and a live provider-generated source edit remain unverified. |
 | 84 Definition of done | Unverified | The exact 15-stage project-management-app scenario has not passed. Its software-goal evidence gate now counts only a successful recognized test command; real artifact, sources and test execution remain required, and model claims alone leave the run partial. |
 | 85 Automation acceptance | Unverified | Google Calendar/Gmail read paths and timezone-aware explicit weekday 8 AM schedule exist; live OAuth connection and scheduled delivery have not run. |
 | 86 Permissions acceptance | Partial | Automated high-risk/local-only tests pass; full live agent approval scenario unverified. |
@@ -229,3 +229,5 @@ During this audit, we fixed an empty-POST client bug that made buttons such as c
 - `pnpm run build`: ordered schemas → web → API production build passed; the API bundle copied the current web UI into `dist/public`. Vite reported a large JS chunk warning.
 - Desktop package and full end-to-end acceptance have not been run.
 - The isolated QA data folder `services/api/tests/tmp-wizard-live-20261007` remains untracked. Automatic approval review rejected its recursive deletion twice as “blocked by policy”; the QA API is stopped. No further deletion attempt was made.
+
+2026-10-10 self-improvement acceptance follow-up: isolated candidates now start selected files from the actual working tree, preserving uncommitted user edits to those same files. Pending deployment approvals reattach after service restart. Focused regression suite passes **16/16**; smoke + self-improvement suites pass **6/6**; API/web typechecks, API/web production builds, and API HTTP E2E pass. §83 remains Partial because automatic analysis of logs/tests/workflows/model choices and a live provider-generated source edit have not been accepted end to end.
