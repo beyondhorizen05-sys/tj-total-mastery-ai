@@ -11,7 +11,7 @@ export function registerWorkflowRoutes(
   deps: {
     engine: WorkflowEngine;
     scheduler: AutomationScheduler;
-    router: ModelRouter;
+    router?: ModelRouter;
   }
 ) {
   // GET /api/v1/workflows
@@ -77,6 +77,7 @@ export function registerWorkflowRoutes(
     if (!parsed.success) return reply.status(400).send({ error: 'Provide a valid model_id' });
     if (!deps.engine.getRun(id)) return reply.status(404).send({ error: 'Workflow run not found' });
     // Enforce current privacy, free-only, provider and availability settings.
+    if (!deps.router) return reply.status(503).send({ error: 'Model router not configured for this workflow API' });
     try { deps.router.route({ task_type: 'chat', model_id: parsed.data.model_id }); }
     catch (error) { return reply.status(409).send({ error: error instanceof Error ? error.message : String(error) }); }
     try { return { run: deps.engine.switchModel(id, parsed.data.model_id) }; }
