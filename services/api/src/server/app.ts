@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import path from 'node:path';
 import fs from 'node:fs';
+import { timingSafeEqual } from 'node:crypto';
 
 import type { TJConfig } from '../config.js';
 import { REPO_ROOT } from '../config.js';
@@ -82,6 +83,22 @@ export async function createServer(config: TJConfig) {
     origin: (origin, cb) => cb(null, !origin || /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin) || ['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost'].includes(origin)),
     credentials: true,
   });
+
+  // A packaged desktop instance receives a fresh random API token via its own
+  // local Tauri IPC. Browser origins, other local processes and sites cannot
+  // call the loopback API merely by knowing the port.
+  const desktopToken = process.env.TJ_DESKTOP_TOKEN?.trim();
+  if (desktopToken) {
+    const expected = Buffer.from(desktopToken, 'utf8');
+    app.addHook('onRequest', async (req, reply) => {
+      if (req.method === 'OPTIONS') return; // CORS preflight is handled by @fastify/cors.
+      const supplied = req.headers['x-tj-desktop-token'];
+      if (typeof supplied !== 'string') return reply.status(401).send({ error: 'Desktop API token required' });
+      const actual = Buffer.from(supplied, 'utf8');
+      if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
+        return reply.status(401).send({ error: 'Desktop API token invalid' });
+    });
+  }
 
   const db = new Database(config.dbPath);
   db.migrate();
