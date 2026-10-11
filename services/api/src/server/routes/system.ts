@@ -152,6 +152,8 @@ export function registerSystemRoutes(
       routing_mode: z.enum(['auto', 'manual']).optional(),
       router_priority: z.enum(['balanced', 'cheapest', 'fastest', 'quality', 'local-only', 'private-only']).optional(),
       router_free_only_enabled: z.boolean().optional(),
+      router_cross_provider_fallback_enabled: z.boolean().optional(),
+      router_paid_cross_provider_fallback_enabled: z.boolean().optional(),
       budget_daily_usd: z.number().min(0).nullable().optional(),
       budget_monthly_usd: z.number().min(0).nullable().optional(),
       max_request_cost_usd: z.number().min(0).nullable().optional(),
