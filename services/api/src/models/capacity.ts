@@ -10,6 +10,7 @@ export class ModelCapacityLimiter {
     let lane = this.lanes.get(provider);
     if (!lane) { lane = { active: 0, waiting: [] }; this.lanes.set(provider, lane); }
     const slot = lane;
+    let reserved = false;
     if (slot.active >= limit) {
       await new Promise<void>((resolve, reject) => {
         const onAbort = () => {
@@ -24,15 +25,16 @@ export class ModelCapacityLimiter {
         signal?.addEventListener('abort', onAbort, { once: true });
         if (signal?.aborted) onAbort();
       });
+      reserved = true;
     }
-    slot.active++;
+    if (!reserved) slot.active++;
     let released = false;
     return () => {
       if (released) return;
       released = true;
-      slot.active--;
       const next = slot.waiting.shift();
-      next?.start();
+      if (next) next.start(); // Hand the existing slot directly to the waiter.
+      else slot.active--;
       if (slot.active === 0 && !slot.waiting.length) this.lanes.delete(provider);
     };
   }
