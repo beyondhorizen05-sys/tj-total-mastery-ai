@@ -47,6 +47,7 @@ export class ModelRouter {
     const privacyMode = this.settings.get<string>('privacy_mode', 'balanced');
     const prefer = req.prefer ?? this.settings.get<string>('router_priority', 'balanced');
     const localOnly = req.privacy === 'local-only' || privacyMode === 'local-only' || prefer === 'local-only' || prefer === 'private-only';
+    const freeOnly = this.settings.get<boolean>('router_free_only_enabled', false);
     const providers = new Map(this.registry.listProviders().map((p) => [p.id, p]));
     return this.registry.listModels(undefined, true).filter((m) => {
       const p = providers.get(m.provider_id);
@@ -56,6 +57,7 @@ export class ModelRouter {
       if (req.task_type === 'embedding' ? !/embed/i.test(m.model) : NON_CHAT.test(m.model)) return false;
       if (req.exclude?.includes(m.id)) return false;
       if (localOnly && m.privacy_class !== 'local') return false;
+      if (freeOnly && m.cost_class !== 'free' && m.privacy_class !== 'local') return false;
       if (req.needs_vision && !m.supports_vision) return false;
       if (req.needs_tools && !m.supports_tools && !req.allow_emulated_tools) return false;
       if (req.min_context && m.context_length && m.context_length < req.min_context) return false;
@@ -95,7 +97,16 @@ export class ModelRouter {
     const mode = this.settings.get<string>('routing_mode', 'auto');
     const defaultId = this.settings.get<string | null>('default_model_id', null);
     const explicit = req.model_id ?? (mode === 'manual' ? defaultId : null);
-    let cands = this.candidates(req).sort((a, b) => this.score(b, req, prefer) - this.score(a, req, prefer));
+    const freeOnly = this.settings.get<boolean>('router_free_only_enabled', false);
+    let cands = this.candidates(req).sort((a, b) => {
+      if (freeOnly) {
+        // Free cloud models first, then local models. No paid or unknown-price
+        // cloud model can enter the queue in free-only mode.
+        const tier = (m: Model) => m.privacy_class === 'local' ? 1 : 0;
+        if (tier(a) !== tier(b)) return tier(a) - tier(b);
+      }
+      return this.score(b, req, prefer) - this.score(a, req, prefer);
+    });
     if (explicit) {
       const m = cands.find((candidate) => candidate.id === explicit);
       if (!m) throw new ProviderError(`Selected model ${explicit} is unavailable under the current provider, privacy, and capability settings.`, 'unavailable', undefined, false);
