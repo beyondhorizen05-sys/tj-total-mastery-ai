@@ -3,7 +3,7 @@ on:
   pull_request:
   push:
     branches:
-      - feat/universal-model-compatibility
+      - master
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -45,8 +45,9 @@ jobs:
       - run: pnpm run build:desktop
 
   windows-installer:
-    # One Windows package attempt per pushed revision, not a duplicate PR build.
-    if: github.event_name == 'push'
+    # Package proposed changes on PRs and merged releases on master.
+    # Testing only the staged Node API missed an actual installed desktop boot failure.
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
     needs: [validate, windows-native]
     runs-on: windows-latest
     timeout-minutes: 60
