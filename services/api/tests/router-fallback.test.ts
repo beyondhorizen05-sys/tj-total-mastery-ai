@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Database } from '../src/db/database.js';
 import { EventBus } from '../src/core/event-bus.js';
 import { Logger } from '../src/core/logger.js';
@@ -85,5 +85,40 @@ describe('ModelRouter Failover & Fallback', () => {
     const m = registry.getModel('test/tj-test-echo');
     expect(m?.failure_count).toBeGreaterThan(0);
   });
+  it('runs a non-native-tool model through validated structured adapter', async () => {
+    db.run('UPDATE models SET supports_tools=0 WHERE id=?', ['test/tj-test-echo']);
+    const adapter = registry.adapter('test');
+    const mock = vi.spyOn(adapter, 'chat').mockResolvedValue({
+      text: JSON.stringify({ type: 'tool_call', name: 'fs_read', arguments: { path: 'notes.txt' } }),
+      tool_calls: [], finish_reason: 'stop',
+      usage: { tokens_in: 12, tokens_out: 10 }, latency_ms: 1, raw_model: 'tj-test-echo',
+    });
+    const result = await router.chat(
+      { task_type: 'chat', model_id: 'test/tj-test-echo', needs_tools: true, allow_emulated_tools: true },
+      { messages: [{ role: 'user', content: 'Read notes.txt' }], tools: [{
+        name: 'fs_read', description: 'Read', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+      }] },
+    );
+    expect(result.tool_calls).toMatchObject([{ name: 'fs_read', arguments: { path: 'notes.txt' } }]);
+    expect(mock.mock.calls[0]?.[0].tools).toBeUndefined();
+    expect(mock.mock.calls[0]?.[0].messages[0]?.content).toContain('structured');
+  });
+
+  it('does not execute or accept a malicious tool request from non-native models', async () => {
+    db.run('UPDATE models SET supports_tools=0 WHERE id=?', ['test/tj-test-echo']);
+    const adapter = registry.adapter('test');
+    vi.spyOn(adapter, 'chat').mockResolvedValue({
+      text: '{"type":"tool_call","name":"shell_exec","arguments":{"command":"echo unsafe"}}',
+      tool_calls: [], finish_reason: 'stop',
+      usage: { tokens_in: 12, tokens_out: 10 }, latency_ms: 1, raw_model: 'tj-test-echo',
+    });
+    await expect(router.chat(
+      { task_type: 'chat', model_id: 'test/tj-test-echo', needs_tools: true, allow_emulated_tools: true },
+      { messages: [{ role: 'user', content: 'Read notes.txt' }], tools: [{
+        name: 'fs_read', description: 'Read', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+      }] },
+    )).rejects.toThrow(/Rejected generated tool arguments/);
+  });
+
 });
 
