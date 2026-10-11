@@ -6,6 +6,7 @@ import type { ApprovalService } from '../security/approvals.js';
 import type { EventBus } from '../core/event-bus.js';
 import type { Audit } from '../security/audit.js';
 import type { ToolSpec } from '../models/types.js';
+import { validateToolArguments } from '../models/emulated-tools.js';
 
 /**
  * Tool & Skill Engine (Spec §4 Layer 6, §39). Every execution passes through:
@@ -32,6 +33,8 @@ export class ToolRegistry {
   async execute(toolId: string, args: Record<string, any>, ctx: ToolContext): Promise<ToolResult> {
     const tool = this.tools.get(toolId);
     if (!tool) return fail(`Unknown tool "${toolId}"`);
+    const invalid = validateToolArguments({ name: tool.id, description: tool.description, parameters: tool.input_schema }, args);
+    if (invalid) return fail('Tool arguments rejected: ' + invalid);
     const t = performance.now();
     let resource: string | null = null;
     try { resource = tool.resource?.(args ?? {}, ctx) ?? null; } catch (e: any) { return fail(e.message); }
@@ -59,6 +62,8 @@ export class ToolRegistry {
       if (final.status === 'edited' && final.payload?.args) {
         if (sensitiveText) throw new ToolDenied('Text entry cannot be edited inside an approval. Submit a new request instead.', approval.id);
         const editedArgs = final.payload.args as Record<string, any>;
+        const editedInvalid = validateToolArguments({ name: tool.id, description: tool.description, parameters: tool.input_schema }, editedArgs);
+        if (editedInvalid) throw new ToolDenied('Edited action arguments rejected: ' + editedInvalid, approval.id);
         const editedResource = tool.resource?.(editedArgs, ctx) ?? null;
         if (editedResource !== resource) throw new ToolDenied('Edited action changes the approved resource; submit a new approval', approval.id);
         args = editedArgs;
