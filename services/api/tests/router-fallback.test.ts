@@ -158,5 +158,16 @@ describe('ModelRouter Failover & Fallback', () => {
     expect(calls).toHaveBeenCalledTimes(1);
   });
 
+  it('does not escalate a failed free request into a paid model without consent', async () => {
+    db.run("UPDATE models SET cost_class='free' WHERE id='test/tj-test-echo'");
+    db.run("UPDATE models SET cost_class='high' WHERE id='test/tj-test-planner'");
+    settings.set('router_priority', 'cheapest');
+    TestProviderControl.failKind = 'unavailable';
+    TestProviderControl.failCount = 3;
+    await expect(router.chat({ task_type: 'chat' },
+      { messages: [{ role: 'user', content: 'free please' }] })).rejects.toThrow(/unavailable/);
+    expect(registry.getModel('test/tj-test-planner')?.success_count).toBe(0);
+  });
+
 });
 

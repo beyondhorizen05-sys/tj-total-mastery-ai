@@ -138,9 +138,15 @@ export class ModelRouter {
     // Provider connection alone is not consent to transfer private context to another provider.
     const crossProvider = this.settings.get<boolean>('router_cross_provider_fallback_enabled', false);
     const paidCrossProvider = this.settings.get<boolean>('router_paid_cross_provider_fallback_enabled', false);
-    const authorized = decision.chain.filter((model, index) => index === 0 ||
-      model.provider_id === decision.model.provider_id ||
-      (crossProvider && (paidCrossProvider || model.cost_class === 'free' || model.privacy_class === 'local')));
+    const authorized = decision.chain.filter((model, index) => {
+      if (index === 0) return true;
+      const freeDestination = model.cost_class === 'free' || model.privacy_class === 'local';
+      // A failed free call may not unexpectedly start billing, including at the same provider.
+      if ((decision.model.cost_class === 'free' || decision.model.privacy_class === 'local') &&
+          !freeDestination && !paidCrossProvider) return false;
+      return model.provider_id === decision.model.provider_id ||
+        (crossProvider && (paidCrossProvider || freeDestination));
+    });
     const eligible = constrained ? authorized.filter((model) => this.withinBudget(model, boundedOpts, limits)) : authorized;
     if (decision.reason === 'explicit selection' && eligible[0]?.id !== decision.model.id) throw new ProviderError('Selected model exceeds the configured estimated spending limit or has unknown pricing.', 'bad_request', undefined, false);
     if (!eligible.length) throw new ProviderError('No model fits the configured estimated spending limits. Adjust limits or select a model with known pricing.', 'bad_request', undefined, false);
