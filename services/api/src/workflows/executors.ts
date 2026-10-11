@@ -49,7 +49,7 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
     );
     if (!result.ok) {
       const error = new Error(result.error ?? result.output ?? `Tool ${toolName} failed`);
-      const tool = deps.tools.get(toolName);
+      const tool = deps.tools.get?.(toolName);
       if (tool && (tool.risk === 'high' || tool.risk === 'critical' || !tool.reversible)) Object.assign(error, { noRetry: true });
       throw error;
     }
