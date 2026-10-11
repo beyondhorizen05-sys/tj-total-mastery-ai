@@ -75,7 +75,7 @@ export class AgentRuntime {
 
         messages.push({ role: 'assistant', content: r.text, tool_calls: r.tool_calls });
         this.agents.setStatus(agent.id, 'working', input.task_id);
-        for (const tc of r.tool_calls) {
+        for (const [callIndex, tc] of r.tool_calls.entries()) {
           const validationError = validateToolArguments(toolSpecs.find((tool) => tool.name === tc.name), tc.arguments);
           if (validationError) {
             res.tool_calls.push({ tool: tc.name, ok: false, summary: 'Invalid tool request: ' + validationError });
@@ -88,7 +88,9 @@ export class AgentRuntime {
             if (previous) {
               messages.push({ ...previous, tool_call_id: tc.id, content: 'Duplicate external action suppressed. Previous attempt outcome: ' + previous.content });
             } else {
-              const result = await this.runTool(tc, ctx, res);
+              const result = await this.runTool(tc, {
+                ...ctx, effect_key: input.workflow_run_id && input.task_id ? 'agent:' + input.task_id + ':' + step + ':' + callIndex : undefined,
+              }, res);
               messages.push(result);
               if (sensitiveEffect) completedEffects.set(effectKey, result);
             }

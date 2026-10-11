@@ -7,6 +7,7 @@ import type { EventBus } from '../core/event-bus.js';
 import type { Audit } from '../security/audit.js';
 import type { ToolSpec } from '../models/types.js';
 import { validateToolArguments } from '../models/emulated-tools.js';
+import type { ActionJournal } from '../workflows/action-journal.js';
 
 /**
  * Tool & Skill Engine (Spec §4 Layer 6, §39). Every execution passes through:
@@ -14,7 +15,7 @@ import { validateToolArguments } from '../models/emulated-tools.js';
  */
 export class ToolRegistry {
   private tools = new Map<string, Tool>();
-  constructor(private permissions: PermissionEngine, private approvals: ApprovalService, private bus: EventBus, private audit: Audit) {}
+  constructor(private permissions: PermissionEngine, private approvals: ApprovalService, private bus: EventBus, private audit: Audit, private actionJournal?: ActionJournal) {}
 
   register(tool: Tool) { this.tools.set(tool.id, tool); }
   get(id: string) { return this.tools.get(id); }
@@ -71,13 +72,19 @@ export class ToolRegistry {
     }
 
     try {
-      const r = await tool.execute(args ?? {}, ctx);
+      // The journal's claim is made AFTER approval, immediately before the
+      // action. This avoids treating an unapproved request as a remote attempt.
+      const nonReversible = !tool.reversible || tool.risk === 'high' || tool.risk === 'critical';
+      const r = nonReversible && ctx.effect_key && ctx.workflow_run_id && this.actionJournal
+        ? await this.actionJournal.once(ctx.workflow_run_id, ctx.effect_key, 'tool:' + toolId, args, () => tool.execute(args ?? {}, ctx))
+        : await tool.execute(args ?? {}, ctx);
       r.duration_ms = Math.round(performance.now() - t);
       this.bus.emit({ name: r.ok ? 'tool.completed' : 'tool.failed', severity: r.ok ? 'debug' : 'warning', summary: `${tool.name} ${r.ok ? 'completed' : 'failed'} in ${r.duration_ms}ms`, agent_id: ctx.agent_id, task_id: ctx.task_id, workflow_run_id: ctx.workflow_run_id, project_id: ctx.project_id, data: { tool: toolId, ok: r.ok, error: r.error } });
       this.audit.log({ actor: ctx.agent_id ? `agent:${ctx.agent_id}` : 'user', agent_id: ctx.agent_id, action: `tool.execute:${toolId}`, permission: tool.permission, resource, decision: r.ok ? 'success' : 'failed', details: { duration_ms: r.duration_ms, error: r.error } });
       return r;
     } catch (e: any) {
       const r = fail(e.message ?? String(e));
+      if (e?.noRetry) Object.assign(r, { noRetry: true });
       r.duration_ms = Math.round(performance.now() - t);
       this.bus.emit({ name: 'tool.failed', severity: 'error', summary: `${tool.name} threw: ${e.message}`, agent_id: ctx.agent_id, task_id: ctx.task_id, workflow_run_id: ctx.workflow_run_id, project_id: ctx.project_id, data: { tool: toolId } });
       return r;

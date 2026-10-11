@@ -8,6 +8,8 @@ export interface ToolContext {
   agent_permissions: string[] | null;
   task_id: string | null;
   workflow_run_id: string | null;
+  /** A stable per-run external-action identifier for persisted duplicate suppression. */
+  effect_key?: string;
   signal?: AbortSignal;
   /** emits progress text to task/activity stream */
   progress?: (msg: string) => void;
