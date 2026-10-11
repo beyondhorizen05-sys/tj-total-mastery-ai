@@ -5,10 +5,10 @@ import path from 'node:path';
 import type { Tool } from '../types.js';
 import { fail, ok } from '../types.js';
 import type { SettingsRepo } from '../../db/repo.js';
-import { REPO_ROOT } from '../../config.js';
+import { apiScriptDirectory } from '../../config.js';
 import type { ModelRouter } from '../../models/router.js';
 
-const SCRIPT = path.join(REPO_ROOT, 'services', 'api', 'scripts', 'computer-bridge.ps1');
+const SCRIPT = path.join(apiScriptDirectory(), 'computer-bridge.ps1');
 export const computerAvailable = () => process.platform === 'win32' && fs.existsSync(SCRIPT);
 
 export function writeVerificationGap(before: Record<string, any>, after: Record<string, any>, text: string): string | null {

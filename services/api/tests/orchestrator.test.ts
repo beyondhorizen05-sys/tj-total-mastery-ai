@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Database } from '../src/db/database.js';
 import { EventBus } from '../src/core/event-bus.js';
 import { Logger } from '../src/core/logger.js';
@@ -21,6 +21,8 @@ import { PermissionEngine } from '../src/security/permissions.js';
 import { ApprovalService } from '../src/security/approvals.js';
 import { Audit } from '../src/security/audit.js';
 import { fsTools } from '../src/tools/builtin/fs.js';
+import { shellTools } from '../src/tools/builtin/shell.js';
+import { webTools } from '../src/tools/builtin/web.js';
 import { Sandbox } from '../src/tools/sandbox.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -37,6 +39,7 @@ describe('Orchestrator End-to-End with Test Provider', () => {
   let memory: MemoryService;
   let agents: AgentService;
   let runtime: AgentRuntime;
+  let tools: ToolRegistry;
   let tasks: TaskService;
   let ws: WorkspaceService;
   let cognitive: CognitiveEngine;
@@ -63,7 +66,7 @@ describe('Orchestrator End-to-End with Test Provider', () => {
     const audit = new Audit(db);
     const permissions = new PermissionEngine(db, audit, settings);
     const approvals = new ApprovalService(db, bus, audit, permissions);
-    const tools = new ToolRegistry(permissions, approvals, bus, audit);
+    tools = new ToolRegistry(permissions, approvals, bus, audit);
     const sandbox = new Sandbox(() => [testDir]);
     for (const t of fsTools(sandbox, db, path.join(testDir, 'backups'))) {
       tools.register(t);
@@ -84,6 +87,7 @@ describe('Orchestrator End-to-End with Test Provider', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     try {
       db.close();
       fs.rmSync(testDir, { recursive: true, force: true });
@@ -188,4 +192,78 @@ describe('Orchestrator End-to-End with Test Provider', () => {
     expect(tasks.get(prepared.tasks[0].task.id)?.error).toContain('provider went offline');
     expect(tasks.get(prepared.tasks[1].task.id)?.status).toBe('blocked');
   });
+  it('executes real local research, project creation, tests and evidence through the agent orchestration pipeline', async () => {
+    // Fixture provider is NOT AI. Real tools, permissions, files, shell, task persistence and evidence run.
+    settings.set('autonomy_level', 4); // Isolated, user-owned test workspace only.
+    vault.put({ ref: 'connector:searxng:url', scope: 'connector', label: 'Local search fixture', value: 'http://127.0.0.1:8080' });
+    vi.stubGlobal('fetch', vi.fn(async (url: URL | string) => {
+      if (!String(url).startsWith('http://127.0.0.1:8080/search?')) throw new Error('Unexpected outbound network request');
+      return new Response(JSON.stringify({ results: [
+        { title: 'Node.js built-in test runner', url: 'https://nodejs.org/api/test.html', content: 'Dependency-free tests using node:test' },
+      ] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }));
+    for (const tool of shellTools()) tools.register(tool);
+    for (const tool of webTools(vault, db, (provider, key) => vault.get('connector:' + provider + ':' + key, 'fixture', 'research'))) tools.register(tool);
+
+    const appTest = "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('prototype basic execution', () => assert.equal(2 + 2, 4));\n";
+    const pkg = JSON.stringify({ name: 'tj-acceptance-fixture', version: '1.0.0', private: true, type: 'module', scripts: { test: 'node --test app.test.mjs' } });
+    const task = (id: string, title: string, role: string, description: string, deps: string[]) =>
+      ({ id, title, role, description, depends_on: deps });
+    const plan: Plan = {
+      objective: 'Create and test a tiny Node project using actual tools',
+      success_criteria: ['Research the approach', 'Build an app prototype', 'Tests pass'],
+      assumptions: ['Local fixture SearXNG responds with a linked source'],
+      constraints: ['Only touch isolated test project workspace'], risks: ['Do not assert live provider acceptance'],
+      rollback: 'Delete isolated test directory',
+      tasks: [
+        task('research', 'Research verified source', 'Researcher', 'TOOL:web_search {"query":"Node.js test runner","max_results":1}', []),
+        task('choose', 'Decide architecture', 'Analyst', 'Choose Node.js built-in test runner from the preceding source', ['research']),
+        task('code', 'Build prototype code', 'Developer', 'TOOL:fs_write ' + JSON.stringify({ path: 'app.test.mjs', content: appTest }), ['choose']),
+        task('package', 'Build test manifest', 'Developer', 'TOOL:fs_write ' + JSON.stringify({ path: 'package.json', content: pkg }), ['code']),
+        task('test', 'Test prototype app', 'QA Engineer', 'TOOL:shell_exec {"command":"npm test"}', ['package']),
+      ],
+    };
+    const goal = 'Research a Node.js approach, build and test a working prototype app with real project files';
+    const prepared = orchestrator.prepare(goal, plan, { project_name: 'Acceptance Fixture Prototype' });
+    const done = await orchestrator.execute(prepared, goal, plan, { max_repairs: 0, concurrency: 3 });
+    expect(done.status, done.summary).toBe('completed');
+    expect(done.task_results).toHaveLength(5);
+    expect(done.task_results.every((row) => row.status === 'completed')).toBe(true);
+    expect(done.evidence.gaps).toEqual([]);
+    expect(done.evidence.changed_files).toEqual(expect.arrayContaining(['app.test.mjs', 'package.json']));
+    expect(done.evidence.source_calls).toBe(1);
+    expect(done.evidence.test_calls).toBe(1);
+    expect(fs.readFileSync(path.join(prepared.project.root_path, 'app.test.mjs'), 'utf8')).toBe(appTest);
+    expect(fs.existsSync(path.join(prepared.project.root_path, 'package.json'))).toBe(true);
+    expect(db.get<{ source_url: string }>('SELECT source_url FROM research_notes ORDER BY created_at DESC LIMIT 1')?.source_url)
+      .toBe('https://nodejs.org/api/test.html');
+    expect(db.get<{ count: number }>('SELECT COUNT(*) count FROM artifacts WHERE project_id=?', [prepared.project.id])?.count)
+      .toBeGreaterThanOrEqual(2);
+    expect(orchestrator.getPlan(done.plan_id)?.status).toBe('completed');
+    expect(ws.getProject(prepared.project.id)?.status).toBe('completed');
+  });
+
+  it('rejects an unknown project rather than creating orphan plan records', () => {
+    const plan = cognitive.fallbackPlan('Build a prototype');
+    expect(() => orchestrator.prepare('Build a prototype', plan, { project_id: 'missing-project' }))
+      .toThrow(/does not exist/);
+    expect(orchestrator.listPlans()).toHaveLength(0);
+  });
+
+  it('marks plans failed and frees active controllers after an infrastructure exception', async () => {
+    const plan: Plan = {
+      objective: 'Verify failure cleanup', success_criteria: ['done'], assumptions: [], constraints: [],
+      risks: [], rollback: 'none',
+      tasks: [{ id:'a', title:'Decide architecture', role:'Analyst', description:'Choose approach', depends_on:[] }],
+    };
+    const prepared = orchestrator.prepare('Build a prototype and test failure cleanup', plan);
+    const spy = vi.spyOn(cognitive, 'critique').mockRejectedValueOnce(new Error('verification unavailable'));
+    try {
+      await expect(orchestrator.execute(prepared, plan.objective, plan, { max_repairs: 0 }))
+        .rejects.toThrow(/verification unavailable/);
+      expect(orchestrator.getPlan(prepared.plan_id)?.status).toBe('failed');
+      expect(orchestrator.activeRuns()).toBe(0);
+    } finally { spy.mockRestore(); }
+  });
+
 });

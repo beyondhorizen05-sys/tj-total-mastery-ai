@@ -29,7 +29,7 @@ export class AnthropicAdapter implements ProviderAdapter {
     const res = await fetchWithTimeout(`${this.base()}/v1/models?limit=100`, { headers: this.headers(), timeoutMs: 20000 });
     if (!res.ok) throw classifyHttpError(res.status, await res.text());
     const json: any = await res.json();
-    return (json.data ?? []).map((m: any) => ({ id: m.id, display_name: m.display_name ?? m.id, context_length: 200000, supports_tools: true, supports_vision: true }));
+    return (json.data ?? []).map((m: any) => ({ id: m.id, display_name: m.display_name ?? m.id, context_length: typeof m.context_window === 'number' ? m.context_window : null, supports_tools: undefined, supports_vision: undefined }));
   }
 
   async chat(opts: ChatOptions): Promise<ChatResult> {

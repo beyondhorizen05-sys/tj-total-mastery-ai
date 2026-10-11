@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { apiFetch } from './api';
+import { apiFetch, apiEventSource } from './api';
 import { TopBar } from './components/TopBar';
 import { IntelligenceFeed } from './components/IntelligenceFeed';
 import { InteractionPanel } from './components/InteractionPanel';
@@ -83,7 +83,7 @@ export const App: React.FC = () => {
     let notificationsEnabled = true;
     const loadPreference = () => { void apiFetch<{ settings: Record<string, unknown> }>('/api/v1/settings').then((result) => { notificationsEnabled = result.settings.notifications_enabled !== false; }).catch(() => {}); };
     loadPreference();
-    const stream = new EventSource('/api/v1/system/events');
+    const stream = apiEventSource('/api/v1/system/events');
     stream.addEventListener('system.settings_changed', loadPreference);
     const alert = (event: Event) => {
       if (!notificationsEnabled) return;
@@ -126,7 +126,7 @@ export const App: React.FC = () => {
     refreshLocale();
     window.addEventListener('tj:locale-changed', refreshLocale);
     const timer = setInterval(loadStatus, 4000);
-    const stream = new EventSource('/api/v1/system/events');
+    const stream = apiEventSource('/api/v1/system/events');
     for (const name of ['agent.updated', 'agent.started', 'agent.completed', 'agent.failed', 'task.started', 'task.completed', 'task.failed', 'approval.requested', 'approval.granted', 'approval.denied', 'system.health_changed']) stream.addEventListener(name, loadStatus);
     stream.addEventListener('system.persona_changed', loadPersona);
     return () => { clearInterval(timer); stream.close(); window.removeEventListener('tj:locale-changed', refreshLocale); };

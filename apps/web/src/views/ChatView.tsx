@@ -33,7 +33,15 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [mode, setMode] = useState<'auto' | 'chat' | 'build' | 'improve'>('auto');
+  const [mode, setMode] = useState<'auto' | 'chat' | 'build' | 'improve'>(() => {
+    try {
+      const saved = localStorage.getItem('tj-chat-mode');
+      return saved === 'chat' || saved === 'build' || saved === 'improve' ? saved : 'auto';
+    } catch { return 'auto'; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('tj-chat-mode', mode); } catch { /* local storage unavailable */ }
+  }, [mode]);
   const [improvement, setImprovement] = useState<ImprovementRun | null>(null);
   const [capabilityFlow, setCapabilityFlow] = useState<CapabilityWorkflow | null>(null);
   const reportedFlows = useRef<Set<string>>(new Set());

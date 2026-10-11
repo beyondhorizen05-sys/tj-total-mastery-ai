@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { ChatOptions, ChatResult, DiscoveredModel, EmbedResult, ProviderAdapter, ProviderCredentials, ToolCall } from '../types.js';
 import { ProviderError, classifyHttpError, fetchWithTimeout, sseLines } from '../types.js';
 import { toOpenAIMessage, safeJson, mapFinish, estimateTokens } from './openai-format.js';
+import { openRouterModelMetadata } from '../provider-metadata.js';
 
 /**
  * Adapter for OpenAI and every OpenAI-compatible endpoint
@@ -45,6 +46,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       context_length: m.context_length ?? m.context_window ?? m?.top_provider?.context_length ?? null,
       supports_tools: m.supported_parameters ? m.supported_parameters.includes('tools') : undefined,
       supports_vision: m.architecture?.input_modalities ? m.architecture.input_modalities.includes('image') : undefined,
+      ...(this.presetId === 'openrouter' ? openRouterModelMetadata(m) : {}),
     }));
   }
 

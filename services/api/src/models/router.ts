@@ -4,6 +4,10 @@ import type { SettingsRepo } from '../db/repo.js';
 import type { EventBus } from '../core/event-bus.js';
 import type { ChatOptions, ChatResult } from './types.js';
 import { ProviderError } from './types.js';
+import { emulatedToolMessages, parseEmulatedToolReply } from './emulated-tools.js';
+import { fitModelContext } from './context-budget.js';
+import { ModelCapacityLimiter } from './capacity.js';
+import { availableParallelism } from 'node:os';
 
 export type TaskType = 'chat' | 'planning' | 'coding' | 'research' | 'analysis' | 'vision' | 'verification' | 'classification' | 'summarization' | 'embedding';
 
@@ -11,6 +15,8 @@ export interface RouteRequest {
   task_type: TaskType;
   complexity?: 'low' | 'medium' | 'high';
   needs_tools?: boolean;
+  /** Permit bounded JSON protocol for models with no native tools (agent runtime only). */
+  allow_emulated_tools?: boolean;
   needs_vision?: boolean;
   needs_json?: boolean;
   min_context?: number;
@@ -38,24 +44,29 @@ const NON_CHAT = /embed|whisper|tts|dall-e|moderation|rerank|audio|realtime|imag
  * then returns an ordered fallback chain used by chat() (Spec §87 provider failover).
  */
 export class ModelRouter {
+  private readonly capacity = new ModelCapacityLimiter();
+  private readonly breakers = new Map<string, { failures: number; until: number }>();
   constructor(private registry: ModelRegistry, private settings: SettingsRepo, private bus: EventBus) {}
 
   candidates(req: RouteRequest): Model[] {
     const privacyMode = this.settings.get<string>('privacy_mode', 'balanced');
     const prefer = req.prefer ?? this.settings.get<string>('router_priority', 'balanced');
     const localOnly = req.privacy === 'local-only' || privacyMode === 'local-only' || prefer === 'local-only' || prefer === 'private-only';
+    const freeOnly = this.settings.get<boolean>('router_free_only_enabled', false);
     const providers = new Map(this.registry.listProviders().map((p) => [p.id, p]));
     return this.registry.listModels(undefined, true).filter((m) => {
       const p = providers.get(m.provider_id);
       if (!p || !p.enabled) return false;
+      if ((this.breakers.get(m.id)?.until ?? 0) > Date.now()) return false;
       if (p.health === 'unauthorized' || p.health === 'misconfigured') return false;
       if (p.requires_api_key && !p.credential_ref) return false;
       if (req.task_type === 'embedding' ? !/embed/i.test(m.model) : NON_CHAT.test(m.model)) return false;
       if (req.exclude?.includes(m.id)) return false;
       if (localOnly && m.privacy_class !== 'local') return false;
+      if (freeOnly && m.cost_class !== 'free' && m.privacy_class !== 'local') return false;
       if (req.needs_vision && !m.supports_vision) return false;
-      if (req.needs_tools && !m.supports_tools) return false;
-      if (req.min_context && m.context_length && m.context_length < req.min_context) return false;
+      if (req.needs_tools && !m.supports_tools && !req.allow_emulated_tools) return false;
+      if (req.min_context && (!m.context_length || m.context_length < req.min_context)) return false;
       if (req.max_cost_class && COST_SCORE[m.cost_class] > COST_SCORE[req.max_cost_class]) return false;
       return true;
     });
@@ -92,7 +103,16 @@ export class ModelRouter {
     const mode = this.settings.get<string>('routing_mode', 'auto');
     const defaultId = this.settings.get<string | null>('default_model_id', null);
     const explicit = req.model_id ?? (mode === 'manual' ? defaultId : null);
-    let cands = this.candidates(req).sort((a, b) => this.score(b, req, prefer) - this.score(a, req, prefer));
+    const freeOnly = this.settings.get<boolean>('router_free_only_enabled', false);
+    let cands = this.candidates(req).sort((a, b) => {
+      if (freeOnly) {
+        // Free cloud models first, then local models. No paid or unknown-price
+        // cloud model can enter the queue in free-only mode.
+        const tier = (m: Model) => m.privacy_class === 'local' ? 1 : 0;
+        if (tier(a) !== tier(b)) return tier(a) - tier(b);
+      }
+      return this.score(b, req, prefer) - this.score(a, req, prefer);
+    });
     if (explicit) {
       const m = cands.find((candidate) => candidate.id === explicit);
       if (!m) throw new ProviderError(`Selected model ${explicit} is unavailable under the current provider, privacy, and capability settings.`, 'unavailable', undefined, false);
@@ -115,7 +135,19 @@ export class ModelRouter {
     };
     const constrained = Object.values(limits).some((value) => value !== null);
     const boundedOpts = constrained && opts.max_tokens == null ? { ...opts, max_tokens: 2048 } : opts;
-    const eligible = constrained ? decision.chain.filter((model) => this.withinBudget(model, boundedOpts, limits)) : decision.chain;
+    // Provider connection alone is not consent to transfer private context to another provider.
+    const crossProvider = this.settings.get<boolean>('router_cross_provider_fallback_enabled', false);
+    const paidCrossProvider = this.settings.get<boolean>('router_paid_cross_provider_fallback_enabled', false);
+    const authorized = decision.chain.filter((model, index) => {
+      if (index === 0) return true;
+      const freeDestination = model.cost_class === 'free' || model.privacy_class === 'local';
+      // A failed free call may not unexpectedly start billing, including at the same provider.
+      if ((decision.model.cost_class === 'free' || decision.model.privacy_class === 'local') &&
+          !freeDestination && !paidCrossProvider) return false;
+      return model.provider_id === decision.model.provider_id ||
+        (crossProvider && (paidCrossProvider || freeDestination));
+    });
+    const eligible = constrained ? authorized.filter((model) => this.withinBudget(model, boundedOpts, limits)) : authorized;
     if (decision.reason === 'explicit selection' && eligible[0]?.id !== decision.model.id) throw new ProviderError('Selected model exceeds the configured estimated spending limit or has unknown pricing.', 'bad_request', undefined, false);
     if (!eligible.length) throw new ProviderError('No model fits the configured estimated spending limits. Adjust limits or select a model with known pricing.', 'bad_request', undefined, false);
     let lastErr: any = null;
@@ -129,19 +161,40 @@ export class ModelRouter {
         model_id: m.id, agent_id: ctx.agent_id, project_id: ctx.project_id, data: { reason: decision.reason, attempt: i + 1 },
       });
       const t = performance.now();
+      let streamed = false;
       try {
-        const r = await this.withRetry(() => adapter.chat({ ...boundedOpts, model: m.model }), 2);
+        const fitted = fitModelContext(m, boundedOpts);
+        const delivered = fitted.onDelta ? { ...fitted, onDelta: (delta: string) => {
+          streamed = true; fitted.onDelta?.(delta);
+        } } : fitted;
+        const emulate = req.needs_tools && req.allow_emulated_tools && !m.supports_tools && !!delivered.tools?.length;
+        const adapted = emulate ? fitModelContext(m, { ...delivered, messages: emulatedToolMessages(delivered.messages, delivered.tools!), tools: undefined, json: false, onDelta: undefined }) : delivered;
+        const parallelism = Math.max(1, availableParallelism());
+        const capacity = m.privacy_class === 'local' ? Math.max(1, Math.min(2, Math.floor(parallelism / 4))) : 4;
+        const release = await this.capacity.acquire(m.provider_id, capacity, opts.signal);
+        let raw: ChatResult;
+        try { raw = await this.withRetry(() => adapter.chat({ ...adapted, model: m.model }), 2, opts.signal, () => streamed); }
+        finally { release(); }
+        const r = emulate ? { ...raw, ...parseEmulatedToolReply(raw.text, delivered.tools!) } : raw;
+        this.breakers.delete(m.id);
         const cost = this.registry.recordUsage({ model_id: m.id, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: r.usage.tokens_in, tokens_out: r.usage.tokens_out, latency_ms: r.latency_ms, success: true });
         return { ...r, model_id: m.id, provider_id: m.provider_id, fallback_from, cost_usd: cost };
       } catch (e: any) {
+        if (opts.signal?.aborted) throw e;
         lastErr = e;
         this.registry.recordUsage({ model_id: m.id, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: 0, tokens_out: 0, latency_ms: performance.now() - t, success: false });
         const kind = e instanceof ProviderError ? e.kind : 'unknown';
+        if (kind === 'rate_limit' || kind === 'unavailable' || kind === 'timeout') {
+          const previous = this.breakers.get(m.id);
+          const failures = (previous?.failures ?? 0) + 1;
+          this.breakers.set(m.id, { failures, until: failures >= 2 ?
+            Date.now() + (kind === 'rate_limit' ? 60_000 : 20_000) : 0 });
+        }
         this.bus.emit({ name: 'provider.error', severity: 'error', summary: `Provider ${m.provider_id} failed (${kind}): ${e.message}`, model_id: m.id, agent_id: ctx.agent_id, project_id: ctx.project_id, data: { kind } });
         if (kind === 'auth') this.registry.setHealth(m.provider_id, 'unauthorized', e.message, null);
         else if (kind === 'rate_limit') this.registry.setHealth(m.provider_id, 'rate-limited', e.message, null);
         else if (kind === 'unavailable' || kind === 'timeout') this.registry.setHealth(m.provider_id, 'offline', e.message, null);
-        if (opts.signal?.aborted) throw e;
+        if (streamed) throw e; // Never replay a response after streaming visible text.
         // A subscription-backed request must never silently fall back to a billable API.
         if (this.registry.getProvider(m.provider_id)?.kind === 'chatgpt-plan') throw e;
         fallback_from = fallback_from ?? m.id;
@@ -168,15 +221,23 @@ export class ModelRouter {
     return true;
   }
 
-  private async withRetry<T>(fn: () => Promise<T>, retries: number): Promise<T> {
+  private async withRetry<T>(fn: () => Promise<T>, retries: number, signal?: AbortSignal, streamed?: () => boolean): Promise<T> {
     let delay = 500;
     for (let attempt = 0; ; attempt++) {
-      try {
-        return await fn();
-      } catch (e: any) {
+      if (signal?.aborted) throw new ProviderError('Model operation cancelled', 'bad_request', undefined, false);
+      try { return await fn(); }
+      catch (e: any) {
         const retryable = e instanceof ProviderError ? e.retryable : false;
-        if (!retryable || attempt >= retries) throw e;
-        await new Promise((r) => setTimeout(r, delay + Math.random() * 200));
+        if (!retryable || attempt >= retries || signal?.aborted || streamed?.()) throw e;
+        await new Promise<void>((resolve, reject) => {
+          const abort = () => {
+            clearTimeout(timer);
+            reject(new ProviderError('Model operation cancelled', 'bad_request', undefined, false));
+          };
+          const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, delay + Math.random() * 200);
+          signal?.addEventListener('abort', abort, { once: true });
+          if (signal?.aborted) abort();
+        });
         delay = Math.min(delay * 2, 8000);
       }
     }

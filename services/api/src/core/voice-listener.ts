@@ -1,12 +1,12 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT } from '../config.js';
+import { apiScriptDirectory } from '../config.js';
 import type { EventBus } from './event-bus.js';
 
-const SCRIPT = path.join(REPO_ROOT, 'services', 'api', 'scripts', 'voice-listener.ps1');
-const SPEAK_SCRIPT = path.join(REPO_ROOT, 'services', 'api', 'scripts', 'voice-speak.ps1');
-const VOICES_SCRIPT = path.join(REPO_ROOT, 'services', 'api', 'scripts', 'voice-voices.ps1');
+const SCRIPT = path.join(apiScriptDirectory(), 'voice-listener.ps1');
+const SPEAK_SCRIPT = path.join(apiScriptDirectory(), 'voice-speak.ps1');
+const VOICES_SCRIPT = path.join(apiScriptDirectory(), 'voice-voices.ps1');
 
 export type WindowsVoice = { name: string; gender: string; culture: string };
 

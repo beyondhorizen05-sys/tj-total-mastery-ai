@@ -9,6 +9,7 @@ import type { ToolContext } from '../tools/types.js';
 import type { AgentRunInput, AgentRunResult } from './runtime-types.js';
 import type { SettingsRepo } from '../db/repo.js';
 import { getPersona, personaStyleInstruction } from '../core/persona.js';
+import { validateToolArguments } from '../models/emulated-tools.js';
 
 export type { AgentRunInput, AgentRunResult } from './runtime-types.js';
 
@@ -26,6 +27,7 @@ export class AgentRuntime {
     const { agent } = input;
     const maxSteps = input.max_steps ?? DEFAULT_MAX_STEPS;
     const toolSpecs = this.tools.specs(agent.tools);
+    const completedEffects = new Map<string, ChatMessage>();
     const messages: ChatMessage[] = [
       { role: 'system', content: this.systemPrompt(agent, input) },
       { role: 'user', content: input.context ? `Context from upstream work:\n${input.context}\n\nYour task:\n${input.instruction}` : input.instruction },
@@ -49,7 +51,7 @@ export class AgentRuntime {
         res.steps = step + 1;
         this.agents.setStatus(agent.id, 'thinking', input.task_id);
         const r = await this.router.chat(
-          { task_type: input.task_type ?? 'chat', complexity: 'medium', needs_tools: toolSpecs.length > 0, model_id: agent.model_id },
+          { task_type: input.task_type ?? 'chat', complexity: 'medium', needs_tools: toolSpecs.length > 0, allow_emulated_tools: true, model_id: input.model_id ?? agent.model_id },
           { messages, tools: toolSpecs.length ? toolSpecs : undefined, temperature: 0.2, signal: input.signal },
           { project_id: input.project_id, agent_id: agent.id },
         );
@@ -57,6 +59,11 @@ export class AgentRuntime {
         if (r.fallback_from) res.fallback_from = r.fallback_from;
 
         if (!r.tool_calls.length) {
+          if (r.finish_reason === 'length' || r.finish_reason === 'error' || r.finish_reason === 'unknown' || !r.text?.trim()) {
+            res.error = 'Model did not return a complete verified response';
+            res.output = 'I could not verify completion. ' + res.error;
+            break;
+          }
           const failed = res.tool_calls.filter((call) => !call.ok);
           res.ok = failed.length === 0;
           if (failed.length) {
@@ -68,7 +75,27 @@ export class AgentRuntime {
 
         messages.push({ role: 'assistant', content: r.text, tool_calls: r.tool_calls });
         this.agents.setStatus(agent.id, 'working', input.task_id);
-        for (const tc of r.tool_calls) messages.push(await this.runTool(tc, ctx, res));
+        for (const [callIndex, tc] of r.tool_calls.entries()) {
+          const validationError = validateToolArguments(toolSpecs.find((tool) => tool.name === tc.name), tc.arguments);
+          if (validationError) {
+            res.tool_calls.push({ tool: tc.name, ok: false, summary: 'Invalid tool request: ' + validationError });
+            messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.name, content: 'REJECTED: ' + validationError + '. No action executed.' });
+          } else {
+            const tool = this.tools.get?.(tc.name);
+            const sensitiveEffect = tool && (tool.risk === 'high' || tool.risk === 'critical' || !tool.reversible);
+            const effectKey = JSON.stringify([tc.name, tc.arguments]);
+            const previous = sensitiveEffect ? completedEffects.get(effectKey) : undefined;
+            if (previous) {
+              messages.push({ ...previous, tool_call_id: tc.id, content: 'Duplicate external action suppressed. Previous attempt outcome: ' + previous.content });
+            } else {
+              const result = await this.runTool(tc, {
+                ...ctx, effect_key: input.workflow_run_id && input.task_id ? 'agent:' + input.task_id + ':' + step + ':' + callIndex : undefined,
+              }, res);
+              messages.push(result);
+              if (sensitiveEffect) completedEffects.set(effectKey, result);
+            }
+          }
+        }
         if (step === maxSteps - 1) res.error = `Reached max steps (${maxSteps}) without a final answer`;
       }
       if (!res.ok && !res.error) res.error = 'No final answer produced';

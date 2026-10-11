@@ -62,6 +62,10 @@ export interface DiscoveredModel {
   supports_tools?: boolean;
   supports_vision?: boolean;
   modalities?: Array<'text' | 'image' | 'audio' | 'video'>;
+  supports_streaming?: boolean;
+  /** Actual discovered provider prices in USD per million tokens. Null means unknown. */
+  price_in_per_m?: number | null;
+  price_out_per_m?: number | null;
 }
 
 export interface EmbedResult {

@@ -229,6 +229,18 @@ export class WorkflowEngine {
     l.paused = true;
     this.setRunStatus(l.run, 'paused', 'workflow.paused', 'Workflow paused', 'warning');
   }
+  /** Change only future workflow model/agent steps; completed and currently executing
+   * steps are never replayed. The override is independent of provider state. */
+  switchModel(runId: string, modelId: string) {
+    const live = this.live.get(runId);
+    if (!live) throw new Error('Workflow must be active to switch its model');
+    if (!modelId.trim()) throw new Error('A model id is required');
+    const run = live.run;
+    run.checkpoint = { ...run.checkpoint, model_override_id: modelId, model_switched_at: now() };
+    this.persist(run);
+    this.bus.emit({ name: 'workflow.step', summary: 'Future workflow model steps switched', workflow_run_id: run.id, project_id: run.project_id, data: { model_id: modelId, future_steps_only: true } });
+    return this.getRun(runId)!;
+  }
   resume(runId: string) {
     const l = this.live.get(runId);
     if (!l) throw new Error('Run is not active');

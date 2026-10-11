@@ -19,7 +19,16 @@ interface Props {
 
 export const CommandCenter: React.FC<Props> = ({ status, persona, onChooseForm, voiceSpeaking, voicePulse, onNavigate, onSelectAgent, onSendChat, loading }) => {
   const [input, setInput] = useState('');
-  const [mode, setMode] = useState<'auto' | 'chat' | 'build'>('auto');
+  const [mode, setMode] = useState<'auto' | 'chat' | 'build'>(() => {
+    try {
+      const saved = localStorage.getItem('tj-chat-mode');
+      return saved === 'chat' || saved === 'build' ? saved : 'auto';
+    } catch { return 'auto'; }
+  });
+  const changeMode = (nextMode: 'auto' | 'chat' | 'build') => {
+    setMode(nextMode);
+    try { localStorage.setItem('tj-chat-mode', nextMode); } catch { /* storage unavailable */ }
+  };
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!input.trim() || loading) return;
@@ -73,7 +82,7 @@ export const CommandCenter: React.FC<Props> = ({ status, persona, onChooseForm, 
         <div className="tj-future-directive-head">
           <div><span className="tj-future-kicker"><Sparkles size={14} aria-hidden="true" /> DIRECTIVE INPUT</span><h2>What shall we do next?</h2></div>
           <div className="tj-future-modes" role="group" aria-label="Directive mode">
-            {(['auto', 'chat', 'build'] as const).map((nextMode) => <button key={nextMode} type="button" onClick={() => setMode(nextMode)} aria-pressed={mode === nextMode} className={mode === nextMode ? 'is-selected' : ''}>{nextMode}</button>)}
+            {(['auto', 'chat', 'build'] as const).map((nextMode) => <button key={nextMode} type="button" onClick={() => changeMode(nextMode)} aria-pressed={mode === nextMode} className={mode === nextMode ? 'is-selected' : ''}>{nextMode}</button>)}
           </div>
         </div>
         <form onSubmit={handleSubmit} className="tj-future-directive-form">

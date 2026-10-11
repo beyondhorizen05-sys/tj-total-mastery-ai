@@ -95,4 +95,47 @@ describe('WorkflowEngine', () => {
     expect(done.status).toBe('failed');
     expect(done.step_state.a.error).toContain('timed out');
   });
+  it('persists model switching for future steps without repeating completed work', async () => {
+    let release!: () => void;
+    let reached!: () => void;
+    const firstStarted = new Promise<void>((resolve) => { reached = resolve; });
+    const seen: Array<{ step: string; model: unknown }> = [];
+    engine.registerExecutor('model', async (s, _config, ctx) => {
+      if (s.id === 'first') {
+        reached();
+        await new Promise<void>((resolve) => { release = resolve; });
+      }
+      seen.push({ step: s.id, model: ctx.run.checkpoint.model_override_id ?? null });
+      return s.id;
+    });
+    const wf = engine.save({ name: 'change-model', steps: [step('first', [], { kind: 'model' }), step('second', ['first'], { kind: 'model' })] });
+    const run = engine.start(wf.id);
+    await firstStarted;
+    expect(engine.switchModel(run.id, 'local/second').checkpoint.model_override_id).toBe('local/second');
+    release();
+    const done = await engine.wait(run.id);
+    expect(done.status).toBe('completed');
+    expect(done.step_state.first.attempts).toBe(1);
+    expect(done.step_state.second.attempts).toBe(1);
+    expect(seen).toHaveLength(2);
+    expect(seen[1]?.model).toBe('local/second');
+    expect(engine.getRun(run.id)?.checkpoint.model_override_id).toBe('local/second');
+    expect(() => engine.switchModel(run.id, 'local/third')).toThrow(/active/);
+  });
+
+  it('never retries a workflow executor with unknown external outcome', async () => {
+    let count = 0;
+    engine.registerExecutor('tool', async () => {
+      count++;
+      throw Object.assign(new Error('external result unknown'), { noRetry: true });
+    });
+    const wf = engine.save({ name: 'non-idempotent', steps: [
+      step('send', [], { retry: { max_attempts: 3, backoff_ms: 5, max_backoff_ms: 10 } }),
+    ] });
+    const finished = await engine.wait(engine.start(wf.id).id);
+    expect(finished.status).toBe('failed');
+    expect(count).toBe(1);
+    expect(finished.step_state.send.attempts).toBe(1);
+  });
+
 });

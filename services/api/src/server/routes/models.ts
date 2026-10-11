@@ -35,7 +35,18 @@ export function registerModelRoutes(
       api_key: body.api_key ?? null,
       organization: body.organization ?? null,
     });
-    return p;
+    // Probe only after an explicit user connection. Never declare inference
+    // verified merely because the catalogue endpoint responds.
+    if (p.requires_api_key && !p.credential_ref) {
+      return { ...p, discovery: { status: 'needs_api_key', model_count: 0 } };
+    }
+    try {
+      const models = await deps.registry.fetchModels(p.id);
+      return { ...p, discovery: { status: 'discovered', model_count: models.length } };
+    } catch (error) {
+      return { ...p, discovery: { status: 'unverified', model_count: 0,
+        detail: error instanceof Error ? error.message : String(error) } };
+    }
   });
 
   app.get('/api/v1/models/chatgpt-plan/status', async () => deps.chatgptPlan.status());
@@ -55,7 +66,17 @@ export function registerModelRoutes(
   app.patch('/api/v1/models/providers/:id', async (req) => {
     const p = req.params as { id: string };
     const body = z.object({ name: z.string().min(1).optional(), base_url: z.string().url().nullable().optional(), api_key: z.string().min(1).optional(), organization: z.string().nullable().optional(), enabled: z.boolean().optional() }).strict().parse(req.body);
-    return deps.registry.updateProvider(p.id, body);
+    const updated = deps.registry.updateProvider(p.id, body);
+    if (body.api_key || body.base_url !== undefined) {
+      try {
+        const models = await deps.registry.fetchModels(updated.id);
+        return { ...updated, discovery: { status: 'discovered', model_count: models.length } };
+      } catch (error) {
+        return { ...updated, discovery: { status: 'unverified', model_count: 0,
+          detail: error instanceof Error ? error.message : String(error) } };
+      }
+    }
+    return updated;
   });
 
   // POST /api/v1/models/providers/:id/test
@@ -85,6 +106,22 @@ export function registerModelRoutes(
     const activeOnly = q.active_only === 'true';
     return { models: deps.registry.listModels(q.provider_id, activeOnly) };
   });
+
+  // Catalogue metadata is never a certification of complete model or workflow capability.
+  app.get('/api/v1/models/compatibility', async () => ({
+    universal_compatibility_verified: false,
+    evidence_type: 'catalogue_metadata_and_local_execution_history',
+    models: deps.registry.listModels().map((model) => ({
+      model_id: model.id, provider_id: model.provider_id,
+      available: model.available, health: model.health,
+      execution_strategy: model.supports_tools ? 'native_tool_calling' : 'validated_json_protocol_if_supported',
+      advertised_vision: model.supports_vision, advertised_streaming: model.supports_streaming,
+      context_length: model.context_length, cost_class: model.cost_class,
+      price_in_per_m: model.price_in_per_m, price_out_per_m: model.price_out_per_m,
+      inference_status: model.success_count > 0 ? 'local_run_observed' : 'unverified',
+      full_workflow_compatibility: 'UNVERIFIED',
+    })),
+  }));
 
   // GET /api/v1/models/candidates
   app.get('/api/v1/models/candidates', async (req) => {

@@ -27,7 +27,7 @@ export class GoogleAdapter implements ProviderAdapter {
     const json: any = await res.json();
     return (json.models ?? [])
       .filter((m: any) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
-      .map((m: any) => ({ id: String(m.name).replace(/^models\//, ''), display_name: m.displayName ?? m.name, context_length: m.inputTokenLimit ?? null, supports_tools: true, supports_vision: true }));
+      .map((m: any) => ({ id: String(m.name).replace(/^models\//, ''), display_name: m.displayName ?? m.name, context_length: m.inputTokenLimit ?? null, supports_tools: undefined, supports_vision: undefined }));
   }
 
   async chat(opts: ChatOptions): Promise<ChatResult> {

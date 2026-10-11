@@ -7,6 +7,7 @@ import type { AgentService } from '../agents/service.js';
 import type { ConnectorService } from '../connectors/service.js';
 import type { ApprovalService } from '../security/approvals.js';
 import type { PermissionEngine } from '../security/permissions.js';
+import type { ActionJournal } from './action-journal.js';
 
 export interface StepExecutorDeps {
   tools: ToolRegistry;
@@ -16,6 +17,7 @@ export interface StepExecutorDeps {
   connectors: ConnectorService;
   approvals: ApprovalService;
   permissions: PermissionEngine;
+  actionJournal?: ActionJournal;
 }
 
 /**
@@ -33,39 +35,47 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
   engine.registerExecutor('tool', async (step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
     const toolName = String(config.tool ?? step.name);
     const input = (config.input as Record<string, unknown>) ?? {};
-    const result = await deps.tools.execute(
-      toolName,
-      input,
-      {
-        workspace_id: 'default',
-        project_id: ctx.run.project_id ?? null,
-        project_root: null,
-        agent_id: 'workflow',
-        agent_permissions: step.permissions,
-        task_id: null,
-        workflow_run_id: ctx.run.id,
-        signal: ctx.signal,
-      }
-    );
-    if (!result.ok) throw new Error(result.error ?? result.output ?? `Tool ${toolName} failed`);
+    const tool = deps.tools.get?.(toolName);
+    // ToolRegistry owns the journal claim, AFTER its permissions and approvals.
+    // Claiming here would turn a rejected approval into an ambiguous external attempt.
+    const result = await deps.tools.execute(toolName, input, {
+      workspace_id: 'default',
+      project_id: ctx.run.project_id ?? null,
+      project_root: null,
+      agent_id: 'workflow',
+      agent_permissions: step.permissions,
+      task_id: null,
+      workflow_run_id: ctx.run.id,
+      effect_key: step.id,
+      signal: ctx.signal,
+    });
+    if (!result.ok) {
+      const error = new Error(result.error ?? result.output ?? `Tool ${toolName} failed`);
+      if (result.noRetry || (tool && (tool.risk === 'high' || tool.risk === 'critical' || !tool.reversible))) Object.assign(error, { noRetry: true });
+      throw error;
+    }
     return result;
   });
 
   // 2. Model step
-  engine.registerExecutor('model', async (_step: WorkflowStep, config: Record<string, unknown>) => {
+  engine.registerExecutor('model', async (_step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
     const prompt = String(config.prompt ?? '');
     const system = config.system ? String(config.system) : undefined;
     const response = await deps.router.chat(
       {
         task_type: 'chat',
+        model_id: String(ctx.run.checkpoint.model_override_id ?? config.model_id ?? '') || null,
       },
       {
         messages: [
           ...(system ? [{ role: 'system' as const, content: system }] : []),
           { role: 'user' as const, content: prompt },
         ],
-      }
+        signal: ctx.signal,
+      },
+      { project_id: ctx.run.project_id },
     );
+    if (response.finish_reason === 'length') throw new Error('Model output was truncated; workflow step not verified');
     return response.text;
   });
 
@@ -86,6 +96,7 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
       task_id: `${ctx.run.id}:${step.id}`,
       workflow_run_id: ctx.run.id,
       signal: ctx.signal,
+      model_id: String(ctx.run.checkpoint.model_override_id ?? config.model_id ?? '') || null,
     });
     if (!result.ok) throw new Error(result.error ?? result.output ?? `Agent ${agent.name} failed`);
     return result;
@@ -113,7 +124,20 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
       const decision = await deps.approvals.waitFor(request.id);
       if (decision.status !== 'approved' && decision.status !== 'approved_workflow') throw Object.assign(new Error(`Connector action ${decision.status}`), { noRetry: true });
     }
-    return await deps.connectors.execute(connectorId, action, input);
+    try {
+      const execute = () => deps.connectors.execute(connectorId, action, input);
+      return deps.actionJournal
+        ? await deps.actionJournal.once(ctx.run.id, _step.id, 'connector:' + connectorId + ':' + action, input, execute)
+        : await execute();
+    }
+    catch (e) {
+      // An external write may have succeeded before the response was lost.
+      // Never automatically repeat a possibly committed side effect.
+      if (actionDef.risk !== 'low' || runtime.manifest.permissions.includes('external.publish')) {
+        throw Object.assign(new Error(e instanceof Error ? e.message : String(e)), { noRetry: true });
+      }
+      throw e;
+    }
   });
 
   // 5. Approval step
@@ -144,9 +168,17 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
   });
 
   // 6. Wait step
-  engine.registerExecutor('wait', async (_step: WorkflowStep, config: Record<string, unknown>) => {
-    const ms = Math.min(Number(config.ms ?? 1000), 60000);
-    await new Promise((r) => setTimeout(r, ms));
+  engine.registerExecutor('wait', async (_step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
+    const value = Number(config.ms ?? 1000);
+    if (!Number.isFinite(value) || value < 0) throw Object.assign(new Error('Invalid wait duration'), { noRetry: true });
+    const ms = Math.min(Math.floor(value), 60000);
+    await new Promise<void>((resolve, reject) => {
+      if (ctx.signal.aborted) return reject(Object.assign(new Error('Cancelled'), { noRetry: true }));
+      const abort = () => { clearTimeout(timer); reject(Object.assign(new Error('Cancelled'), { noRetry: true })); };
+      const timer = setTimeout(() => { ctx.signal.removeEventListener('abort', abort); resolve(); }, ms);
+      ctx.signal.addEventListener('abort', abort, { once: true });
+      if (ctx.signal.aborted) abort();
+    });
     return { waited_ms: ms };
   });
 

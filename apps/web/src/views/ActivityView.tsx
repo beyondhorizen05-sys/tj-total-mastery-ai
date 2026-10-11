@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { apiFetch } from '../api';
+import { apiFetch, apiEventSource } from '../api';
 import { Badge } from '../components/Badges';
 import { Terminal, Shield, Zap } from 'lucide-react';
 import { EVENT_NAMES, type TJEvent } from '@tj/schemas';
@@ -14,7 +14,7 @@ export const ActivityView: React.FC = () => {
     apiFetch<{ events: TJEvent[] }>('/api/v1/system/activity?limit=100')
       .then((result) => { if (alive) setEvents((current) => [...current, ...result.events.filter((event) => !current.some((item) => item.id === event.id))].sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 100)); })
       .catch((reason) => { if (alive) setError(reason.message ?? 'Could not load activity history'); });
-    const stream = new EventSource('/api/v1/system/events');
+    const stream = apiEventSource('/api/v1/system/events');
     stream.onopen = () => setConnected(true);
     stream.onerror = () => setConnected(false);
     const receive = (message: MessageEvent) => {

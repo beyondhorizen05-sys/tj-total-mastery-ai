@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm --filter @tj/web dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm --filter @tj/web build",
+    "beforeBuildCommand": "pnpm --filter @tj/web build && pnpm --filter @tj/api build && node ../../scripts/stage-desktop.mjs",
     "frontendDist": "../../web/dist"
   },
   "app": {
@@ -34,6 +34,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "resources": [
+      "resources/**/*"
     ]
   }
 }
