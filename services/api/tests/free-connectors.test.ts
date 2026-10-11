@@ -13,7 +13,7 @@ describe('Free/keyless connectors', () => {
     vi.stubGlobal('fetch',fn);
     const result: any = await wikipedia.actions.search({}, { query:'test' });
     expect(result.results[0]).toMatchObject({ title:'Test Article',url:'https://en.wikipedia.org/wiki/Test_Article',snippet:'Hello' });
-    expect(fn.mock.calls[0][0]).toContain('en.wikipedia.org');
+    expect(String((fn as any).mock.calls[0][0])).toContain('en.wikipedia.org');
   });
   it('returns weather from geocoding plus forecast with non-commercial notice', async () => {
     let calls = 0;
