@@ -70,7 +70,9 @@ export class Orchestrator {
 
   /** Create project + team + tasks from a plan; does not execute. */
   prepare(goal: string, plan: Plan, opts: { project_id?: string | null; conversation_id?: string | null; project_name?: string } = {}) {
-    const project = opts.project_id ? this.ws.getProject(opts.project_id)! : this.ws.createProject(opts.project_name ?? goal.slice(0, 60), goal);
+    const existingProject = opts.project_id ? this.ws.getProject(opts.project_id) : undefined;
+    if (opts.project_id && !existingProject) throw new Error('Cannot prepare goal for a project that does not exist: ' + opts.project_id);
+    const project = existingProject ?? this.ws.createProject(opts.project_name ?? goal.slice(0, 60), goal);
     const planId = this.savePlan(goal, plan, project.id, opts.conversation_id ?? null);
     const idMap = new Map<string, string>();
     const taskRows: Array<{ pt: PlanTask; task: Task; agent: Agent }> = [];
@@ -96,6 +98,7 @@ export class Orchestrator {
     const ctrl = new AbortController();
     this.controllers.set(plan_id, ctrl);
     this.setPlanStatus(plan_id, 'running');
+    try {
     const outputs = new Map<string, string>();
     const results: TaskResultRow[] = [];
     const artifacts: GoalRunResult['artifacts'] = [];
@@ -160,7 +163,6 @@ export class Orchestrator {
     const summary = summarizeRun(goal, status, results, verdict);
     this.setPlanStatus(plan_id, status);
     this.ws.setProjectStatus(project.id, status === 'completed' ? 'completed' : 'active');
-    this.controllers.delete(plan_id);
     if (!aborted) {
       await this.memory.create({
         workspace_id: this.ws.workspaceId, project_id: project.id, type: 'project', source: 'orchestrator', owner: 'tj', confidence: verdict ? verdict.confidence : 0.5, provenance: { plan_id },
@@ -168,5 +170,13 @@ export class Orchestrator {
       }).catch(() => null);
     }
     return { plan_id, project_id: project.id, status, summary, task_results: results, verdict, artifacts, cost_usd: cost, plan_source: opts.plan_source ?? 'model', evidence };
+    } catch (error) {
+      // Unexpected infrastructure errors must not strand an apparently running plan.
+      // Task-level exceptions are already handled by scheduleRows and reported separately.
+      this.setPlanStatus(plan_id, 'failed');
+      throw error;
+    } finally {
+      this.controllers.delete(plan_id);
+    }
   }
 }

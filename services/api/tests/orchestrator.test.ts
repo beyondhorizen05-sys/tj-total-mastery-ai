@@ -243,4 +243,27 @@ describe('Orchestrator End-to-End with Test Provider', () => {
     expect(ws.getProject(prepared.project.id)?.status).toBe('completed');
   });
 
+  it('rejects an unknown project rather than creating orphan plan records', () => {
+    const plan = cognitive.fallbackPlan('Build a prototype');
+    expect(() => orchestrator.prepare('Build a prototype', plan, { project_id: 'missing-project' }))
+      .toThrow(/does not exist/);
+    expect(orchestrator.listPlans()).toHaveLength(0);
+  });
+
+  it('marks plans failed and frees active controllers after an infrastructure exception', async () => {
+    const plan: Plan = {
+      objective: 'Verify failure cleanup', success_criteria: ['done'], assumptions: [], constraints: [],
+      risks: [], rollback: 'none',
+      tasks: [{ id:'a', title:'Decide architecture', role:'Analyst', description:'Choose approach', depends_on:[] }],
+    };
+    const prepared = orchestrator.prepare('Build a prototype and test failure cleanup', plan);
+    const spy = vi.spyOn(cognitive, 'critique').mockRejectedValueOnce(new Error('verification unavailable'));
+    try {
+      await expect(orchestrator.execute(prepared, plan.objective, plan, { max_repairs: 0 }))
+        .rejects.toThrow(/verification unavailable/);
+      expect(orchestrator.getPlan(prepared.plan_id)?.status).toBe('failed');
+      expect(orchestrator.activeRuns()).toBe(0);
+    } finally { spy.mockRestore(); }
+  });
+
 });
