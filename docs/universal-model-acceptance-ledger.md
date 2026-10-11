@@ -27,3 +27,7 @@ Identified a packaged-desktop defect: three UI subscribers used native `EventSou
 ## 2026-10-12 — Packaged Windows SSE authentication regression (§51, §62, §88)
 
 Commit `24afc66edd242da79a1b3bd2bb76b7dcf9817b99` extends `scripts/windows-desktop-api-smoke.mjs` to assert that the bundled runtime rejects unauthenticated `/api/v1/system/events` requests with HTTP 401 and serves `text/event-stream` with the correct desktop session token. This targets the actual packaged Node API on Windows and complements the parser unit tests. The smoke is wired into the existing `windows-installer` GitHub Actions job; the new commit's job result is **pending**, not a claimed pass. This is API-stream acceptance only, not installed Tauri UI or reconnection acceptance. §88 remains Unverified, and no audit classification changes.
+
+## 2026-10-12 — Windows smoke process teardown (§59, §88)
+
+Commit `31b51b3449106ca89519ff36071cd32075b0c3ee` makes the bundled API smoke wait for its child process to exit (bounded to three seconds) before deleting the temporary database/session directory. This reduces teardown races and improves repeatability of Windows CI. Source change committed; new Windows installer CI and clean-machine install acceptance remain pending. No section reclassification.
