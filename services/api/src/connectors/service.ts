@@ -6,6 +6,7 @@ import { brave, github, openweather, tavily } from './builtin-a.js';
 import { genericWebhook, homeAssistant, PLANNED, slackWebhook } from './builtin-b.js';
 import { gmail, googleCalendar } from './google.js';
 import { createProductivityConnector } from './productivity.js';
+import { openMeteo, searxng, wikipedia } from './free.js';
 
 export interface ConnectorServiceDeps {
   db: Database;
@@ -26,6 +27,9 @@ export class ConnectorService {
     this.register(googleCalendar);
     this.register(gmail);
     this.register(createProductivityConnector(this, deps.db));
+    this.register(openMeteo);
+    this.register(searxng);
+    this.register(wikipedia);
   }
 
   register(r: ConnectorRuntime) {
