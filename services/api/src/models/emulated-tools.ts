@@ -9,6 +9,9 @@ export function validateToolArguments(spec: ToolSpec | undefined, args: unknown)
   if (!spec) return 'Tool is not in the allowed tool registry for this agent';
   const check = (schema: any, value: unknown, depth: number): string | null => {
     if (depth > 8) return 'Argument nesting exceeds safe limit';
+    if (schema?.oneOf || schema?.anyOf || schema?.allOf || schema?.$ref || schema?.patternProperties) {
+      return 'Complex JSON Schema requires a supported validator; action refused';
+    }
     if (typeof value === 'string' && value.length > 64_000) return 'Argument string is too large';
     if (value && typeof value === 'object') {
       if (Array.isArray(value)) {
@@ -39,8 +42,22 @@ export function validateToolArguments(spec: ToolSpec | undefined, args: unknown)
       if (!matches) return 'Argument must be of type ' + type;
     }
     if (Array.isArray(schema?.enum) && !schema.enum.includes(value)) return 'Argument must match allowed enum';
-    if (typeof value === 'string' && schema?.maxLength != null && value.length > schema.maxLength) return 'Argument exceeds maximum length';
-    if (typeof value === 'number' && schema?.minimum != null && value < schema.minimum) return 'Argument below minimum';
+    if (typeof value === 'string') {
+      if (schema?.maxLength != null && value.length > schema.maxLength) return 'Argument exceeds maximum length';
+      if (schema?.minLength != null && value.length < schema.minLength) return 'Argument below minimum length';
+      if (typeof schema?.pattern === 'string') {
+        try { if (!new RegExp(schema.pattern).test(value)) return 'Argument does not match required pattern'; }
+        catch { return 'Invalid schema pattern'; }
+      }
+    }
+    if (typeof value === 'number') {
+      if (schema?.minimum != null && value < schema.minimum) return 'Argument below minimum';
+      if (schema?.maximum != null && value > schema.maximum) return 'Argument exceeds maximum';
+    }
+    if (Array.isArray(value)) {
+      if (schema?.minItems != null && value.length < schema.minItems) return 'Array below minimum length';
+      if (schema?.maxItems != null && value.length > schema.maxItems) return 'Array exceeds maximum length';
+    }
     return null;
   };
   if (!args || typeof args !== 'object' || Array.isArray(args)) return 'Tool arguments must be a JSON object';

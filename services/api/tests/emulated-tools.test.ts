@@ -32,4 +32,22 @@ describe('Model-independent tool protocol', () => {
     expect(messages[1]?.role).toBe('user');
     expect(messages[1]?.content).toContain('Verified tool result');
   });
+  it('enforces string, number and collection boundaries', () => {
+    const custom = { name: 'bounded', description: 'test', parameters: {
+      type: 'object', properties: { name: { type: 'string', minLength: 3, maxLength: 5 },
+        amount: { type: 'number', minimum: 0, maximum: 10 },
+        tags: { type: 'array', minItems: 1, maxItems: 2, items: { type: 'string' } } },
+      required: ['name', 'amount', 'tags'],
+    } };
+    expect(validateToolArguments(custom, { name: 'ab', amount: 2, tags: ['t'] })).toMatch(/minimum length/);
+    expect(validateToolArguments(custom, { name: 'abc', amount: 11, tags: ['t'] })).toMatch(/maximum/);
+    expect(validateToolArguments(custom, { name: 'abc', amount: 2, tags: [] })).toMatch(/minimum length/);
+    expect(validateToolArguments(custom, { name: 'abc', amount: 2, tags: ['t'] })).toBeNull();
+  });
+  it('fails closed for complex unsupported schema constructs', () => {
+    const custom = { name: 'complex', description: 'test',
+      parameters: { oneOf: [{ type: 'object' }, { type: 'array' }] } };
+    expect(validateToolArguments(custom, {})).toMatch(/requires a supported validator/);
+  });
+
 });
