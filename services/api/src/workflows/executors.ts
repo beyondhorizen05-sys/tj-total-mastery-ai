@@ -7,6 +7,7 @@ import type { AgentService } from '../agents/service.js';
 import type { ConnectorService } from '../connectors/service.js';
 import type { ApprovalService } from '../security/approvals.js';
 import type { PermissionEngine } from '../security/permissions.js';
+import type { ActionJournal } from './action-journal.js';
 
 export interface StepExecutorDeps {
   tools: ToolRegistry;
@@ -16,6 +17,7 @@ export interface StepExecutorDeps {
   connectors: ConnectorService;
   approvals: ApprovalService;
   permissions: PermissionEngine;
+  actionJournal?: ActionJournal;
 }
 
 /**
@@ -33,23 +35,23 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
   engine.registerExecutor('tool', async (step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
     const toolName = String(config.tool ?? step.name);
     const input = (config.input as Record<string, unknown>) ?? {};
-    const result = await deps.tools.execute(
-      toolName,
-      input,
-      {
-        workspace_id: 'default',
-        project_id: ctx.run.project_id ?? null,
-        project_root: null,
-        agent_id: 'workflow',
-        agent_permissions: step.permissions,
-        task_id: null,
-        workflow_run_id: ctx.run.id,
-        signal: ctx.signal,
-      }
-    );
+    const tool = deps.tools.get?.(toolName);
+    const mayWrite = tool ? !tool.reversible || tool.risk === 'high' || tool.risk === 'critical' : true;
+    const execute = () => deps.tools.execute(toolName, input, {
+      workspace_id: 'default',
+      project_id: ctx.run.project_id ?? null,
+      project_root: null,
+      agent_id: 'workflow',
+      agent_permissions: step.permissions,
+      task_id: null,
+      workflow_run_id: ctx.run.id,
+      signal: ctx.signal,
+    });
+    const result = mayWrite && deps.actionJournal
+      ? await deps.actionJournal.once(ctx.run.id, step.id, 'tool:' + toolName, input, execute)
+      : await execute();
     if (!result.ok) {
       const error = new Error(result.error ?? result.output ?? `Tool ${toolName} failed`);
-      const tool = deps.tools.get?.(toolName);
       if (tool && (tool.risk === 'high' || tool.risk === 'critical' || !tool.reversible)) Object.assign(error, { noRetry: true });
       throw error;
     }
@@ -123,7 +125,12 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
       const decision = await deps.approvals.waitFor(request.id);
       if (decision.status !== 'approved' && decision.status !== 'approved_workflow') throw Object.assign(new Error(`Connector action ${decision.status}`), { noRetry: true });
     }
-    try { return await deps.connectors.execute(connectorId, action, input); }
+    try {
+      const execute = () => deps.connectors.execute(connectorId, action, input);
+      return deps.actionJournal
+        ? await deps.actionJournal.once(ctx.run.id, _step.id, 'connector:' + connectorId + ':' + action, input, execute)
+        : await execute();
+    }
     catch (e) {
       // An external write may have succeeded before the response was lost.
       // Never automatically repeat a possibly committed side effect.

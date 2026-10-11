@@ -33,6 +33,7 @@ import { CognitiveEngine } from '../cognitive/engine.js';
 import { Orchestrator } from '../orchestrator/orchestrator.js';
 import { WorkflowEngine } from '../workflows/engine.js';
 import { registerBuiltinStepExecutors } from '../workflows/executors.js';
+import { ActionJournal } from '../workflows/action-journal.js';
 import { AutomationScheduler } from '../workflows/automation-scheduler.js';
 import { ConnectorService } from '../connectors/service.js';
 import { HealthMonitor } from '../core/health.js';
@@ -148,6 +149,7 @@ export async function createServer(config: TJConfig) {
 
   const workflowEngine = new WorkflowEngine(db, bus, () => 'default');
   registerBuiltinStepExecutors(workflowEngine, {
+    actionJournal: new ActionJournal(db),
     tools, router, agentRuntime, agentService, connectors, approvals, permissions,
   });
 
