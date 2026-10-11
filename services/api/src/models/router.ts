@@ -4,6 +4,7 @@ import type { SettingsRepo } from '../db/repo.js';
 import type { EventBus } from '../core/event-bus.js';
 import type { ChatOptions, ChatResult } from './types.js';
 import { ProviderError } from './types.js';
+import { emulatedToolMessages, parseEmulatedToolReply } from './emulated-tools.js';
 
 export type TaskType = 'chat' | 'planning' | 'coding' | 'research' | 'analysis' | 'vision' | 'verification' | 'classification' | 'summarization' | 'embedding';
 
@@ -11,6 +12,8 @@ export interface RouteRequest {
   task_type: TaskType;
   complexity?: 'low' | 'medium' | 'high';
   needs_tools?: boolean;
+  /** Permit bounded JSON protocol for models with no native tools (agent runtime only). */
+  allow_emulated_tools?: boolean;
   needs_vision?: boolean;
   needs_json?: boolean;
   min_context?: number;
@@ -54,7 +57,7 @@ export class ModelRouter {
       if (req.exclude?.includes(m.id)) return false;
       if (localOnly && m.privacy_class !== 'local') return false;
       if (req.needs_vision && !m.supports_vision) return false;
-      if (req.needs_tools && !m.supports_tools) return false;
+      if (req.needs_tools && !m.supports_tools && !req.allow_emulated_tools) return false;
       if (req.min_context && m.context_length && m.context_length < req.min_context) return false;
       if (req.max_cost_class && COST_SCORE[m.cost_class] > COST_SCORE[req.max_cost_class]) return false;
       return true;
@@ -130,7 +133,10 @@ export class ModelRouter {
       });
       const t = performance.now();
       try {
-        const r = await this.withRetry(() => adapter.chat({ ...boundedOpts, model: m.model }), 2);
+        const emulate = req.needs_tools && req.allow_emulated_tools && !m.supports_tools && !!boundedOpts.tools?.length;
+        const adapted = emulate ? { ...boundedOpts, messages: emulatedToolMessages(boundedOpts.messages, boundedOpts.tools!), tools: undefined, json: false, onDelta: undefined } : boundedOpts;
+        const raw = await this.withRetry(() => adapter.chat({ ...adapted, model: m.model }), 2);
+        const r = emulate ? { ...raw, ...parseEmulatedToolReply(raw.text, boundedOpts.tools!) } : raw;
         const cost = this.registry.recordUsage({ model_id: m.id, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: r.usage.tokens_in, tokens_out: r.usage.tokens_out, latency_ms: r.latency_ms, success: true });
         return { ...r, model_id: m.id, provider_id: m.provider_id, fallback_from, cost_usd: cost };
       } catch (e: any) {

@@ -26,13 +26,32 @@ export class OllamaAdapter implements ProviderAdapter {
     const res = await fetchWithTimeout(`${this.base()}/api/tags`, { timeoutMs: 8000 });
     if (!res.ok) throw classifyHttpError(res.status, await res.text());
     const json: any = await res.json();
-    return (json.models ?? []).map((m: any) => ({
-      id: m.name,
-      display_name: m.name,
-      context_length: null,
-      supports_vision: /llava|vision|moondream|bakllava|minicpm-v|gemma3|qwen.*vl/i.test(m.name),
-      supports_tools: /llama3\.[1-3]|qwen|mistral|command-r|hermes|firefunction|gemma3|phi4|deepseek/i.test(m.name),
+    const models: Array<{ name: string }> = json.models ?? [];
+    const discovered: DiscoveredModel[] = new Array(models.length);
+    let cursor = 0;
+    await Promise.all(Array.from({ length: Math.min(models.length, 4) }, async () => {
+      while (cursor < models.length) {
+        const index = cursor++;
+        const model = models[index];
+        let capabilities: string[] | null = null;
+        try {
+          const detail = await fetchWithTimeout(this.base() + '/api/show', {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ model: model.name }), timeoutMs: 7000,
+          });
+          if (detail.ok) {
+            const data: any = await detail.json();
+            if (Array.isArray(data.capabilities)) capabilities = data.capabilities;
+          }
+        } catch { /* Failed discovery is unknown, never inferred from model name. */ }
+        discovered[index] = {
+          id: model.name, display_name: model.name, context_length: null,
+          supports_vision: capabilities?.includes('vision') === true,
+          supports_tools: capabilities?.includes('tools') === true,
+        };
+      }
     }));
+    return discovered;
   }
 
   async chat(opts: ChatOptions): Promise<ChatResult> {

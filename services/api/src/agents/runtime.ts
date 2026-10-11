@@ -9,6 +9,7 @@ import type { ToolContext } from '../tools/types.js';
 import type { AgentRunInput, AgentRunResult } from './runtime-types.js';
 import type { SettingsRepo } from '../db/repo.js';
 import { getPersona, personaStyleInstruction } from '../core/persona.js';
+import { validateToolArguments } from '../models/emulated-tools.js';
 
 export type { AgentRunInput, AgentRunResult } from './runtime-types.js';
 
@@ -49,7 +50,7 @@ export class AgentRuntime {
         res.steps = step + 1;
         this.agents.setStatus(agent.id, 'thinking', input.task_id);
         const r = await this.router.chat(
-          { task_type: input.task_type ?? 'chat', complexity: 'medium', needs_tools: toolSpecs.length > 0, model_id: agent.model_id },
+          { task_type: input.task_type ?? 'chat', complexity: 'medium', needs_tools: toolSpecs.length > 0, allow_emulated_tools: true, model_id: agent.model_id },
           { messages, tools: toolSpecs.length ? toolSpecs : undefined, temperature: 0.2, signal: input.signal },
           { project_id: input.project_id, agent_id: agent.id },
         );
@@ -68,7 +69,15 @@ export class AgentRuntime {
 
         messages.push({ role: 'assistant', content: r.text, tool_calls: r.tool_calls });
         this.agents.setStatus(agent.id, 'working', input.task_id);
-        for (const tc of r.tool_calls) messages.push(await this.runTool(tc, ctx, res));
+        for (const tc of r.tool_calls) {
+          const validationError = validateToolArguments(toolSpecs.find((tool) => tool.name === tc.name), tc.arguments);
+          if (validationError) {
+            res.tool_calls.push({ tool: tc.name, ok: false, summary: 'Invalid tool request: ' + validationError });
+            messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.name, content: 'REJECTED: ' + validationError + '. No action executed.' });
+          } else {
+            messages.push(await this.runTool(tc, ctx, res));
+          }
+        }
         if (step === maxSteps - 1) res.error = `Reached max steps (${maxSteps}) without a final answer`;
       }
       if (!res.ok && !res.error) res.error = 'No final answer produced';
