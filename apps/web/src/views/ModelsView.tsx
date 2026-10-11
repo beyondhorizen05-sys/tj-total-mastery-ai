@@ -22,6 +22,8 @@ export const ModelsView: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
   const [defaultModelId, setDefaultModelId] = useState<string | null>(null);
+  const [freeOnly, setFreeOnly] = useState(false);
+  const [savingFreeOnly, setSavingFreeOnly] = useState(false);
   const [settingDefault, setSettingDefault] = useState<string | null>(null);
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
 
@@ -30,9 +32,21 @@ export const ModelsView: React.FC = () => {
     apiFetch<{ presets: any[] }>('/api/v1/models/presets').then((r) => setPresets(r.presets));
     apiFetch<{ models: any[] }>('/api/v1/models').then((r) => setModels(r.models));
     apiFetch<{ settings: Record<string, any> }>('/api/v1/settings')
-      .then((r) => setDefaultModelId(r.settings?.default_model_id ?? null))
+      .then((r) => { setDefaultModelId(r.settings?.default_model_id ?? null); setFreeOnly(r.settings?.router_free_only_enabled === true); })
       .catch(console.error);
     apiFetch<typeof chatgptPlan>('/api/v1/models/chatgpt-plan/status').then(setChatgptPlan).catch(() => {});
+  };
+
+  const changeFreeOnly = async (enabled: boolean) => {
+    setSavingFreeOnly(true);
+    try {
+      await apiFetch('/api/v1/settings', { method: 'PATCH', body: JSON.stringify({ router_free_only_enabled: enabled }) });
+      setFreeOnly(enabled);
+      setErrorMsg(null);
+      setNoticeMsg(enabled ? 'Free/local routing enabled. Paid and unknown-price cloud models are excluded.' : 'Free-only restriction disabled. Normal routing restored.');
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'Could not save model spending policy');
+    } finally { setSavingFreeOnly(false); }
   };
 
   const handleChatGPTSignIn = async (accountId?: string) => {
@@ -185,6 +199,12 @@ export const ModelsView: React.FC = () => {
       </div>
       {errorMsg && !showAddModal && <p role="alert" style={{ color: 'var(--accent-rose)', marginBottom: 12 }}>{errorMsg}</p>}
       {noticeMsg && <p role="status" style={{ color: 'var(--accent-emerald)', marginBottom: 12 }}>{noticeMsg}</p>}
+      <section style={{ background: 'var(--bg-secondary)', padding: 15, border: '1px solid var(--border-subtle)', borderRadius: 10, marginBottom: 18 }}>
+        <label style={{ display: 'flex', gap: 12, alignItems: 'center', color: 'var(--text-main)', cursor: savingFreeOnly ? 'wait' : 'pointer' }}>
+          <input type="checkbox" checked={freeOnly} disabled={savingFreeOnly} onChange={(event) => void changeFreeOnly(event.target.checked)} />
+          <span><strong>Free/local models only</strong><small style={{ display: 'block', color: 'var(--text-muted)' }}>When enabled, automatic routing excludes paid and unknown-price cloud models. A manually selected paid model will be blocked with an explanation. This does not create free API credits.</small></span>
+        </label>
+      </section>
       {chatgptPlan && <section style={{ background: 'rgba(10, 18, 34, 0.75)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 18, marginBottom: 24 }} aria-label="ChatGPT account connection">
         <div style={{ fontWeight: 800, color: '#fff', marginBottom: 6 }}>ChatGPT Account</div>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0 0 12px' }}>
