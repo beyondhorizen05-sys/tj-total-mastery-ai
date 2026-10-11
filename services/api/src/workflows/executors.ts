@@ -47,7 +47,12 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
         signal: ctx.signal,
       }
     );
-    if (!result.ok) throw new Error(result.error ?? result.output ?? `Tool ${toolName} failed`);
+    if (!result.ok) {
+      const error = new Error(result.error ?? result.output ?? `Tool ${toolName} failed`);
+      const tool = deps.tools.get(toolName);
+      if (tool && (tool.risk === 'high' || tool.risk === 'critical' || !tool.reversible)) Object.assign(error, { noRetry: true });
+      throw error;
+    }
     return result;
   });
 
@@ -118,7 +123,15 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
       const decision = await deps.approvals.waitFor(request.id);
       if (decision.status !== 'approved' && decision.status !== 'approved_workflow') throw Object.assign(new Error(`Connector action ${decision.status}`), { noRetry: true });
     }
-    return await deps.connectors.execute(connectorId, action, input);
+    try { return await deps.connectors.execute(connectorId, action, input); }
+    catch (e) {
+      // An external write may have succeeded before the response was lost.
+      // Never automatically repeat a possibly committed side effect.
+      if (actionDef.risk !== 'low' || runtime.manifest.permissions.includes('external.publish')) {
+        throw Object.assign(new Error(e instanceof Error ? e.message : String(e)), { noRetry: true });
+      }
+      throw e;
+    }
   });
 
   // 5. Approval step

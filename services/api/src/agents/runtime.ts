@@ -27,6 +27,7 @@ export class AgentRuntime {
     const { agent } = input;
     const maxSteps = input.max_steps ?? DEFAULT_MAX_STEPS;
     const toolSpecs = this.tools.specs(agent.tools);
+    const completedEffects = new Map<string, ChatMessage>();
     const messages: ChatMessage[] = [
       { role: 'system', content: this.systemPrompt(agent, input) },
       { role: 'user', content: input.context ? `Context from upstream work:\n${input.context}\n\nYour task:\n${input.instruction}` : input.instruction },
@@ -58,6 +59,11 @@ export class AgentRuntime {
         if (r.fallback_from) res.fallback_from = r.fallback_from;
 
         if (!r.tool_calls.length) {
+          if (r.finish_reason === 'length' || r.finish_reason === 'error' || r.finish_reason === 'unknown' || !r.text?.trim()) {
+            res.error = 'Model did not return a complete verified response';
+            res.output = 'I could not verify completion. ' + res.error;
+            break;
+          }
           const failed = res.tool_calls.filter((call) => !call.ok);
           res.ok = failed.length === 0;
           if (failed.length) {
@@ -75,7 +81,17 @@ export class AgentRuntime {
             res.tool_calls.push({ tool: tc.name, ok: false, summary: 'Invalid tool request: ' + validationError });
             messages.push({ role: 'tool', tool_call_id: tc.id, name: tc.name, content: 'REJECTED: ' + validationError + '. No action executed.' });
           } else {
-            messages.push(await this.runTool(tc, ctx, res));
+            const tool = this.tools.get?.(tc.name);
+            const sensitiveEffect = tool && (tool.risk === 'high' || tool.risk === 'critical' || !tool.reversible);
+            const effectKey = JSON.stringify([tc.name, tc.arguments]);
+            const previous = sensitiveEffect ? completedEffects.get(effectKey) : undefined;
+            if (previous) {
+              messages.push({ ...previous, tool_call_id: tc.id, content: 'Duplicate external action suppressed. Previous attempt outcome: ' + previous.content });
+            } else {
+              const result = await this.runTool(tc, ctx, res);
+              messages.push(result);
+              if (sensitiveEffect) completedEffects.set(effectKey, result);
+            }
           }
         }
         if (step === maxSteps - 1) res.error = `Reached max steps (${maxSteps}) without a final answer`;

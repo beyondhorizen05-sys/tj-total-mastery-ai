@@ -123,4 +123,19 @@ describe('WorkflowEngine', () => {
     expect(() => engine.switchModel(run.id, 'local/third')).toThrow(/active/);
   });
 
+  it('never retries a workflow executor with unknown external outcome', async () => {
+    let count = 0;
+    engine.registerExecutor('tool', async () => {
+      count++;
+      throw Object.assign(new Error('external result unknown'), { noRetry: true });
+    });
+    const wf = engine.save({ name: 'non-idempotent', steps: [
+      step('send', [], { retry: { max_attempts: 3, backoff_ms: 5, max_backoff_ms: 10 } }),
+    ] });
+    const finished = await engine.wait(engine.start(wf.id).id);
+    expect(finished.status).toBe('failed');
+    expect(count).toBe(1);
+    expect(finished.step_state.send.attempts).toBe(1);
+  });
+
 });

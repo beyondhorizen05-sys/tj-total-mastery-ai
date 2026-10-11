@@ -7,6 +7,7 @@ import { SettingsRepo } from '../src/db/repo.js';
 import { ModelRegistry } from '../src/models/registry.js';
 import { ModelRouter } from '../src/models/router.js';
 import { TestProviderControl } from '../src/models/adapters/test-provider.js';
+import { ProviderError } from '../src/models/types.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -131,6 +132,30 @@ describe('ModelRouter Failover & Fallback', () => {
     const result = await router.chat({ task_type: 'chat', model_id: 'test/tj-test-echo' },
       { messages: [{ role: 'user', content: 'Hello' }] });
     expect(result.text).toContain('[test-echo]');
+  });
+
+  it('never retries or falls back after a partial streamed model response', async () => {
+    const adapter = registry.adapter('test');
+    const calls = vi.spyOn(adapter, 'chat').mockImplementation(async (options) => {
+      options.onDelta?.('already visible');
+      throw new ProviderError('stream connection lost', 'unavailable');
+    });
+    await expect(router.chat({ task_type: 'chat' }, {
+      messages: [{ role: 'user', content: 'stream' }], onDelta: () => {},
+    })).rejects.toThrow(/stream connection lost/);
+    expect(calls).toHaveBeenCalledTimes(1);
+  });
+  it('does not retry after cancellation even for retryable provider failures', async () => {
+    const adapter = registry.adapter('test');
+    const ctrl = new AbortController();
+    const calls = vi.spyOn(adapter, 'chat').mockImplementation(async () => {
+      ctrl.abort();
+      throw new ProviderError('temporary provider issue', 'rate_limit');
+    });
+    await expect(router.chat({ task_type: 'chat' }, {
+      messages: [{ role: 'user', content: 'stop' }], signal: ctrl.signal,
+    })).rejects.toThrow(/temporary/);
+    expect(calls).toHaveBeenCalledTimes(1);
   });
 
 });
