@@ -36,8 +36,9 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
     const toolName = String(config.tool ?? step.name);
     const input = (config.input as Record<string, unknown>) ?? {};
     const tool = deps.tools.get?.(toolName);
-    const mayWrite = tool ? !tool.reversible || tool.risk === 'high' || tool.risk === 'critical' : true;
-    const execute = () => deps.tools.execute(toolName, input, {
+    // ToolRegistry owns the journal claim, AFTER its permissions and approvals.
+    // Claiming here would turn a rejected approval into an ambiguous external attempt.
+    const result = await deps.tools.execute(toolName, input, {
       workspace_id: 'default',
       project_id: ctx.run.project_id ?? null,
       project_root: null,
@@ -45,14 +46,12 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
       agent_permissions: step.permissions,
       task_id: null,
       workflow_run_id: ctx.run.id,
+      effect_key: step.id,
       signal: ctx.signal,
     });
-    const result = mayWrite && deps.actionJournal
-      ? await deps.actionJournal.once(ctx.run.id, step.id, 'tool:' + toolName, input, execute)
-      : await execute();
     if (!result.ok) {
       const error = new Error(result.error ?? result.output ?? `Tool ${toolName} failed`);
-      if (tool && (tool.risk === 'high' || tool.risk === 'critical' || !tool.reversible)) Object.assign(error, { noRetry: true });
+      if (result.noRetry || (tool && (tool.risk === 'high' || tool.risk === 'critical' || !tool.reversible))) Object.assign(error, { noRetry: true });
       throw error;
     }
     return result;

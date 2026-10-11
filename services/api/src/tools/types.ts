@@ -24,6 +24,8 @@ export interface ToolResult {
   error?: string;
   artifacts?: Array<{ kind: string; name: string; path?: string; mime?: string; summary?: string }>;
   duration_ms?: number;
+  /** A prior external action may already have committed; never retry automatically. */
+  noRetry?: boolean;
 }
 
 export interface Tool {

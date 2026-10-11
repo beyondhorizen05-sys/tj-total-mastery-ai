@@ -127,7 +127,7 @@ export async function createServer(config: TJConfig) {
   const memory = new MemoryService(db, bus, router);
 
   const sandbox = new Sandbox(() => [ws.projectStorageDir(), config.artifactsDir]);
-  const tools = new ToolRegistry(permissions, approvals, bus, audit, new ActionJournal(db));
+  const tools = new ToolRegistry(permissions, approvals, bus, audit, new ActionJournal(db, vault));
   for (const t of fsTools(sandbox, db, config.backupsDir)) tools.register(t);
   for (const t of shellTools()) tools.register(t);
   for (const t of computerTools(settings, config.artifactsDir, router)) tools.register(t);
@@ -149,7 +149,7 @@ export async function createServer(config: TJConfig) {
 
   const workflowEngine = new WorkflowEngine(db, bus, () => 'default');
   registerBuiltinStepExecutors(workflowEngine, {
-    actionJournal: new ActionJournal(db),
+    actionJournal: new ActionJournal(db, vault),
     tools, router, agentRuntime, agentService, connectors, approvals, permissions,
   });
 

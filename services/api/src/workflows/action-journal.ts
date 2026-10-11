@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import type { Database } from '../db/database.js';
+import type { Vault } from '../security/vault.js';
 
 /** An at-most-once action claim. Remote execution outcome can still be uncertain. */
 export class ActionJournal {
-  constructor(private db: Database) {}
+  constructor(private db: Database, private vault?: Vault) {}
   async once<T>(runId: string, stepId: string, operation: string, args: unknown, action: () => Promise<T>): Promise<T> {
     if (!runId || !stepId || !operation) throw new Error('Action journal requires run, step and operation identifiers');
     const key = createHash('sha256').update(JSON.stringify([runId, stepId])).digest('hex');
@@ -17,8 +18,13 @@ export class ActionJournal {
         'SELECT fingerprint, status, result FROM external_action_journal WHERE id=?', [key]);
       if (!existing || existing.fingerprint !== fingerprint) throw this.uncertain('Action definition changed after an earlier attempt');
       if (existing.status === 'completed' && existing.result !== null) {
-        try { return JSON.parse(existing.result) as T; }
-        catch { throw this.uncertain('Saved result cannot be decoded'); }
+        try {
+          const raw = existing.result.startsWith('vault:')
+            ? this.vault?.get(existing.result.slice(6), 'action_journal', 'replay_completed_action')
+            : existing.result;
+          if (raw == null) throw new Error('Journal decryption unavailable');
+          return JSON.parse(raw) as T;
+        } catch { throw this.uncertain('Saved result cannot be decoded or decrypted'); }
       }
       throw this.uncertain('Action already started and cannot safely be replayed');
     }
@@ -28,8 +34,13 @@ export class ActionJournal {
       if (content === undefined || content.length > 128_000) {
         throw this.uncertain('Action finished but outcome is not safely serializable');
       }
+      // In production the Vault encrypts replay evidence; SQLite retains an opaque reference.
+      // Do not persist confidential tool responses or bearer tokens in the journal table.
+      const resultRef = this.vault
+        ? 'vault:' + this.vault.put({ ref: 'action_journal:' + key, label: 'Action journal receipt', scope: 'workflow_action', value: content })
+        : content;
       this.db.run("UPDATE external_action_journal SET status='completed', result=?, updated_at=? WHERE id=?",
-        [content, new Date().toISOString(), key]);
+        [resultRef, new Date().toISOString(), key]);
       return result;
     } catch (error) {
       this.db.run("UPDATE external_action_journal SET status='uncertain', updated_at=? WHERE id=?",
