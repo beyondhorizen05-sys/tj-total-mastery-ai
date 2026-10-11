@@ -50,7 +50,7 @@ export class AgentRuntime {
         res.steps = step + 1;
         this.agents.setStatus(agent.id, 'thinking', input.task_id);
         const r = await this.router.chat(
-          { task_type: input.task_type ?? 'chat', complexity: 'medium', needs_tools: toolSpecs.length > 0, allow_emulated_tools: true, model_id: agent.model_id },
+          { task_type: input.task_type ?? 'chat', complexity: 'medium', needs_tools: toolSpecs.length > 0, allow_emulated_tools: true, model_id: input.model_id ?? agent.model_id },
           { messages, tools: toolSpecs.length ? toolSpecs : undefined, temperature: 0.2, signal: input.signal },
           { project_id: input.project_id, agent_id: agent.id },
         );

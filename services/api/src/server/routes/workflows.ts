@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { WorkflowEngine } from '../../workflows/engine.js';
 import type { AutomationScheduler } from '../../workflows/automation-scheduler.js';
 import { WorkflowStep } from '@tj/schemas';
+import { z } from 'zod';
+import type { ModelRouter } from '../../models/router.js';
 import { weekdaySummaryDefinition } from '../../workflows/template.js';
 
 export function registerWorkflowRoutes(
@@ -9,6 +11,7 @@ export function registerWorkflowRoutes(
   deps: {
     engine: WorkflowEngine;
     scheduler: AutomationScheduler;
+    router: ModelRouter;
   }
 ) {
   // GET /api/v1/workflows
@@ -64,6 +67,20 @@ export function registerWorkflowRoutes(
     const p = req.params as { id: string };
     await deps.engine.resume(p.id);
     return { ok: true };
+  });
+
+  // POST /api/v1/workflow-runs/:id/switch-model
+  // Persist the choice without resetting the DAG. Running steps keep their original model.
+  app.post('/api/v1/workflow-runs/:id/switch-model', async (req, reply) => {
+    const id = (req.params as { id: string }).id;
+    const parsed = z.object({ model_id: z.string().trim().min(1).max(512) }).strict().safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'Provide a valid model_id' });
+    if (!deps.engine.getRun(id)) return reply.status(404).send({ error: 'Workflow run not found' });
+    // Enforce current privacy, free-only, provider and availability settings.
+    try { deps.router.route({ task_type: 'chat', model_id: parsed.data.model_id }); }
+    catch (error) { return reply.status(409).send({ error: error instanceof Error ? error.message : String(error) }); }
+    try { return { run: deps.engine.switchModel(id, parsed.data.model_id) }; }
+    catch (error) { return reply.status(409).send({ error: error instanceof Error ? error.message : String(error) }); }
   });
 
   // POST /api/v1/workflow-runs/:id/cancel

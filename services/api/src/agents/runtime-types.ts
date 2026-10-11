@@ -14,6 +14,8 @@ export interface AgentRunInput {
   signal?: AbortSignal;
   max_steps?: number;
   task_type?: TaskType;
+  /** Override the agent's model for this invocation only. */
+  model_id?: string | null;
   onProgress?: (msg: string) => void;
 }
 

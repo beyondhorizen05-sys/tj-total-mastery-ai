@@ -162,7 +162,7 @@ export async function createServer(config: TJConfig) {
   registerChatRoutes(app, { ws, router, cognitive, orchestrator, health, settings, capabilityWorkflow });
   registerAgentRoutes(app, { agents: agentService });
   registerTaskRoutes(app, { tasks: taskService, db });
-  registerWorkflowRoutes(app, { engine: workflowEngine, scheduler });
+  registerWorkflowRoutes(app, { engine: workflowEngine, scheduler, router });
   registerConnectorRoutes(app, { connectors, permissions, approvals, audit });
   registerModelRoutes(app, { registry: modelRegistry, router, chatgptPlan });
   registerSecurityRoutes(app, { approvals, permissions });

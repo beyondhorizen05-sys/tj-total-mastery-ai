@@ -52,20 +52,24 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
   });
 
   // 2. Model step
-  engine.registerExecutor('model', async (_step: WorkflowStep, config: Record<string, unknown>) => {
+  engine.registerExecutor('model', async (_step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
     const prompt = String(config.prompt ?? '');
     const system = config.system ? String(config.system) : undefined;
     const response = await deps.router.chat(
       {
         task_type: 'chat',
+        model_id: String(ctx.run.checkpoint.model_override_id ?? config.model_id ?? '') || null,
       },
       {
         messages: [
           ...(system ? [{ role: 'system' as const, content: system }] : []),
           { role: 'user' as const, content: prompt },
         ],
-      }
+        signal: ctx.signal,
+      },
+      { project_id: ctx.run.project_id },
     );
+    if (response.finish_reason === 'length') throw new Error('Model output was truncated; workflow step not verified');
     return response.text;
   });
 
@@ -86,6 +90,7 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
       task_id: `${ctx.run.id}:${step.id}`,
       workflow_run_id: ctx.run.id,
       signal: ctx.signal,
+      model_id: String(ctx.run.checkpoint.model_override_id ?? config.model_id ?? '') || null,
     });
     if (!result.ok) throw new Error(result.error ?? result.output ?? `Agent ${agent.name} failed`);
     return result;
