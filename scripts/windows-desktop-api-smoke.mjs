@@ -82,9 +82,13 @@ try {
     await sleep(250);
   }
   if (!ready) throw new Error('Bundled local API failed to become ready. ' + stderr.slice(-1500));
-  console.log('PASS: bundled Node API started, authenticated, and denied unauthenticated requests');
+  console.log('PASS: bundled Node API started; REST and SSE authentication gates verified');
 } finally {
   child.kill();
-  await sleep(350);
+  await new Promise((resolve) => {
+    if (child.exitCode !== null || child.signalCode !== null) return resolve();
+    child.once('exit', resolve);
+    setTimeout(resolve, 3000).unref();
+  });
   fs.rmSync(dir, { recursive: true, force: true });
 }
