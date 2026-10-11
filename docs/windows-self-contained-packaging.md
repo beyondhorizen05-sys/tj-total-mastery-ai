@@ -17,3 +17,6 @@ The package command stages the Node binary and API automatically. It produces in
 ## Installed runtime scripts (2026-10-12)
 
 The desktop stage includes `computer-bridge.ps1`, `voice-listener.ps1`, `voice-speak.ps1`, `voice-voices.ps1`, and `local-asr.py` under `resources/api/scripts`. Runtime code resolves these paths relative to the bundled API rather than the source checkout. The Windows CI smoke asserts each file is present. Local multilingual ASR still requires its separately provisioned Python environment and model files in the user's app data directory; shipping the worker script alone does not install Python or models. A clean Windows installer acceptance run remains mandatory.
+
+
+The installed Tauri UI now uses a token-authenticated fetch SSE connection for Activity, notification, and live status subscribers; browser development retains native EventSource. Native EventSource cannot send the `X-TJ-Desktop-Token` header and previously could not reach the packaged backend. This needs an installed-app live-event test before acceptance.

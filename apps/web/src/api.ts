@@ -1,3 +1,5 @@
+import { readSseFrames } from './sse-parser';
+
 type LocalDesktopConnection = { base_url: string; token: string };
 let desktopConnection: Promise<LocalDesktopConnection> | undefined;
 
@@ -54,4 +56,74 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
     throw new Error(errText || 'Request failed with status ' + res.status);
   }
   return res.status === 204 ? undefined as T : res.json();
+}
+
+
+/** Native EventSource cannot attach the desktop session header. Use an authenticated
+ * fetch stream only in Tauri, retaining native EventSource in ordinary browsers. */
+class DesktopEventStream extends EventTarget {
+  onopen: ((event: Event) => void) | null = null;
+  onerror: ((event: Event) => void) | null = null;
+  private readonly abort = new AbortController();
+  private closed = false;
+
+  constructor(private readonly endpoint: string) {
+    super();
+    void this.listen();
+  }
+
+  close(): void {
+    this.closed = true;
+    this.abort.abort();
+  }
+
+  private async listen(): Promise<void> {
+    while (!this.closed) {
+      try {
+        const backend = await connection();
+        if (this.closed) break;
+        const response = await fetch(backend.base_url + this.endpoint, {
+          headers: { 'X-TJ-Desktop-Token': backend.token, Accept: 'text/event-stream' },
+          cache: 'no-store',
+          signal: this.abort.signal,
+        });
+        if (!response.ok || !response.body) throw new Error('Desktop activity stream unavailable (' + response.status + ')');
+        const opened = new Event('open');
+        this.onopen?.(opened);
+        this.dispatchEvent(opened);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let pending = '';
+        try {
+          while (!this.closed) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const parsed = readSseFrames(pending, decoder.decode(value, { stream: true }));
+            pending = parsed.remaining;
+            for (const event of parsed.events) {
+              if (this.closed) break;
+              this.dispatchEvent(new MessageEvent(event.type, { data: event.data }));
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      } catch {
+        if (this.closed) break;
+      }
+      if (this.closed) break;
+      const failed = new Event('error');
+      this.onerror?.(failed);
+      this.dispatchEvent(failed);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+  }
+}
+
+export function apiEventSource(endpoint: string): EventSource | DesktopEventStream {
+  if (!endpoint.startsWith('/api/')) throw new Error('Activity stream must use a local API endpoint');
+  const internals = (globalThis as typeof globalThis & {
+    __TAURI_INTERNALS__?: { invoke: (command: string) => Promise<LocalDesktopConnection> };
+  }).__TAURI_INTERNALS__;
+  return internals?.invoke ? new DesktopEventStream(endpoint) : new EventSource(endpoint);
 }

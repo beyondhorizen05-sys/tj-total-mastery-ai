@@ -16,3 +16,10 @@ No universal compatibility certification is issued. Mocked acceptance tests are 
 Implementation on this branch: package the checked-in Windows computer bridge, Windows speech listener/speaker/voice catalog, and optional local-ASR Python worker with the API bundle. Resolve runtime script paths beside the installed `main.js` when the desktop token-file launch mode is active, while preserving repository paths for development. The Windows bundled-API smoke now fails if any required script is absent, in addition to its existing authenticated/unauthenticated API checks. Added pure path-resolution regression coverage for both development and packaged layouts.
 
 **Evidence boundary:** This change fixes a known source-level packaging omission; it does **not** prove that PowerShell, optional Python speech dependencies, Windows device grants, or a clean-machine installer work. The Windows CI smoke and installer jobs must pass on the resulting commit; clean-machine UI and device acceptance remain required. No §16/§19/§88 audit status is upgraded.
+
+
+## 2026-10-12 — Authenticated live desktop Activity (§51, §62, §88)
+
+Identified a packaged-desktop defect: three UI subscribers used native `EventSource('/api/v1/system/events')`, which cannot attach the mandatory desktop token and targets the Tauri asset origin rather than the loopback API. Implemented an authenticated fetch-based SSE stream in desktop mode with incremental named-event framing, bounded buffering, cancellation on view teardown, and reconnect after disconnect. Ordinary web browser SSE behavior is unchanged. Added focused parser regressions for split frames, CRLF, multiline data and oversized frames.
+
+**Evidence boundary:** CI typecheck/build and focused tests are pending on the new commit; an installed Windows Tauri live SSE acceptance test has **not** run. §51 browser Working remains scoped to browser evidence, and §88 stays Unverified.
