@@ -35,7 +35,18 @@ export function registerModelRoutes(
       api_key: body.api_key ?? null,
       organization: body.organization ?? null,
     });
-    return p;
+    // Probe only after an explicit user connection. Never declare inference
+    // verified merely because the catalogue endpoint responds.
+    if (p.requires_api_key && !p.credential_ref) {
+      return { ...p, discovery: { status: 'needs_api_key', model_count: 0 } };
+    }
+    try {
+      const models = await deps.registry.fetchModels(p.id);
+      return { ...p, discovery: { status: 'discovered', model_count: models.length } };
+    } catch (error) {
+      return { ...p, discovery: { status: 'unverified', model_count: 0,
+        detail: error instanceof Error ? error.message : String(error) } };
+    }
   });
 
   app.get('/api/v1/models/chatgpt-plan/status', async () => deps.chatgptPlan.status());
@@ -55,7 +66,17 @@ export function registerModelRoutes(
   app.patch('/api/v1/models/providers/:id', async (req) => {
     const p = req.params as { id: string };
     const body = z.object({ name: z.string().min(1).optional(), base_url: z.string().url().nullable().optional(), api_key: z.string().min(1).optional(), organization: z.string().nullable().optional(), enabled: z.boolean().optional() }).strict().parse(req.body);
-    return deps.registry.updateProvider(p.id, body);
+    const updated = deps.registry.updateProvider(p.id, body);
+    if (body.api_key || body.base_url !== undefined) {
+      try {
+        const models = await deps.registry.fetchModels(updated.id);
+        return { ...updated, discovery: { status: 'discovered', model_count: models.length } };
+      } catch (error) {
+        return { ...updated, discovery: { status: 'unverified', model_count: 0,
+          detail: error instanceof Error ? error.message : String(error) } };
+      }
+    }
+    return updated;
   });
 
   // POST /api/v1/models/providers/:id/test

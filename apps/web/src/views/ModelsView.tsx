@@ -178,12 +178,15 @@ export const ModelsView: React.FC = () => {
         base_url: isCustom ? customBaseUrl.trim() : (preset?.base_url || null),
         api_key: apiKey.trim() || null,
       };
-      await apiFetch('/api/v1/models/providers', { method: 'POST', body: JSON.stringify(payload) });
+      const created = await apiFetch<{ discovery?: { status: string; model_count: number; detail?: string } }>('/api/v1/models/providers', { method: 'POST', body: JSON.stringify(payload) });
       setShowAddModal(false);
       setApiKey('');
       setCustomName('');
       setCustomBaseUrl('');
-      setNoticeMsg('Provider saved. Test its connection and discover models before using it.');
+      setNoticeMsg(created.discovery?.status === 'discovered'
+        ? `Provider saved and ${created.discovery.model_count} models discovered. Model inference still requires successful requests.`
+        : created.discovery?.status === 'needs_api_key' ? 'Provider saved; add an API key to discover models.'
+        : `Provider saved but discovery is unverified: ${created.discovery?.detail ?? 'Test the connection and retry Discover.'}`);
       load();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to add provider');
