@@ -168,7 +168,7 @@ export class ModelRouter {
           streamed = true; fitted.onDelta?.(delta);
         } } : fitted;
         const emulate = req.needs_tools && req.allow_emulated_tools && !m.supports_tools && !!delivered.tools?.length;
-        const adapted = emulate ? { ...delivered, messages: emulatedToolMessages(delivered.messages, delivered.tools!), tools: undefined, json: false, onDelta: undefined } : delivered;
+        const adapted = emulate ? fitModelContext(m, { ...delivered, messages: emulatedToolMessages(delivered.messages, delivered.tools!), tools: undefined, json: false, onDelta: undefined }) : delivered;
         const parallelism = Math.max(1, availableParallelism());
         const capacity = m.privacy_class === 'local' ? Math.max(1, Math.min(2, Math.floor(parallelism / 4))) : 4;
         const release = await this.capacity.acquire(m.provider_id, capacity, opts.signal);
