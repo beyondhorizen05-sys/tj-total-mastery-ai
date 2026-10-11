@@ -6,6 +6,8 @@ import type { ChatOptions, ChatResult } from './types.js';
 import { ProviderError } from './types.js';
 import { emulatedToolMessages, parseEmulatedToolReply } from './emulated-tools.js';
 import { fitModelContext } from './context-budget.js';
+import { ModelCapacityLimiter } from './capacity.js';
+import { availableParallelism } from 'node:os';
 
 export type TaskType = 'chat' | 'planning' | 'coding' | 'research' | 'analysis' | 'vision' | 'verification' | 'classification' | 'summarization' | 'embedding';
 
@@ -42,6 +44,8 @@ const NON_CHAT = /embed|whisper|tts|dall-e|moderation|rerank|audio|realtime|imag
  * then returns an ordered fallback chain used by chat() (Spec §87 provider failover).
  */
 export class ModelRouter {
+  private readonly capacity = new ModelCapacityLimiter();
+  private readonly breakers = new Map<string, { failures: number; until: number }>();
   constructor(private registry: ModelRegistry, private settings: SettingsRepo, private bus: EventBus) {}
 
   candidates(req: RouteRequest): Model[] {
@@ -53,6 +57,7 @@ export class ModelRouter {
     return this.registry.listModels(undefined, true).filter((m) => {
       const p = providers.get(m.provider_id);
       if (!p || !p.enabled) return false;
+      if ((this.breakers.get(m.id)?.until ?? 0) > Date.now()) return false;
       if (p.health === 'unauthorized' || p.health === 'misconfigured') return false;
       if (p.requires_api_key && !p.credential_ref) return false;
       if (req.task_type === 'embedding' ? !/embed/i.test(m.model) : NON_CHAT.test(m.model)) return false;
@@ -158,8 +163,14 @@ export class ModelRouter {
         } } : fitted;
         const emulate = req.needs_tools && req.allow_emulated_tools && !m.supports_tools && !!delivered.tools?.length;
         const adapted = emulate ? { ...delivered, messages: emulatedToolMessages(delivered.messages, delivered.tools!), tools: undefined, json: false, onDelta: undefined } : delivered;
-        const raw = await this.withRetry(() => adapter.chat({ ...adapted, model: m.model }), 2, opts.signal, () => streamed);
+        const parallelism = Math.max(1, availableParallelism());
+        const capacity = m.privacy_class === 'local' ? Math.max(1, Math.min(2, Math.floor(parallelism / 4))) : 4;
+        const release = await this.capacity.acquire(m.provider_id, capacity, opts.signal);
+        let raw: ChatResult;
+        try { raw = await this.withRetry(() => adapter.chat({ ...adapted, model: m.model }), 2, opts.signal, () => streamed); }
+        finally { release(); }
         const r = emulate ? { ...raw, ...parseEmulatedToolReply(raw.text, delivered.tools!) } : raw;
+        this.breakers.delete(m.id);
         const cost = this.registry.recordUsage({ model_id: m.id, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: r.usage.tokens_in, tokens_out: r.usage.tokens_out, latency_ms: r.latency_ms, success: true });
         return { ...r, model_id: m.id, provider_id: m.provider_id, fallback_from, cost_usd: cost };
       } catch (e: any) {
@@ -167,6 +178,12 @@ export class ModelRouter {
         lastErr = e;
         this.registry.recordUsage({ model_id: m.id, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: 0, tokens_out: 0, latency_ms: performance.now() - t, success: false });
         const kind = e instanceof ProviderError ? e.kind : 'unknown';
+        if (kind === 'rate_limit' || kind === 'unavailable' || kind === 'timeout') {
+          const previous = this.breakers.get(m.id);
+          const failures = (previous?.failures ?? 0) + 1;
+          this.breakers.set(m.id, { failures, until: failures >= 2 ?
+            Date.now() + (kind === 'rate_limit' ? 60_000 : 20_000) : 0 });
+        }
         this.bus.emit({ name: 'provider.error', severity: 'error', summary: `Provider ${m.provider_id} failed (${kind}): ${e.message}`, model_id: m.id, agent_id: ctx.agent_id, project_id: ctx.project_id, data: { kind } });
         if (kind === 'auth') this.registry.setHealth(m.provider_id, 'unauthorized', e.message, null);
         else if (kind === 'rate_limit') this.registry.setHealth(m.provider_id, 'rate-limited', e.message, null);
