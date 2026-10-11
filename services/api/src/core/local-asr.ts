@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT } from '../config.js';
+import { apiScriptDirectory } from '../config.js';
 
 export class LocalASR {
   private child: ChildProcess | null = null;
@@ -29,7 +29,7 @@ export class LocalASR {
     if (!this.available()) throw new Error('Local multilingual speech model is not installed.');
     if (this.child) this.stop();
     this.starting = new Promise<void>((resolve, reject) => {
-      const child = spawn(this.python, [path.join(REPO_ROOT, 'services', 'api', 'scripts', 'local-asr.py'), selectedModel, this.root], {
+      const child = spawn(this.python, [path.join(apiScriptDirectory(), 'local-asr.py'), selectedModel, this.root], {
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
         env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },

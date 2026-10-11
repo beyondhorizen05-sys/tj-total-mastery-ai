@@ -6,6 +6,14 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 // src/config.ts -> repo root is ../../.. ; dist/main.js -> ../../..  (both are 3 levels under root)
 export const REPO_ROOT = path.resolve(here, '..', '..', '..');
 
+/** Installed desktop API is a single ESM bundle; its scripts live beside main.js.
+ * Development and test execution continue using the checked-in scripts. */
+export function apiScriptDirectory(bundled = process.env.TJ_DESKTOP_TOKEN_FILE !== undefined, moduleUrl = import.meta.url): string {
+  return bundled
+    ? path.join(path.dirname(fileURLToPath(moduleUrl)), 'scripts')
+    : path.join(REPO_ROOT, 'services', 'api', 'scripts');
+}
+
 function loadDotEnv(file: string) {
   if (!fs.existsSync(file)) return;
   for (const raw of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {

@@ -12,3 +12,8 @@ Build on **Windows** with Rust, Node 22, pnpm 10 and cargo-tauri v2 installed:
 The package command stages the Node binary and API automatically. It produces installer bundles under apps/desktop/src-tauri/target/release/bundle.
 
 **Unverified before marking §88 Working:** actual Windows packaged build, clean-machine install and launch, loopback/API handshake, UI calls, task/tool execution, reinstallation/update, lifecycle of background Node process and removal/uninstall. Rust cargo-check and mocked API auth tests are NOT substitutes for an installed-app acceptance run. Check existing Windows processes using the app data directory when replacing old builds. Do not publish an installer that has not passed these checks.
+
+
+## Installed runtime scripts (2026-10-12)
+
+The desktop stage includes `computer-bridge.ps1`, `voice-listener.ps1`, `voice-speak.ps1`, `voice-voices.ps1`, and `local-asr.py` under `resources/api/scripts`. Runtime code resolves these paths relative to the bundled API rather than the source checkout. The Windows CI smoke asserts each file is present. Local multilingual ASR still requires its separately provisioned Python environment and model files in the user's app data directory; shipping the worker script alone does not install Python or models. A clean Windows installer acceptance run remains mandatory.

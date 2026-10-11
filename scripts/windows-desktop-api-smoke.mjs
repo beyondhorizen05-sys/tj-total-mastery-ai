@@ -11,6 +11,11 @@ const runtime = path.join(root, 'apps', 'desktop', 'src-tauri', 'resources');
 const node = path.join(runtime, 'node.exe');
 const launcher = path.join(runtime, 'api', 'launcher.cjs');
 if (!fs.existsSync(node) || !fs.existsSync(launcher)) throw new Error('Bundled API and Node runtime were not staged');
+for (const name of ['computer-bridge.ps1', 'voice-listener.ps1', 'voice-speak.ps1', 'voice-voices.ps1', 'local-asr.py']) {
+  if (!fs.statSync(path.join(runtime, 'api', 'scripts', name), { throwIfNoEntry: false })?.isFile()) {
+    throw new Error('Packaged Windows capability is missing its runtime script: ' + name);
+  }
+}
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tj-packaged-smoke-'));
 const tokenFile = path.join(dir, 'tj-session.token');
