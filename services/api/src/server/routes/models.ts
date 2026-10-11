@@ -107,6 +107,22 @@ export function registerModelRoutes(
     return { models: deps.registry.listModels(q.provider_id, activeOnly) };
   });
 
+  // Catalogue metadata is never a certification of complete model or workflow capability.
+  app.get('/api/v1/models/compatibility', async () => ({
+    universal_compatibility_verified: false,
+    evidence_type: 'catalogue_metadata_and_local_execution_history',
+    models: deps.registry.listModels().map((model) => ({
+      model_id: model.id, provider_id: model.provider_id,
+      available: model.available, health: model.health,
+      execution_strategy: model.supports_tools ? 'native_tool_calling' : 'validated_json_protocol_if_supported',
+      advertised_vision: model.supports_vision, advertised_streaming: model.supports_streaming,
+      context_length: model.context_length, cost_class: model.cost_class,
+      price_in_per_m: model.price_in_per_m, price_out_per_m: model.price_out_per_m,
+      inference_status: model.success_count > 0 ? 'local_run_observed' : 'unverified',
+      full_workflow_compatibility: 'UNVERIFIED',
+    })),
+  }));
+
   // GET /api/v1/models/candidates
   app.get('/api/v1/models/candidates', async (req) => {
     const q = req.query as { task_type?: any; prefer?: any };
