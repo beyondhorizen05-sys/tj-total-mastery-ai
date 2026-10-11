@@ -34,6 +34,7 @@ export class OllamaAdapter implements ProviderAdapter {
         const index = cursor++;
         const model = models[index];
         let capabilities: string[] | null = null;
+        let contextLength: number | null = null;
         try {
           const detail = await fetchWithTimeout(this.base() + '/api/show', {
             method: 'POST', headers: { 'content-type': 'application/json' },
@@ -42,10 +43,14 @@ export class OllamaAdapter implements ProviderAdapter {
           if (detail.ok) {
             const data: any = await detail.json();
             if (Array.isArray(data.capabilities)) capabilities = data.capabilities;
+            const possible = Object.entries(data.model_info ?? {})
+              .filter(([key, value]) => key.endsWith('.context_length') && typeof value === 'number' && Number.isFinite(value))
+              .map(([, value]) => value as number);
+            if (possible.length) contextLength = Math.max(...possible);
           }
         } catch { /* Failed discovery is unknown, never inferred from model name. */ }
         discovered[index] = {
-          id: model.name, display_name: model.name, context_length: null,
+          id: model.name, display_name: model.name, context_length: contextLength,
           supports_vision: capabilities?.includes('vision') === true,
           supports_tools: capabilities?.includes('tools') === true,
         };

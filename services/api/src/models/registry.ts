@@ -132,14 +132,22 @@ export class ModelRegistry {
     const hint = hintFor(d.id);
     const id = `${p.id}/${d.id}`;
     const existing = this.db.get<any>('SELECT id FROM models WHERE id = ?', [id]);
-    const supports_vision = d.supports_vision ?? hint?.vision ?? /vision|gpt-4o|gpt-4\.1|gpt-5|gemini|claude|llava|pixtral|grok-4/i.test(d.id);
-    const supports_tools = d.supports_tools ?? hint?.tools ?? !/embed|whisper|tts|dall-e|moderation|rerank/i.test(d.id);
+    const supports_vision = d.supports_vision ?? hint?.vision ?? false;
+    const supports_tools = d.supports_tools ?? hint?.tools ?? false;
     const isEmbedding = /embed/i.test(d.id);
-    const free = p.privacy_class === 'local' || /:free$/i.test(d.id);
+    const pricedFree = d.price_in_per_m === 0 && d.price_out_per_m === 0;
+    const markedFree = p.preset === 'openrouter' && /:free$/i.test(d.id) &&
+      (d.price_in_per_m == null || d.price_in_per_m === 0) &&
+      (d.price_out_per_m == null || d.price_out_per_m === 0);
+    const free = p.privacy_class === 'local' || pricedFree || markedFree;
     const cost_class = free ? 'free' : hint ? (hint.out >= 15 ? 'high' : hint.out >= 2 ? 'medium' : 'low') : 'unknown';
     const quality = hint?.quality ?? (p.privacy_class === 'local' ? 'standard' : 'unknown');
     const speed = hint ? (hint.quality === 'light' || hint.quality === 'standard' ? 'fast' : 'medium') : 'unknown';
-    const vals = [p.id, d.id, d.display_name ?? d.id, JSON.stringify(isEmbedding ? ['text'] : supports_vision ? ['text', 'image'] : ['text']), supports_tools ? 1 : 0, 1, supports_vision ? 1 : 0, d.context_length ?? hint?.ctx ?? null, speed, quality, cost_class, p.privacy_class, free ? 0 : hint?.in ?? null, free ? 0 : hint?.out ?? null, 1, ts, id];
+    const modalities = isEmbedding ? ['text'] : d.modalities?.length ? d.modalities : supports_vision ? ['text', 'image'] : ['text'];
+    const vals = [p.id, d.id, d.display_name ?? d.id, JSON.stringify(modalities), supports_tools ? 1 : 0,
+      d.supports_streaming === false ? 0 : 1, supports_vision ? 1 : 0, d.context_length ?? hint?.ctx ?? null,
+      speed, quality, cost_class, p.privacy_class, free ? 0 : d.price_in_per_m ?? hint?.in ?? null,
+      free ? 0 : d.price_out_per_m ?? hint?.out ?? null, 1, ts, id];
     if (existing) this.db.run('UPDATE models SET provider_id=?, model=?, display_name=?, modalities=?, supports_tools=?, supports_streaming=?, supports_vision=?, context_length=?, speed_class=?, quality_class=?, cost_class=?, privacy_class=?, price_in_per_m=?, price_out_per_m=?, available=?, discovered_at=? WHERE id=?', vals);
     else this.db.run('INSERT INTO models (provider_id, model, display_name, modalities, supports_tools, supports_streaming, supports_vision, context_length, speed_class, quality_class, cost_class, privacy_class, price_in_per_m, price_out_per_m, available, discovered_at, id, health) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,\'unknown\')', vals);
   }
