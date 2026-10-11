@@ -24,7 +24,7 @@ export const searxng: ConnectorRuntime = {
     try {
       const url = new URL('/search', localSearxngUrl(c.url));
       url.search = new URLSearchParams({ q: 'test', format: 'json' }).toString();
-      const data = await httpJson(url.href, { timeoutMs: 9000 });
+      const data = await httpJson(url.href, { timeoutMs: 9000, redirect: 'error' });
       return { ok: Array.isArray(data.results), detail: Array.isArray(data.results) ? 'Local JSON search responded' : 'Enable JSON output in SearXNG' };
     } catch (e: any) { return { ok: false, detail: e.message }; }
   },
@@ -34,7 +34,7 @@ export const searxng: ConnectorRuntime = {
       if (!query) throw new Error('Search query is required');
       const url = new URL('/search', localSearxngUrl(c.url));
       url.search = new URLSearchParams({ q: query.slice(0, 500), format: 'json' }).toString();
-      const data = await httpJson(url.href);
+      const data = await httpJson(url.href, { redirect: 'error' });
       if (!Array.isArray(data.results)) throw new Error('SearXNG JSON output is unavailable');
       return { source: 'SearXNG self-hosted', fetched_at: new Date().toISOString(), results: data.results.slice(0, size(i.max_results)).map((r: any) => ({
         title: String(r.title ?? ''), url: String(r.url ?? ''), snippet: String(r.content ?? ''),
