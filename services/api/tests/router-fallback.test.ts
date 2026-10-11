@@ -120,5 +120,18 @@ describe('ModelRouter Failover & Fallback', () => {
     )).rejects.toThrow(/Rejected generated tool arguments/);
   });
 
+  it('enforces free/local routing and rejects costly explicit selections while free-only is on', async () => {
+    db.run("UPDATE models SET cost_class='high' WHERE provider_id='test'");
+    settings.set('router_free_only_enabled', true);
+    expect(router.candidates({ task_type: 'chat' })).toHaveLength(0);
+    await expect(router.chat({ task_type: 'chat', model_id: 'test/tj-test-echo' },
+      { messages: [{ role: 'user', content: 'Hello' }] })).rejects.toThrow(/unavailable/);
+    db.run("UPDATE models SET cost_class='free' WHERE provider_id='test'");
+    expect(router.candidates({ task_type: 'chat' }).length).toBeGreaterThan(0);
+    const result = await router.chat({ task_type: 'chat', model_id: 'test/tj-test-echo' },
+      { messages: [{ role: 'user', content: 'Hello' }] });
+    expect(result.text).toContain('[test-echo]');
+  });
+
 });
 
