@@ -24,6 +24,8 @@ export const ModelsView: React.FC = () => {
   const [defaultModelId, setDefaultModelId] = useState<string | null>(null);
   const [freeOnly, setFreeOnly] = useState(false);
   const [savingFreeOnly, setSavingFreeOnly] = useState(false);
+  const [crossProviderFallback, setCrossProviderFallback] = useState(false);
+  const [paidCrossProviderFallback, setPaidCrossProviderFallback] = useState(false);
   const [settingDefault, setSettingDefault] = useState<string | null>(null);
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
 
@@ -32,7 +34,7 @@ export const ModelsView: React.FC = () => {
     apiFetch<{ presets: any[] }>('/api/v1/models/presets').then((r) => setPresets(r.presets));
     apiFetch<{ models: any[] }>('/api/v1/models').then((r) => setModels(r.models));
     apiFetch<{ settings: Record<string, any> }>('/api/v1/settings')
-      .then((r) => { setDefaultModelId(r.settings?.default_model_id ?? null); setFreeOnly(r.settings?.router_free_only_enabled === true); })
+      .then((r) => { setDefaultModelId(r.settings?.default_model_id ?? null); setFreeOnly(r.settings?.router_free_only_enabled === true); setCrossProviderFallback(r.settings?.router_cross_provider_fallback_enabled === true); setPaidCrossProviderFallback(r.settings?.router_paid_cross_provider_fallback_enabled === true); })
       .catch(console.error);
     apiFetch<typeof chatgptPlan>('/api/v1/models/chatgpt-plan/status').then(setChatgptPlan).catch(() => {});
   };
@@ -47,6 +49,23 @@ export const ModelsView: React.FC = () => {
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : 'Could not save model spending policy');
     } finally { setSavingFreeOnly(false); }
+  };
+
+  const changeFallbackConsent = async (kind: 'cross' | 'paid', enabled: boolean) => {
+    setSavingFreeOnly(true);
+    try {
+      await apiFetch('/api/v1/settings', {
+        method: 'PATCH',
+        body: JSON.stringify(kind === 'cross'
+          ? { router_cross_provider_fallback_enabled: enabled }
+          : { router_paid_cross_provider_fallback_enabled: enabled }),
+      });
+      if (kind === 'cross') setCrossProviderFallback(enabled);
+      else setPaidCrossProviderFallback(enabled);
+      setErrorMsg(null);
+      setNoticeMsg('Model fallback permission updated. Existing tasks retain completed work.');
+    } catch (error) { setErrorMsg(error instanceof Error ? error.message : 'Could not update fallback permission'); }
+    finally { setSavingFreeOnly(false); }
   };
 
   const handleChatGPTSignIn = async (accountId?: string) => {
@@ -203,6 +222,14 @@ export const ModelsView: React.FC = () => {
         <label style={{ display: 'flex', gap: 12, alignItems: 'center', color: 'var(--text-main)', cursor: savingFreeOnly ? 'wait' : 'pointer' }}>
           <input type="checkbox" checked={freeOnly} disabled={savingFreeOnly} onChange={(event) => void changeFreeOnly(event.target.checked)} />
           <span><strong>Free/local models only</strong><small style={{ display: 'block', color: 'var(--text-muted)' }}>When enabled, automatic routing excludes paid and unknown-price cloud models. A manually selected paid model will be blocked with an explanation. This does not create free API credits.</small></span>
+        </label>
+        <label style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12, color: 'var(--text-main)' }}>
+          <input type="checkbox" checked={crossProviderFallback} disabled={savingFreeOnly} onChange={(event) => void changeFallbackConsent('cross', event.target.checked)} />
+          <span><strong>Allow cross-provider fallback</strong><small style={{ display: 'block', color: 'var(--text-muted)' }}>Explicitly allow transferring task context to a different connected free/local provider after an error. Default: off.</small></span>
+        </label>
+        <label style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 12, color: 'var(--text-main)' }}>
+          <input type="checkbox" checked={paidCrossProviderFallback} disabled={savingFreeOnly || !crossProviderFallback || freeOnly} onChange={(event) => void changeFallbackConsent('paid', event.target.checked)} />
+          <span><strong>Allow paid cross-provider fallback</strong><small style={{ display: 'block', color: 'var(--text-muted)' }}>Explicit paid-cloud fallback consent. Ignored when Free/local only is enabled; charges may apply on authorized providers.</small></span>
         </label>
       </section>
       {chatgptPlan && <section style={{ background: 'rgba(10, 18, 34, 0.75)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 18, marginBottom: 24 }} aria-label="ChatGPT account connection">

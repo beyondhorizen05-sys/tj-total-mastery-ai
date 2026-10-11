@@ -8,6 +8,8 @@ const panelStyle: React.CSSProperties = { background: 'var(--bg-secondary)', bor
 export const WorkflowsView: React.FC = () => {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
+  const [models, setModels] = useState<Array<{ id: string; display_name: string; available: boolean }>>([]);
+  const [modelChoice, setModelChoice] = useState<Record<string, string>>({});
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [name, setName] = useState('');
   const [prompt, setPrompt] = useState('');
@@ -20,12 +22,13 @@ export const WorkflowsView: React.FC = () => {
 
   const load = async () => {
     try {
-      const [saved, executed, scheduled] = await Promise.all([
+      const [saved, executed, scheduled, discovered] = await Promise.all([
         apiFetch<{ workflows: Workflow[] }>('/api/v1/workflows'),
         apiFetch<{ runs: WorkflowRun[] }>('/api/v1/workflow-runs'),
         apiFetch<{ automations: Automation[] }>('/api/v1/automations'),
+        apiFetch<{ models: Array<{ id: string; display_name: string; available: boolean }> }>('/api/v1/models'),
       ]);
-      setWorkflows(saved.workflows); setRuns(executed.runs); setAutomations(scheduled.automations);
+      setWorkflows(saved.workflows); setRuns(executed.runs); setAutomations(scheduled.automations); setModels(discovered.models);
       setWorkflowId((current) => current || saved.workflows[0]?.id || '');
     } catch (reason: any) { setError(reason.message ?? 'Could not load workflows'); }
   };
@@ -90,7 +93,19 @@ export const WorkflowsView: React.FC = () => {
     </section>
 
     <section><h3 style={{ marginBottom: 10 }}>Recent Executions</h3>
-      {runs.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No executions recorded.</p> : runs.map((run) => <div key={run.id} style={{ ...panelStyle, marginBottom: 8, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><b>Run {run.id.slice(0, 8)}</b><span style={{ marginLeft: 8, color: run.status === 'completed' && !run.checkpoint.partial ? '#34d399' : run.status === 'failed' ? '#fb7185' : '#fbbf24' }}>{run.status === 'completed' && run.checkpoint.partial ? 'COMPLETED WITH FAILURES' : run.status.toUpperCase()}</span><p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 5 }}>{Object.values(run.step_state).filter((step) => step.status === 'completed').length}/{Object.keys(run.step_state).length} steps completed{run.error ? ` · ${run.error}` : ''}</p></div><div style={{ display: 'flex', gap: 6 }}>{run.status === 'running' && <button onClick={() => act(`pause-${run.id}`, () => apiFetch(`/api/v1/workflow-runs/${run.id}/pause`, { method: 'POST' }), 'Run paused')} disabled={busy !== null}>Pause</button>}{run.status === 'paused' && <button onClick={() => act(`resume-${run.id}`, () => apiFetch(`/api/v1/workflow-runs/${run.id}/resume`, { method: 'POST' }), 'Run resumed')} disabled={busy !== null}>Resume</button>}{['queued', 'running', 'paused'].includes(run.status) && <button onClick={() => act(`cancel-${run.id}`, () => apiFetch(`/api/v1/workflow-runs/${run.id}/cancel`, { method: 'POST' }), 'Run cancellation requested')} disabled={busy !== null}>Cancel</button>}</div></div>)}
+      {runs.length === 0 ? <p style={{ color: 'var(--text-muted)' }}>No executions recorded.</p> : runs.map((run) => <div key={run.id} style={{ ...panelStyle, marginBottom: 8, display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}><div><b>Run {run.id.slice(0, 8)}</b><span style={{ marginLeft: 8, color: run.status === 'completed' && !run.checkpoint.partial ? '#34d399' : run.status === 'failed' ? '#fb7185' : '#fbbf24' }}>{run.status === 'completed' && run.checkpoint.partial ? 'COMPLETED WITH FAILURES' : run.status.toUpperCase()}</span><p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 5 }}>{Object.values(run.step_state).filter((step) => step.status === 'completed').length}/{Object.keys(run.step_state).length} steps completed{run.error ? ` · ${run.error}` : ''}</p></div><div style={{ display: 'flex', gap: 6 }}>{['running', 'paused'].includes(run.status) && <>
+        <select aria-label={`Future model for workflow ${run.id}`} style={{ ...fieldStyle, maxWidth: 210 }}
+          value={modelChoice[run.id] ?? String(run.checkpoint.model_override_id ?? '')}
+          onChange={(event) => setModelChoice((current) => ({ ...current, [run.id]: event.target.value }))}>
+          <option value="">Choose future-step model</option>
+          {models.filter((model) => model.available).map((model) => <option key={model.id} value={model.id}>{model.display_name || model.id}</option>)}
+        </select>
+        <button disabled={busy !== null || !(modelChoice[run.id] ?? run.checkpoint.model_override_id)}
+          onClick={() => act(`switch-${run.id}`, () => apiFetch(`/api/v1/workflow-runs/${run.id}/switch-model`, {
+            method: 'POST', body: JSON.stringify({ model_id: modelChoice[run.id] ?? run.checkpoint.model_override_id }),
+          }), 'Future workflow steps will use the selected model; completed steps are preserved.')}>Switch future model</button>
+      </>}
+      {run.status === 'running' && <button onClick={() => act(`pause-${run.id}`, () => apiFetch(`/api/v1/workflow-runs/${run.id}/pause`, { method: 'POST' }), 'Run paused')} disabled={busy !== null}>Pause</button>}{run.status === 'paused' && <button onClick={() => act(`resume-${run.id}`, () => apiFetch(`/api/v1/workflow-runs/${run.id}/resume`, { method: 'POST' }), 'Run resumed')} disabled={busy !== null}>Resume</button>}{['queued', 'running', 'paused'].includes(run.status) && <button onClick={() => act(`cancel-${run.id}`, () => apiFetch(`/api/v1/workflow-runs/${run.id}/cancel`, { method: 'POST' }), 'Run cancellation requested')} disabled={busy !== null}>Cancel</button>}</div></div>)}
     </section>
   </div>;
 };
