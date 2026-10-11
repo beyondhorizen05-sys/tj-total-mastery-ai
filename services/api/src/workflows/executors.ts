@@ -168,9 +168,17 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
   });
 
   // 6. Wait step
-  engine.registerExecutor('wait', async (_step: WorkflowStep, config: Record<string, unknown>) => {
-    const ms = Math.min(Number(config.ms ?? 1000), 60000);
-    await new Promise((r) => setTimeout(r, ms));
+  engine.registerExecutor('wait', async (_step: WorkflowStep, config: Record<string, unknown>, ctx: StepContext) => {
+    const value = Number(config.ms ?? 1000);
+    if (!Number.isFinite(value) || value < 0) throw Object.assign(new Error('Invalid wait duration'), { noRetry: true });
+    const ms = Math.min(Math.floor(value), 60000);
+    await new Promise<void>((resolve, reject) => {
+      if (ctx.signal.aborted) return reject(Object.assign(new Error('Cancelled'), { noRetry: true }));
+      const abort = () => { clearTimeout(timer); reject(Object.assign(new Error('Cancelled'), { noRetry: true })); };
+      const timer = setTimeout(() => { ctx.signal.removeEventListener('abort', abort); resolve(); }, ms);
+      ctx.signal.addEventListener('abort', abort, { once: true });
+      if (ctx.signal.aborted) abort();
+    });
     return { waited_ms: ms };
   });
 
