@@ -52,6 +52,25 @@ try {
             const invalid = await fetch('http://127.0.0.1:' + port + '/api/v1/system/status', {
               headers: { 'X-TJ-Desktop-Token': '0'.repeat(64) } });
             if (invalid.status !== 401) throw new Error('Local API accepted the wrong desktop token');
+            // The desktop UI depends on a token-authenticated event stream, not just REST.
+            const eventsUrl = 'http://127.0.0.1:' + port + '/api/v1/system/events';
+            const deniedEvents = await fetch(eventsUrl, { signal: AbortSignal.timeout(3000) });
+            if (deniedEvents.status !== 401) {
+              await deniedEvents.body?.cancel();
+              throw new Error('Local event stream allowed an unauthenticated request');
+            }
+            const eventController = new AbortController();
+            try {
+              const authorizedEvents = await fetch(eventsUrl, {
+                headers: { 'X-TJ-Desktop-Token': token },
+                signal: AbortSignal.any([eventController.signal, AbortSignal.timeout(3000)]),
+              });
+              if (authorizedEvents.status !== 200 || !authorizedEvents.headers.get('content-type')?.includes('text/event-stream')) {
+                throw new Error('Authenticated desktop event stream did not return SSE');
+              }
+            } finally {
+              eventController.abort();
+            }
             ready = true;
             break;
           }
