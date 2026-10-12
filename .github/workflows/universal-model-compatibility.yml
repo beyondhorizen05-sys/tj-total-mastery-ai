@@ -23,6 +23,8 @@ jobs:
       - run: pnpm run test
       - run: pnpm run test:e2e
       - run: pnpm run build
+      - name: Verify real source API boot and safe read-only functionality
+        run: node scripts/source-runtime-smoke.mjs --isolated
 
   windows-native:
     runs-on: windows-latest
@@ -42,6 +44,8 @@ jobs:
       - run: pnpm run test
       - run: pnpm run test:e2e
       - run: pnpm run build
+      - name: Verify real Windows source API boot and safe read-only functionality
+        run: node scripts/source-runtime-smoke.mjs --isolated
       - run: pnpm run build:desktop
 
   windows-installer:
