@@ -65,18 +65,21 @@ try {
     const port = await freePort();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tj-source-runtime-smoke-'));
     base = 'http://127.0.0.1:' + port;
+    // Use normal source mode, never the packaged-desktop script-path mode.
+    // An empty TJ_DESKTOP_TOKEN_FILE would still count as "defined" to the API.
+    const env = {
+      ...process.env,
+      TJ_HOST: '127.0.0.1',
+      TJ_PORT: String(port),
+      TJ_DATA_DIR: tmpDir,
+      TJ_ENABLE_TEST_PROVIDER: '0',
+      TJ_CHATGPT_PLAN_SIGNIN_ENABLED: '0',
+    };
+    delete env.TJ_DESKTOP_TOKEN;
+    delete env.TJ_DESKTOP_TOKEN_FILE;
     backend = spawn(process.execPath, [api], {
       cwd: path.dirname(api),
-      env: {
-        ...process.env,
-        TJ_HOST: '127.0.0.1',
-        TJ_PORT: String(port),
-        TJ_DATA_DIR: tmpDir,
-        TJ_ENABLE_TEST_PROVIDER: '0',
-        TJ_CHATGPT_PLAN_SIGNIN_ENABLED: '0',
-        TJ_DESKTOP_TOKEN: '',
-        TJ_DESKTOP_TOKEN_FILE: '',
-      },
+      env,
       windowsHide: true,
       stdio: ['ignore', 'ignore', 'pipe'],
     });
@@ -87,7 +90,7 @@ try {
       try { await request('/api/v1/system/status', 1000); ready = true; break; }
       catch { await sleep(250); }
     }
-    if (!ready) throw new Error('Isolated API did not start: ' + stderr.slice(-350));
+    if (!ready) throw new Error('Isolated API did not start; inspect local process diagnostics, not credential-bearing logs');
   } else {
     // A caller cannot accidentally transmit a local acceptance check to a cloud URL.
     const target = new URL(base);
