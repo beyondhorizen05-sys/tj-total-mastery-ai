@@ -770,3 +770,184 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+
+/* --------------------------------------------------------------------------
+   FLOATING WINDOW SYSTEM OVERLAY
+   -------------------------------------------------------------------------- */
+.tj-floating-window-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(3, 8, 15, 0.55);
+  backdrop-filter: blur(8px);
+  padding: 16px;
+  animation: tjFadeIn 0.18s ease-out;
+}
+
+.tj-floating-window {
+  position: relative;
+  width: min(1180px, 95vw);
+  height: min(780px, 86vh);
+  background: rgba(7, 16, 28, 0.95);
+  backdrop-filter: blur(28px);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.8), 0 0 35px rgba(0, 242, 254, 0.18);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: tjScaleIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.2s ease, height 0.2s ease;
+}
+
+.tj-floating-window.is-maximized {
+  width: 98vw !important;
+  height: 94vh !important;
+  border-radius: 8px;
+}
+
+.tj-floating-window-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: linear-gradient(90deg, rgba(12, 26, 44, 0.98), rgba(7, 16, 28, 0.98));
+  border-bottom: 1px solid rgba(0, 242, 254, 0.22);
+  user-select: none;
+}
+
+.tj-floating-window-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.08em;
+}
+
+.tj-floating-window-title svg {
+  color: #00f2fe;
+}
+
+.tj-floating-window-badge {
+  background: rgba(0, 242, 254, 0.15);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  color: #00f2fe;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.tj-floating-window-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tj-floating-win-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(14, 28, 46, 0.7);
+  border: 1px solid rgba(141, 166, 189, 0.2);
+  border-radius: 6px;
+  color: #8da6bd;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tj-floating-win-btn:hover {
+  background: rgba(0, 242, 254, 0.15);
+  color: #00f2fe;
+  border-color: rgba(0, 242, 254, 0.4);
+}
+
+.tj-floating-win-btn.close:hover {
+  background: rgba(244, 63, 94, 0.2);
+  color: #ff6584;
+  border-color: rgba(244, 63, 94, 0.45);
+}
+
+.tj-floating-window-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  background: rgba(5, 12, 22, 0.75);
+}
+
+/* Scrollbars inside floating windows */
+.tj-floating-window-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.tj-floating-window-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 242, 254, 0.3);
+  border-radius: 4px;
+}
+
+.tj-floating-window-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 242, 254, 0.6);
+}
+
+/* Minimized pills for bottom panels */
+.tj-cmd-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  background: rgba(7, 16, 29, 0.88);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  border-radius: 18px;
+  color: #00f2fe;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 10px rgba(0, 242, 254, 0.15);
+  transition: all 0.18s ease;
+}
+
+.tj-cmd-pill-btn:hover {
+  background: rgba(0, 242, 254, 0.18);
+  border-color: #00f2fe;
+  box-shadow: 0 0 16px rgba(0, 242, 254, 0.35);
+}
+
+.tj-cmd-panel-close-btn {
+  background: transparent;
+  border: 0;
+  color: #8da6bd;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.tj-cmd-panel-close-btn:hover {
+  color: #00f2fe;
+}
+
+@keyframes tjScaleIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes tjFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

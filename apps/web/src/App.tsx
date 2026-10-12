@@ -39,7 +39,7 @@ import {
 import { DEFAULT_TJ_PERSONA, type SystemStatus, type TJPersona } from '@tj/schemas';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('main');
+  const [activeTab, setActiveTab] = useState('command');
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [persona, setPersona] = useState<TJPersona>(DEFAULT_TJ_PERSONA);
@@ -53,7 +53,10 @@ export const App: React.FC = () => {
   const [openNavGroups, setOpenNavGroups] = useState<string[]>(['nexus', 'work']);
   const [contextOpen, setContextOpen] = useState(false);
   const [workflowInitialMode, setWorkflowInitialMode] = useState<'studio' | 'hall'>('studio');
-  const openTab = (tab: string) => { setWorkflowInitialMode('studio'); setActiveTab(tab); };
+  const openTab = (tab: string) => {
+    setWorkflowInitialMode('studio');
+    setActiveTab(tab === 'main' ? 'command' : tab);
+  };
   const openBuilding = (destination: string) => {
     if (destination === 'collaboration_hall') {
       setWorkflowInitialMode('hall');
@@ -244,7 +247,7 @@ export const App: React.FC = () => {
     { id: 'themes', label: 'Change atmosphere', detail: 'Choose from ten TJ interface themes', keywords: 'theme color appearance design', run: () => setActiveTab('settings') },
   ];
 
-  if (activeTab === 'command') {
+  if (activeTab === 'command' || activeTab === 'main') {
     return (
       <div className="tj-app-shell" style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#050b14', position: 'relative' }}>
         <Suspense fallback={<div role="status" style={{ padding: 24, color: '#00f2fe' }}>Opening Living World…</div>}>
