@@ -40,7 +40,10 @@ export function assessGoalEvidence(goal: string, plan: Plan, root: string, befor
   const source_calls = calls.filter((call) => call.tool === 'web_fetch' || (call.tool === 'web_search' && /https?:\/\//i.test(call.summary))).length;
   const test_calls = calls.filter((call) => call.tool === 'shell_exec' && call.test_command === true).length;
   const criteria = `${goal}\n${plan.success_criteria.join('\n')}`;
-  const softwareGoal = /\b(app|application|prototype|website|software|program|codebase|project files)\b/i.test(criteria)
+  const staticAuditOnly = /\b(?:audit|review|inspect)\b/i.test(goal)
+    && (/\b(?:do not|don't|without)\b[^.\n]{0,120}\b(?:execute|run|invoke)\b[^.\n]{0,45}\b(?:shell|commands?|tests?)\b/i.test(goal) || /\b(?:without|no)\s+(?:running\s+)?(?:shell\s+)?commands?\b/i.test(goal));
+  const softwareGoal = !staticAuditOnly
+    && /\b(app|application|prototype|website|software|program|codebase|project files)\b/i.test(criteria)
     && /\b(build|create|develop|implement|prototype|test)\b/i.test(criteria);
   const gaps: string[] = [];
   if (softwareGoal && changed_files.length === 0) gaps.push('No new or changed project file was found; prototype creation is unverified.');

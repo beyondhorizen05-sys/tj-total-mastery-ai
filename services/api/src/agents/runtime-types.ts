@@ -14,6 +14,8 @@ export interface AgentRunInput {
   signal?: AbortSignal;
   max_steps?: number;
   task_type?: TaskType;
+  /** Optional per-task tool allowlist; further restricts the agent's registered tools. */
+  tool_allowlist?: string[];
   onProgress?: (msg: string) => void;
 }
 

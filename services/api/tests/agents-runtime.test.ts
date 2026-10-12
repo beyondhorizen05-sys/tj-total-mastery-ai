@@ -9,6 +9,43 @@ import type { ModelRouter } from '../src/models/router.js';
 import type { ToolRegistry } from '../src/tools/registry.js';
 
 describe('AgentRuntime budget', () => {
+  it('refuses model-requested tools prohibited by task-specific policy, even with native tool calls', async () => {
+    const db = new Database(':memory:'); db.migrate();
+    try {
+      const agent = {
+        id: 'restricted-agent', name: 'Developer', role: 'Developer',
+        description: '', personality: '', system_instructions: '',
+        tools: ['fs_read', 'github_inspect_repository'], permissions: ['filesystem.read', 'network.http'],
+        model_id: 'test/model', budget_usd: 1, spent_usd: 0,
+      } as unknown as Agent;
+      let modelCalls = 0;
+      let executionCount = 0;
+      const router = {
+        chat: async () => {
+          modelCalls++;
+          return modelCalls === 1
+            ? { text: '', tool_calls: [{ id: 'outside-tool', name: 'github_inspect_repository', arguments: { url: 'https://github.com/example/other' } }], usage: { tokens_in: 1, tokens_out: 1 }, model_id: 'test/model' }
+            : { text: 'Static audit finished', tool_calls: [], usage: { tokens_in: 1, tokens_out: 1 }, model_id: 'test/model' };
+        },
+      } as unknown as ModelRouter;
+      const tools = {
+        specs: (ids: string[]) => ids.map((name) => ({ name, description: name, parameters: { type: 'object' } })),
+        execute: async () => { executionCount++; return { ok: true, output: 'should not execute' }; },
+      } as unknown as ToolRegistry;
+      const agents = { get: () => agent, setStatus: () => {}, addMetrics: () => {} } as unknown as AgentService;
+      const runtime = new AgentRuntime(router, tools, agents, new EventBus(db), new SettingsRepo(db));
+      const result = await runtime.run({
+        agent, instruction: 'Static review only', workspace_id: 'default', project_id: null, project_root: null, task_id: null,
+        tool_allowlist: ['fs_read'],
+      });
+      expect(result.ok).toBe(false);
+      expect(result.denied).toBe(true);
+      expect(result.tool_calls[0]?.summary).toContain('explicit tool allowlist');
+      expect(executionCount).toBe(0);
+      expect(modelCalls).toBe(2);
+    } finally { db.close(); }
+  });
+
   it('emulates permission-checked tool calls on a selected model without native tool support', async () => {
     const db = new Database(':memory:'); db.migrate();
     try {

@@ -13,7 +13,7 @@ import { TaskService } from '../src/tasks/service.js';
 import { WorkspaceService } from '../src/core/workspace.js';
 import { CognitiveEngine } from '../src/cognitive/engine.js';
 import type { Plan } from '../src/cognitive/types.js';
-import { Orchestrator, canAttemptBoundedRepair, targetsTjSource } from '../src/orchestrator/orchestrator.js';
+import { Orchestrator, canAttemptBoundedRepair, targetsTjSource, referencesExistingTjFile } from '../src/orchestrator/orchestrator.js';
 import { scheduleRows } from '../src/orchestrator/scheduler.js';
 import { assessGoalEvidence, snapshotProjectFiles } from '../src/orchestrator/evidence.js';
 import { ToolRegistry } from '../src/tools/registry.js';
@@ -102,6 +102,42 @@ describe('Orchestrator End-to-End with Test Provider', () => {
     expect(targetsTjSource('TJ_ACCEPTANCE_E2E_RESEARCH_BUILD_TEST: research and build a small project tracker')).toBe(false);
     expect(targetsTjSource('Inspect and improve TJ itself')).toBe(true);
     expect(targetsTjSource('Fix a bug in TJ source code')).toBe(true);
+  });
+
+  it('uses the actual project for a named existing source file and does not reroute unrelated goals', () => {
+    const source = 'services/api/src/cognitive/engine.ts';
+    const goal = `Audit ${source} statically without shell commands; write a report elsewhere.`;
+    expect(referencesExistingTjFile(goal)).toBe(true);
+    expect(referencesExistingTjFile('Audit docs/nonexistent-xyz.html statically without shell commands')).toBe(false);
+    const plan = cognitive.staticFileAuditPlan(goal);
+    expect(plan).not.toBeNull();
+    const prepared = orchestrator.prepare(goal, plan!);
+    expect(path.resolve(prepared.project.root_path)).toBe(path.resolve(REPO_ROOT));
+    expect(prepared.tasks.map((task) => task.agent.role)).toEqual(['Developer', 'QA Engineer', 'Verifier']);
+    const mockedRun = vi.spyOn(runtime, 'run').mockResolvedValue({
+      ok: true, output: 'Static review completed', steps: 1, tool_calls: [], artifacts: [],
+      tokens_in: 0, tokens_out: 0, cost_usd: 0, model_id: 'test',
+    });
+    return orchestrator.execute(prepared, goal, plan!).then(() => {
+      for (const call of mockedRun.mock.calls) {
+        expect(call[0].tool_allowlist).toBeDefined();
+        expect(call[0].tool_allowlist).not.toContain('shell_exec');
+        expect(call[0].tool_allowlist).not.toContain('github_inspect_repository');
+      }
+    });
+  });
+
+  it('does not claim runtime testing was performed when the user explicitly prohibited shell commands', () => {
+    const root = path.join(testDir, 'static-audit-evidence');
+    fs.mkdirSync(root, { recursive: true });
+    const before = snapshotProjectFiles(root);
+    fs.writeFileSync(path.join(root, 'report.md'), 'Static findings; runtime unverified.');
+    const goal = 'Audit docs/calculator-prototype.html. Do not execute shell commands. Create a report.';
+    const plan = cognitive.staticFileAuditPlan(goal)!;
+    const evidence = assessGoalEvidence(goal, plan, root, before, []);
+    expect(evidence.changed_files).toContain('report.md');
+    expect(evidence.test_calls).toBe(0);
+    expect(evidence.gaps).not.toEqual(expect.arrayContaining([expect.stringMatching(/test command/i)]));
   });
 
   it('builds a GitHub-first plan for a supplied public repository without requiring web-search credentials', () => {

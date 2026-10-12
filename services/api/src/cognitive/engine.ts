@@ -34,6 +34,10 @@ export class CognitiveEngine {
   }
 
   async plan(goal: string, extra: { memory?: string; project_id?: string | null; model_id?: string | null; feedback?: string } = {}): Promise<PlanResult> {
+    // A no-execution audit with an explicit local file and role handoffs has a deterministic,
+    // constrained plan; do not let an unreliable model substitute web/GitHub or shell tools.
+    const staticAudit = this.staticFileAuditPlan(goal);
+    if (staticAudit) return { plan: staticAudit, source: 'fallback', model_id: null, cost_usd: null };
     const user = [`Goal:\n${goal}`, extra.memory ? `Relevant memory:\n${extra.memory}` : '', extra.feedback ? `Previous plan was rejected. Feedback:\n${extra.feedback}` : ''].filter(Boolean).join('\n\n');
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
@@ -47,8 +51,45 @@ export class CognitiveEngine {
     return { plan: this.fallbackPlan(goal), source: 'fallback', model_id: null, cost_usd: null };
   }
 
+  /** Preserve exact source path and requested three-agent handoff for explicitly static QA audits. */
+  staticFileAuditPlan(goal: string): Plan | null {
+    const sourceFiles = goal.match(/\b(?:docs|apps|services|packages|scripts|tests|src)\/[a-z0-9._/-]+\.(?:html|md|json|tsx?|jsx?|mjs|cjs|css|py)\b/gi) ?? [];
+    const auditRequest = /\b(?:audit|review|inspect)\b/i.test(goal);
+    const prohibitsCommands = (/\b(?:do not|don't|without)\b[^.\n]{0,120}\b(?:execute|run|invoke)\b[^.\n]{0,45}\b(?:shell|commands?|tests?)\b/i.test(goal) || /\b(?:without|no)\s+(?:running\s+)?(?:shell\s+)?commands?\b/i.test(goal));
+    if (!auditRequest || !prohibitsCommands || sourceFiles.length === 0) return null;
+
+    const sourceFile = sourceFiles[0]!;
+    const reportFile = sourceFiles.find((file) => file !== sourceFile && /\.(?:md|txt)$/i.test(file))
+      ?? 'docs/static-qa-audit-report.md';
+    return {
+      objective: goal,
+      success_criteria: [
+        `Inspect ${sourceFile} using file reads, without executing code or shell commands`,
+        `Create a factual static QA report at ${reportFile}`,
+        'Explicitly distinguish proposed test cases from executed tests and list runtime behavior as unverified',
+      ],
+      assumptions: ['A static inspection can identify source-level risks but cannot prove runtime behavior'],
+      constraints: ['Never run shell commands or external GitHub inspection', `Do not modify ${sourceFile}`, `Write only the requested report ${reportFile}`],
+      risks: ['Static review cannot verify browser behavior or real executions'],
+      rollback: `Remove only the newly created report ${reportFile} if necessary`,
+      tasks: [
+        { id: 'inspect', title: 'Inspect existing local implementation', role: 'Developer',
+          description: `Use fs_read to inspect ${sourceFile} in the selected local project. Examine implementation details and potential defects. Do not use GitHub inspection or shell commands. Do not edit source. Identify observed versus unverified behavior.`,
+          depends_on: [], tools: ['fs_read', 'fs_list'], risk: 'low' },
+        { id: 'qa', title: 'Write static quality audit', role: 'QA Engineer',
+          description: `Read ${sourceFile} and Developer findings. Create a detailed QA report at ${reportFile} with fs_write, including source-level findings, proposed test cases, and unverified functionality. Do not overwrite other existing files or execute commands. Never claim proposed tests were run.`,
+          depends_on: ['inspect'], tools: ['fs_read', 'fs_write'], risk: 'medium' },
+        { id: 'verify', title: 'Verify report against source evidence', role: 'Verifier',
+          description: `Read ${sourceFile} and ${reportFile}. Verify that each claim is backed by source evidence, with no invented test passes or execution evidence. Report what remains unverified. Do not edit files or invoke shell or GitHub tools.`,
+          depends_on: ['qa'], tools: ['fs_read'], risk: 'low' },
+      ],
+    };
+  }
+
   /** Generic plan used only when a model repeatedly fails to produce valid JSON. Labelled as fallback. */
   fallbackPlan(goal: string): Plan {
+    const staticAudit = this.staticFileAuditPlan(goal);
+    if (staticAudit) return staticAudit;
     const githubUrl = goal.match(/https:\/\/github\.com\/[\w.-]+\/[\w.-]+(?:\/[\w./-]+)?/i)?.[0];
     return {
       objective: goal, success_criteria: ['Deliverable files exist in the project directory', 'Tests or a run command execute successfully'], assumptions: ['Planner model returned no valid plan; using generic fallback plan'],
