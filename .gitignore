@@ -19,3 +19,4 @@ services/api/tests/**/*.sqlite
 services/api/tests/**/*.sqlite-shm
 services/api/tests/**/*.sqlite-wal
 services/api/tests/**/vault/
+.agents/
