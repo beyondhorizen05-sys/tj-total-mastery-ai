@@ -15,6 +15,7 @@ import { TJPersona } from '@tj/schemas';
 import { getPersona } from '../../core/persona.js';
 import { listLocalVoices } from '../../core/voice-listener.js';
 import { z } from 'zod';
+import type { FullAutonomyProbeResult } from '../../core/full-autonomy-runtime-check.js';
 import path from 'node:path';
 
 export function registerSystemRoutes(
@@ -33,11 +34,23 @@ export function registerSystemRoutes(
     coreDataDir: string;
     workflowEngine: WorkflowEngine;
     scheduler: AutomationScheduler;
+    runtimeProbe: () => Promise<FullAutonomyProbeResult>;
   }
 ) {
   // GET /api/v1/system/status
   app.get('/api/v1/system/status', async () => {
     return await deps.health.getStatus();
+  });
+
+  // POST /api/v1/system/verify-full-autonomy
+  // Fixed diagnostic command only. No user-supplied shell arguments.
+  app.post('/api/v1/system/verify-full-autonomy', async (req, reply) => {
+    const origin = req.headers.origin;
+    if (origin && !/^https?:\\/\\/(?:localhost|127\\.0\\.0\\.1)(?::\\d+)?$/.test(origin)
+      && !['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost'].includes(origin)) {
+      return reply.status(403).send({ error: 'Runtime verification is available only from the local TJ interface.' });
+    }
+    return deps.runtimeProbe();
   });
 
   // GET /api/v1/system/capabilities

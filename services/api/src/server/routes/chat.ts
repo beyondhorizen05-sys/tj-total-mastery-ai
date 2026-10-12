@@ -8,6 +8,7 @@ import type { HealthMonitor } from '../../core/health.js';
 import type { SettingsRepo } from '../../db/repo.js';
 import { getPersona, personaInstruction } from '../../core/persona.js';
 import type { CapabilityWorkflowService } from '../../self-improvement/capability-workflow.js';
+import { formatFullAutonomyProbe, isFullAutonomyProbeRequest, type FullAutonomyProbeResult } from '../../core/full-autonomy-runtime-check.js';
 
 export function registerChatRoutes(
   app: FastifyInstance,
@@ -19,6 +20,7 @@ export function registerChatRoutes(
     health: HealthMonitor;
     settings: SettingsRepo;
     capabilityWorkflow: CapabilityWorkflowService;
+    runtimeProbe: () => Promise<FullAutonomyProbeResult>;
   }
 ) {
   // GET /api/v1/conversations
@@ -69,6 +71,20 @@ export function registerChatRoutes(
       content: body.content,
       attachments: body.attachments as any,
     });
+
+    if (isFullAutonomyProbeRequest(body.content)) {
+      // Skip unreliable LLM planning for this exact fixed-command diagnostic.
+      // The same ToolRegistry and approval service are used by normal agents.
+      const diagnostic = await deps.runtimeProbe();
+      const content = formatFullAutonomyProbe(diagnostic);
+      deps.ws.addMessage({ conversation_id: convId, role: 'assistant', content });
+      return {
+        conversation_id: convId, content,
+        status: diagnostic.status === 'passed' ? 'completed' : 'failed',
+        plan_source: 'fixed_runtime_diagnostic',
+        diagnostic,
+      };
+    }
 
     deps.health.setState('thinking');
 

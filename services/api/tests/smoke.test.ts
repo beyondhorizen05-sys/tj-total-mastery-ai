@@ -35,6 +35,63 @@ describe('Fastify Server Injection Smoke Tests', () => {
     } catch {}
   });
 
+  it('does not execute the Full Autonomy diagnostic until the owner explicitly enables it', async () => {
+    const response = await serverInstance.app.inject({
+      method: 'POST', url: '/api/v1/system/verify-full-autonomy', payload: {},
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      status: 'not_ready', executed: false, full_autonomy_enabled: false,
+    });
+    expect(serverInstance.approvals.pendingCount()).toBe(0);
+  });
+
+  it('proves a real project-scoped shell command and records automatic medium-risk approval', async () => {
+    const settings = await serverInstance.app.inject({
+      method: 'PATCH', url: '/api/v1/settings',
+      payload: { autonomy_level: 5, auto_approve_high_risk: true },
+    });
+    expect(settings.statusCode).toBe(200);
+    const response = await serverInstance.app.inject({
+      method: 'POST', url: '/api/v1/system/verify-full-autonomy', payload: {},
+    });
+    expect(response.statusCode).toBe(200);
+    const diagnostic = response.json();
+    expect(diagnostic).toMatchObject({
+      status: 'passed', executed: true, autonomy_level: 5,
+      full_autonomy_enabled: true, tool: 'shell_exec', agent_role: 'Developer',
+      user_approval_requested: false, auto_approved: true,
+      exit_code: 0, approval_status: 'approved', approval_decided_by: 'full_autonomy_policy',
+    });
+    expect(diagnostic.stdout).toContain('TJ_FULL_AUTONOMY_RUNTIME_OK');
+    expect(diagnostic.project_root).toContain(path.join(testDir, 'projects'));
+    expect(serverInstance.approvals.get(diagnostic.approval_id)?.risk).toBe('medium');
+    expect(serverInstance.approvals.pendingCount()).toBe(0);
+  });
+
+  it('routes the original Full Autonomy runtime test prompt through real tools, not generic research', async () => {
+    const settings = await serverInstance.app.inject({
+      method: 'PATCH', url: '/api/v1/settings',
+      payload: { autonomy_level: 5, auto_approve_high_risk: true },
+    });
+    expect(settings.statusCode).toBe(200);
+    const before = serverInstance.orchestrator.listPlans().length;
+    const reply = await serverInstance.app.inject({
+      method: 'POST', url: '/api/v1/chat', payload: {
+        mode: 'build', content: 'RUNTIME VERIFICATION TEST 1 — FULL AUTONOMY\\nUse shell_exec to run node -e "console.log(\\'TJ_FULL_AUTONOMY_RUNTIME_OK\\')" and report the real outcome.',
+      },
+    });
+    expect(reply.statusCode).toBe(200);
+    const body = reply.json();
+    expect(body).toMatchObject({
+      status: 'completed', plan_source: 'fixed_runtime_diagnostic',
+      diagnostic: { status: 'passed', exit_code: 0, auto_approved: true },
+    });
+    expect(body.content).toContain('TJ_FULL_AUTONOMY_RUNTIME_OK');
+    expect(serverInstance.orchestrator.listPlans().length).toBe(before);
+    expect(serverInstance.approvals.pendingCount()).toBe(0);
+  });
+
   it('GET /api/v1/system/status returns healthy system info', async () => {
     const res = await serverInstance.app.inject({
       method: 'GET',

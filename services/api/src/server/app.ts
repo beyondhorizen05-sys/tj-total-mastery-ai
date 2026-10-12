@@ -50,6 +50,7 @@ import { PaperTradingService } from '../trading/paper-service.js';
 import { WellnessService } from '../wellness/service.js';
 
 import { registerSystemRoutes } from './routes/system.js';
+import { runFullAutonomyProbe } from '../core/full-autonomy-runtime-check.js';
 import { registerChatRoutes } from './routes/chat.js';
 import { registerAgentRoutes } from './routes/agents.js';
 import { registerTaskRoutes } from './routes/tasks.js';
@@ -217,8 +218,9 @@ export async function createServer(config: TJConfig) {
   const capabilities = new CapabilityRegistry({ db, router, tools, connectors, vault });
   const capabilityWorkflow = new CapabilityWorkflowService({ capabilities, router, approvals, improvements, ws, health, cognitive, orchestrator, dataDir: config.dataDir });
 
-  registerSystemRoutes(app, { db, bus, health, capabilities, settings, orchestrator, improvements, approvals, agents: agentService, workspace: ws, coreDataDir: config.dataDir, workflowEngine, scheduler });
-  registerChatRoutes(app, { ws, router, cognitive, orchestrator, health, settings, capabilityWorkflow });
+  const runtimeProbe = () => runFullAutonomyProbe({ settings, permissions, approvals, tools, workspace: ws, agents: agentService, health });
+  registerSystemRoutes(app, { db, bus, health, capabilities, settings, orchestrator, improvements, approvals, agents: agentService, workspace: ws, coreDataDir: config.dataDir, workflowEngine, scheduler, runtimeProbe });
+  registerChatRoutes(app, { ws, router, cognitive, orchestrator, health, settings, capabilityWorkflow, runtimeProbe });
   registerAgentRoutes(app, { agents: agentService, orchestrator });
   registerTaskRoutes(app, { tasks: taskService, orchestrator });
   registerWorkflowRoutes(app, { engine: workflowEngine, scheduler, health, cognitive, orchestrator, workspace: ws });
