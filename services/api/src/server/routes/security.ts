@@ -5,6 +5,8 @@ import type { PermissionEngine } from '../../security/permissions.js';
 import type { SettingsRepo } from '../../db/repo.js';
 import type { Sandbox } from '../../tools/sandbox.js';
 import type { Audit } from '../../security/audit.js';
+import type { RateLimiter } from '../../security/rate-limiter.js';
+import { createRateLimitHook } from '../../security/rate-limiter.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -16,6 +18,7 @@ export function registerSecurityRoutes(
     settings: SettingsRepo;
     sandbox: Sandbox;
     audit: Audit;
+    rateLimiter?: RateLimiter;
   }
 ) {
   const normalize = (value: string) => path.resolve(value).replace(/[\\/]+$/, '').replace(/\\/g, '/').toLocaleLowerCase();
@@ -24,9 +27,27 @@ export function registerSecurityRoutes(
     return Array.isArray(value) ? value.filter((root): root is string => typeof root === 'string') : [];
   };
 
+  const allowedRootsThrottle = deps.rateLimiter
+    ? createRateLimitHook({
+        limiter: deps.rateLimiter,
+        limit: 20,
+        windowMs: 60_000,
+        errorMessage: 'Allowed roots update rate limit exceeded. Please wait a minute.',
+      })
+    : undefined;
+
+  const approvalThrottle = deps.rateLimiter
+    ? createRateLimitHook({
+        limiter: deps.rateLimiter,
+        limit: 30,
+        windowMs: 60_000,
+        errorMessage: 'Approval decision rate limit exceeded. Please wait a minute.',
+      })
+    : undefined;
+
   app.get('/api/v1/security/allowed-roots', async () => ({ roots: readAllowedRoots() }));
 
-  app.post('/api/v1/security/allowed-roots', async (req, reply) => {
+  app.post('/api/v1/security/allowed-roots', allowedRootsThrottle ? { preHandler: allowedRootsThrottle } : {}, async (req, reply) => {
     const parsed = (req.body as { path?: unknown } | null)?.path;
     if (typeof parsed !== 'string' || !parsed.trim() || parsed.length > 2048 || parsed.includes('\0')) {
       return reply.status(400).send({ error: 'Provide an absolute folder path (maximum 2048 characters).' });
@@ -80,7 +101,7 @@ export function registerSecurityRoutes(
   });
 
   // POST /api/v1/approvals/:id/decide
-  app.post('/api/v1/approvals/:id/decide', async (req) => {
+  app.post('/api/v1/approvals/:id/decide', approvalThrottle ? { preHandler: approvalThrottle } : {}, async (req) => {
     const p = req.params as { id: string };
     const body = ApprovalDecisionRequest.parse(req.body);
     const decided = deps.approvals.decide(

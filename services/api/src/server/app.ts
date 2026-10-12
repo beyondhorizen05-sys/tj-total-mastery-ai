@@ -15,6 +15,7 @@ import { Vault } from '../security/vault.js';
 import { Audit } from '../security/audit.js';
 import { PermissionEngine } from '../security/permissions.js';
 import { ApprovalService } from '../security/approvals.js';
+import { RateLimiter } from '../security/rate-limiter.js';
 import { ModelRegistry } from '../models/registry.js';
 import { ModelRouter } from '../models/router.js';
 import { ChatGPTPlanService } from '../models/chatgpt-plan.js';
@@ -86,6 +87,13 @@ export async function createServer(config: TJConfig) {
     credentials: true,
   });
 
+  // Strict API Security Headers (@api-security-best-practices)
+  app.addHook('onSend', async (_request, reply) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  });
+
   const db = new Database(config.dbPath);
   db.migrate();
 
@@ -102,6 +110,7 @@ export async function createServer(config: TJConfig) {
   const wellness = new WellnessService(db, vault);
   const permissions = new PermissionEngine(db, audit, settings);
   const approvals = new ApprovalService(db, bus, audit, permissions);
+  const rateLimiter = new RateLimiter();
   const workbench = new ApiWorkbench(db, vault);
   const ws = new WorkspaceService(db, bus, settings.get<string>('project_storage_dir', config.projectsDir), config.dataDir);
   ws.init();
@@ -228,7 +237,7 @@ export async function createServer(config: TJConfig) {
   registerWorkflowRoutes(app, { engine: workflowEngine, scheduler, health, cognitive, orchestrator, workspace: ws });
   registerConnectorRoutes(app, { connectors, permissions, approvals, audit });
   registerModelRoutes(app, { registry: modelRegistry, router, chatgptPlan });
-  registerSecurityRoutes(app, { approvals, permissions, settings, sandbox, audit });
+  registerSecurityRoutes(app, { approvals, permissions, settings, sandbox, audit, rateLimiter });
   registerFileSearchRoutes(app, { sandbox, allowedRoots: () => {
     const roots = settings.get<unknown>('allowed_roots', []);
     return Array.isArray(roots) ? roots.filter((root): root is string => typeof root === 'string') : [];
