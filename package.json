@@ -18,6 +18,8 @@
     "lint": "eslint .",
     "test": "pnpm -r run test",
     "test:e2e": "pnpm --filter @tj/api run test:e2e",
+    "test:runtime": "node scripts/source-runtime-smoke.mjs",
+    "test:runtime:isolated": "node scripts/source-runtime-smoke.mjs --isolated",
     "build": "pnpm --filter @tj/schemas run build && pnpm --filter @tj/web run build && pnpm --filter @tj/api run build",
     "build:desktop": "pnpm --filter @tj/desktop run build",
     "start": "pnpm --filter @tj/api run start",
