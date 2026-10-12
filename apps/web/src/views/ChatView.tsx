@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../api';
+import { initialConversationId, canApplyConversationMessages, canAttachConversationReply } from './chat-selection';
 import { Send, Sparkles, AlertCircle } from 'lucide-react';
 
 interface Message {
@@ -58,8 +59,8 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
       const res = await apiFetch<{ conversations: any[] }>('/api/v1/conversations');
       setConversations(res.conversations);
       // A slow initial list must never override New Chat or a chosen thread.
-      if (res.conversations.length > 0 && !explicitSelection.current && activeConvRef.current === null) {
-        const first = res.conversations[0].id;
+      const first = initialConversationId(res.conversations, explicitSelection.current, activeConvRef.current);
+      if (first) {
         activeConvRef.current = first;
         setActiveConvId(first);
       }
@@ -73,7 +74,7 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
     try {
       const res = await apiFetch<{ messages: Message[] }>(`/api/v1/conversations/${id}/messages`);
       // Replies may return out of order when switching between conversations.
-      if (requestId === messageRequestId.current && activeConvRef.current === id) {
+      if (canApplyConversationMessages(requestId, messageRequestId.current, id, activeConvRef.current)) {
         setMessages(res.messages);
       }
     } catch (e: any) {
@@ -164,7 +165,7 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
         void loadConversations();
       }
       // Do not put a late assistant reply into a different conversation.
-      if (activeConvRef.current === (res.conversation_id ?? submittedConversation)) {
+      if (canAttachConversationReply(submittedConversation, res.conversation_id, activeConvRef.current)) {
         setMessages((prev) => [...prev, { id: res.message?.id ?? 'bot-' + Date.now(), role: 'assistant', content: res.content }]);
       }
       if (res.status === 'approval_required' && res.approval_id) {
