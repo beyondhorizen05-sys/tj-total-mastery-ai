@@ -114,6 +114,17 @@ describe('Orchestrator End-to-End with Test Provider', () => {
     const prepared = orchestrator.prepare(goal, plan!);
     expect(path.resolve(prepared.project.root_path)).toBe(path.resolve(REPO_ROOT));
     expect(prepared.tasks.map((task) => task.agent.role)).toEqual(['Developer', 'QA Engineer', 'Verifier']);
+    const mockedRun = vi.spyOn(runtime, 'run').mockResolvedValue({
+      ok: true, output: 'Static review completed', steps: 1, tool_calls: [], artifacts: [],
+      tokens_in: 0, tokens_out: 0, cost_usd: 0, model_id: 'test',
+    });
+    return orchestrator.execute(prepared, goal, plan!).then(() => {
+      for (const call of mockedRun.mock.calls) {
+        expect(call[0].tool_allowlist).toBeDefined();
+        expect(call[0].tool_allowlist).not.toContain('shell_exec');
+        expect(call[0].tool_allowlist).not.toContain('github_inspect_repository');
+      }
+    });
   });
 
   it('does not claim runtime testing was performed when the user explicitly prohibited shell commands', () => {

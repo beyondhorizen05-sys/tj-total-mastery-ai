@@ -230,6 +230,7 @@ export class Orchestrator {
   async execute(prepared: ReturnType<Orchestrator['prepare']>, goal: string, plan: Plan, opts: { plan_source?: string; max_repairs?: number; concurrency?: number } = {}): Promise<GoalRunResult> {
     const { project, plan_id, tasks: rows } = prepared;
     const ctrl = new AbortController();
+    const enforceStaticAuditTools = plan.constraints.some((constraint) => /never run shell commands or external github inspection/i.test(constraint));
     this.controllers.set(plan_id, ctrl);
     this.setPlanStatus(plan_id, 'running');
     const outputs = new Map<string, string>();
@@ -253,6 +254,7 @@ export class Orchestrator {
       let r = await this.runtime.run({
         agent: this.agents.get(agent.id)!, instruction: pt.description + extra, context: upstream || undefined, workspace_id: this.ws.workspaceId,
         project_id: project.id, project_root: project.root_path, task_id: task.id, signal: ctrl.signal,
+        tool_allowlist: enforceStaticAuditTools ? pt.tools ?? [] : undefined,
         task_type: /code|implement|build|develop/i.test(pt.title) ? 'coding' : /research/i.test(pt.title) ? 'research' : 'chat',
       });
       let toolCalls = [...r.tool_calls];
@@ -265,7 +267,8 @@ export class Orchestrator {
         const repair = await this.runtime.run({
           agent: this.agents.get(agent.id)!,
           instruction: `${pt.description}${extra}\n\nBOUNDED SELF-REPAIR (one attempt only): The previous attempt failed. Diagnose the root cause from the exact evidence below, make the smallest safe correction in this project, then rerun the narrowest relevant check. Do not repeat an action if it may have already produced an external side effect. If this needs credentials, permissions, an unavailable provider, or another user decision, stop and report that dependency instead of guessing.\nPrevious error: ${firstFailure.error}\nPrevious output: ${firstFailure.output}\nPrevious tool results:\n${firstFailure.calls || '(none)'}`,
-          context: upstream || undefined, workspace_id: this.ws.workspaceId, project_id: project.id, project_root: project.root_path, task_id: task.id, signal: ctrl.signal, task_type: 'coding',
+          context: upstream || undefined, workspace_id: this.ws.workspaceId, project_id: project.id, project_root: project.root_path, task_id: task.id, signal: ctrl.signal,
+          tool_allowlist: enforceStaticAuditTools ? pt.tools ?? [] : undefined, task_type: 'coding',
         });
         cost += repair.cost_usd;
         toolCalls = [...toolCalls, ...repair.tool_calls];
