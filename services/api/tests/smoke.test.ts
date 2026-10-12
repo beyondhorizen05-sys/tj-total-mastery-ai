@@ -78,7 +78,8 @@ describe('Fastify Server Injection Smoke Tests', () => {
     const before = serverInstance.orchestrator.listPlans().length;
     const reply = await serverInstance.app.inject({
       method: 'POST', url: '/api/v1/chat', payload: {
-        mode: 'build', content: 'RUNTIME VERIFICATION TEST 1 — FULL AUTONOMY\\nUse shell_exec to run node -e "console.log(\\'TJ_FULL_AUTONOMY_RUNTIME_OK\\')" and report the real outcome.',
+        mode: 'build', content: `RUNTIME VERIFICATION TEST 1 — FULL AUTONOMY
+Use shell_exec to run node -e "console.log('TJ_FULL_AUTONOMY_RUNTIME_OK')" and report the real outcome.`,
       },
     });
     expect(reply.statusCode).toBe(200);
