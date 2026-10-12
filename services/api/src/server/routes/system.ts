@@ -9,6 +9,8 @@ import type { ApprovalService } from '../../security/approvals.js';
 import type { AgentService } from '../../agents/service.js';
 import type { WorkspaceService } from '../../core/workspace.js';
 import type { SelfImprovementService } from '../../self-improvement/service.js';
+import type { WorkflowEngine } from '../../workflows/engine.js';
+import type { AutomationScheduler } from '../../workflows/automation-scheduler.js';
 import { TJPersona } from '@tj/schemas';
 import { getPersona } from '../../core/persona.js';
 import { listLocalVoices } from '../../core/voice-listener.js';
@@ -29,6 +31,8 @@ export function registerSystemRoutes(
     agents: AgentService;
     workspace: WorkspaceService;
     coreDataDir: string;
+    workflowEngine: WorkflowEngine;
+    scheduler: AutomationScheduler;
   }
 ) {
   // GET /api/v1/system/status
@@ -75,6 +79,8 @@ export function registerSystemRoutes(
   // POST /api/v1/system/stop-all
   app.post('/api/v1/system/stop-all', async () => {
     deps.health.setStopAll(true);
+    deps.scheduler.pause();
+    deps.workflowEngine.cancelAll();
     deps.orchestrator.stopAll();
     deps.improvements.stopAll();
     deps.approvals.denyAllPending('stop_all');
@@ -90,6 +96,7 @@ export function registerSystemRoutes(
   // POST /api/v1/system/resume
   app.post('/api/v1/system/resume', async () => {
     deps.health.setStopAll(false);
+    await deps.scheduler.resume();
     deps.health.setState('idle');
     deps.bus.emit({
       name: 'system.health_changed',
@@ -146,7 +153,7 @@ export function registerSystemRoutes(
     const body = (req.body as Record<string, unknown>) ?? {};
     if ('tj_persona' in body || 'first_run_completed' in body) return reply.status(400).send({ error: 'Use the identity or first-run endpoint for this setting' });
     const validation = z.object({
-      autonomy_level: z.number().int().min(1).max(4).optional(),
+      autonomy_level: z.number().int().min(0).max(5).optional(),
       privacy_mode: z.enum(['balanced', 'local-only']).optional(),
       default_model_id: z.string().nullable().optional(),
       routing_mode: z.enum(['auto', 'manual']).optional(),

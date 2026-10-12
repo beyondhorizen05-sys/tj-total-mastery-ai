@@ -1,0 +1,57 @@
+.tj-living-world{position:relative;isolation:isolate;display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow:hidden;padding:22px 28px 24px;color:var(--text-main);background:radial-gradient(ellipse at 50% 48%,rgba(27,69,99,.26),transparent 57%),linear-gradient(160deg,#07111d,#091827 58%,#060d17)}
+.tj-world-atmosphere{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;opacity:.6}
+.tj-world-atmosphere span{position:absolute;width:520px;height:520px;left:50%;top:48%;translate:-50% -50%;border:1px solid rgba(75,217,208,.09);border-radius:50%;box-shadow:0 0 0 48px rgba(75,217,208,.018),0 0 0 120px rgba(75,217,208,.012),inset 0 0 80px rgba(75,217,208,.025)}
+.tj-world-atmosphere i,.tj-world-atmosphere b{position:absolute;width:1px;height:100%;top:0;background:linear-gradient(transparent,rgba(75,217,208,.12),transparent)}
+.tj-world-atmosphere i{left:16%}.tj-world-atmosphere b{right:16%}
+.tj-world-header{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:68px;flex:none;padding:0 4px 16px;border-bottom:1px solid rgba(216,229,237,.09)}
+.tj-world-overline{display:flex;align-items:center;gap:8px;color:var(--accent-amber);font:600 9px 'JetBrains Mono',monospace;letter-spacing:.17em}
+.tj-world-live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent-amber)}
+.tj-world-live-dot.is-live{background:var(--accent-cyan);box-shadow:0 0 12px var(--accent-cyan)}
+.tj-world-title h1{margin:6px 0 1px;font:500 20px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.035em}
+.tj-world-title p{margin:0;color:var(--text-muted);font-size:10px;letter-spacing:.025em}
+.tj-world-status{display:flex;align-items:center;gap:16px}
+.tj-world-status>div,.tj-world-status>button{display:flex;align-items:center;gap:7px;color:var(--text-muted);font:500 10px 'Plus Jakarta Sans',sans-serif}
+.tj-world-status svg{color:var(--accent-cyan)}
+.tj-world-status strong{color:var(--text-main);font:600 12px 'JetBrains Mono',monospace}
+.tj-world-status button{padding:8px 10px;border:1px solid rgba(215,174,118,.24);border-radius:8px;background:rgba(215,174,118,.045);color:var(--accent-amber);cursor:pointer}
+.tj-world-status button span{display:grid;place-items:center;min-width:17px;height:17px;border-radius:50%;background:rgba(215,174,118,.14)}
+.tj-world-scene{position:relative;display:flex;flex:1;min-height:0;padding:16px 0 8px}
+.tj-world-scene-caption{position:absolute;left:18px;right:18px;top:22px;z-index:5;display:flex;justify-content:space-between;color:rgba(216,229,237,.52);font:500 8px 'JetBrains Mono',monospace;letter-spacing:.12em;pointer-events:none}
+.tj-world-scene-caption span:last-child{color:rgba(75,217,208,.72)}
+.tj-agent-town.is-expanded{flex:1;min-width:0;width:100%;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+.tj-agent-town.is-expanded .tj-agent-town-toolbar{position:absolute;z-index:6;right:12px;top:44px;padding:8px!important;border:1px solid rgba(216,229,237,.11);border-radius:11px;background:rgba(10,18,28,.65);backdrop-filter:blur(14px)}
+.tj-agent-town.is-expanded .tj-agent-town-toolbar>div:first-child{display:none}
+.tj-agent-town.is-expanded .tj-agent-town-toolbar button{border-color:transparent!important;border-radius:7px!important;font:600 8px 'JetBrains Mono',monospace!important;letter-spacing:.07em}
+.tj-agent-town.is-expanded .tj-agent-town-canvas{overflow:hidden;border:1px solid rgba(216,229,237,.07);border-radius:24px;background:radial-gradient(ellipse 60% 50% at 50% 55%,rgba(75,217,208,.055),transparent 72%)}
+.tj-agent-town.is-expanded .tj-agent-town-detail{position:absolute;z-index:6;left:50%;bottom:15px;translate:-50% 0;min-height:auto!important;max-width:min(650px,85%);padding:8px 15px!important;border:1px solid rgba(216,229,237,.12)!important;border-radius:9px;background:rgba(9,15,25,.76);backdrop-filter:blur(12px);white-space:nowrap}
+.tj-hq-room-rail{position:absolute;z-index:3;left:13px;top:56px;display:flex;flex-direction:column;gap:4px;max-width:150px}
+.tj-hq-room-rail button{padding:6px 8px;border:1px solid rgba(102,196,231,.2);border-radius:6px;background:rgba(6,15,27,.76);color:#b8d5e8;text-align:left;font:600 7px 'JetBrains Mono',monospace;letter-spacing:.05em;backdrop-filter:blur(9px);cursor:pointer;transition:border-color .16s ease,color .16s ease,background .16s ease}
+.tj-hq-room-rail button:hover,.tj-hq-room-rail button:focus-visible{border-color:rgba(89,221,222,.65);background:rgba(13,44,60,.92);color:#e8fdff;outline:none}
+.tj-world-map-hint{position:absolute;z-index:4;left:18px;bottom:22px;display:flex;gap:13px;color:rgba(147,166,179,.54);font:500 8px 'JetBrains Mono',monospace;letter-spacing:.13em;pointer-events:none}
+.tj-living-pulse{position:relative;z-index:10;display:flex;align-items:center;gap:13px;align-self:center;width:min(660px,calc(100% - 32px));min-height:76px;margin-top:2px;padding:9px 12px;border:1px solid rgba(75,217,208,.24);border-radius:20px;background:linear-gradient(110deg,rgba(16,29,41,.94),rgba(13,24,35,.88));backdrop-filter:blur(24px);box-shadow:0 14px 50px rgba(0,0,0,.36),inset 0 1px rgba(255,255,255,.04),0 0 28px rgba(75,217,208,.055)}
+.tj-pulse-orb-button{position:relative;flex:none;width:54px;height:54px;padding:0;border:1px solid rgba(75,217,208,.4);border-radius:50%;background:radial-gradient(circle,rgba(75,217,208,.2),rgba(75,217,208,.035) 68%);box-shadow:0 0 22px rgba(75,217,208,.17),inset 0 0 15px rgba(75,217,208,.08);cursor:pointer}
+.tj-pulse-orb{position:absolute;inset:2px;overflow:hidden;border-radius:50%}
+.tj-pulse-orb .tj-identity-scene{width:100%;height:100%;border-radius:50%}
+.tj-pulse-orb .tj-identity-aura{background:radial-gradient(circle,rgba(75,217,208,.14),transparent 72%)}
+.tj-pulse-orb .tj-identity-aura::before{width:48%;border-color:rgba(75,217,208,.35);box-shadow:0 0 15px rgba(75,217,208,.2)}
+.tj-pulse-orb .tj-identity-aura::after{width:74%;border-color:rgba(75,217,208,.2)}
+.tj-pulse-orb .tj-identity-aura span{font-size:16px;color:#D8E5ED;text-shadow:0 0 10px var(--accent-cyan)}
+.tj-pulse-orb .tj-identity-scene canvas{width:100%!important;height:100%!important}
+.tj-pulse-orb-indicator{position:absolute;right:0;bottom:2px;width:12px;height:12px;display:grid;place-items:center;border:2px solid #101d29;border-radius:50%;background:var(--bg-secondary)}
+.tj-pulse-orb-indicator i{width:5px;height:5px;border-radius:50%;background:var(--accent-cyan)}
+.tj-pulse-orb-indicator i.is-speaking{animation:tjPulseTalk .8s ease-in-out infinite alternate;box-shadow:0 0 9px var(--accent-cyan)}
+@keyframes tjPulseTalk{to{transform:scale(1.65);opacity:.55}}
+.tj-pulse-copy{display:flex;flex-direction:column;gap:5px;min-width:114px}
+.tj-pulse-copy>span{color:var(--text-muted);font:500 8px 'JetBrains Mono',monospace;letter-spacing:.09em}
+.tj-pulse-copy b{color:var(--accent-amber)}
+.tj-pulse-copy strong{font:600 12px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.01em}
+.tj-pulse-composer{display:flex;align-items:center;gap:10px;flex:1;min-width:0;height:46px;padding:0 7px 0 13px;border:1px solid rgba(216,229,237,.12);border-radius:12px;background:rgba(5,12,20,.68)}
+.tj-pulse-composer>svg{flex:none;color:var(--accent-amber)}
+.tj-pulse-composer input{flex:1;min-width:0;height:100%;border:0;outline:none;background:transparent;color:var(--text-main);font:500 11px 'Plus Jakarta Sans',sans-serif}
+.tj-pulse-composer input::placeholder{color:var(--text-dim)}
+.tj-pulse-composer button{display:flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid rgba(75,217,208,.3);border-radius:8px;background:rgba(75,217,208,.12);color:var(--accent-cyan);font:600 10px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+.tj-pulse-composer button:disabled{opacity:.4;cursor:not-allowed}
+.tj-pulse-voice{display:none;width:38px;height:38px;place-items:center;border:1px solid var(--border-subtle);border-radius:50%;background:transparent;color:var(--accent-cyan);cursor:pointer}
+@media(max-width:900px){.tj-living-world{padding:18px 18px 20px}.tj-world-status{gap:9px}.tj-world-status>div span{display:none}}
+@media(max-width:620px){.tj-living-world{padding:12px}.tj-world-header{min-height:58px}.tj-world-title h1{font-size:17px}.tj-world-status>div{display:none}.tj-world-scene{padding-top:7px}.tj-world-scene-caption{left:10px;right:10px;top:13px;font-size:7px}.tj-agent-town.is-expanded .tj-agent-town-toolbar{top:34px;right:6px;padding:4px!important}.tj-agent-town.is-expanded .tj-agent-town-toolbar button{font-size:7px!important;padding:5px!important}.tj-agent-town.is-expanded .tj-agent-town-detail{max-width:92%;overflow:hidden;text-overflow:ellipsis;font-size:9px!important}.tj-hq-room-rail{left:5px;top:39px;gap:3px;max-width:104px}.tj-hq-room-rail button{padding:4px 5px;font-size:6px}.tj-world-map-hint{left:9px;bottom:12px;font-size:7px}.tj-living-pulse{width:100%;gap:8px;padding:8px;border-radius:16px}.tj-pulse-orb-button{width:46px;height:46px}.tj-pulse-copy{display:none}.tj-pulse-composer{padding-left:9px}.tj-pulse-composer input{font-size:10px}.tj-pulse-composer button{padding:8px}.tj-pulse-composer button span{display:none}}
+@media(prefers-reduced-motion:reduce){.tj-pulse-orb-indicator i.is-speaking{animation:none}}

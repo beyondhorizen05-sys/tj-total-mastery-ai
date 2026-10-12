@@ -2,6 +2,7 @@ import type { Model } from '@tj/schemas';
 import type { ModelRegistry } from './registry.js';
 import type { SettingsRepo } from '../db/repo.js';
 import type { EventBus } from '../core/event-bus.js';
+import type { ApprovalService } from '../security/approvals.js';
 import type { ChatOptions, ChatResult } from './types.js';
 import { ProviderError } from './types.js';
 
@@ -25,7 +26,7 @@ export interface RouteRequest {
 
 export interface RouteDecision { model: Model; chain: Model[]; reason: string }
 
-export type RoutedChatResult = ChatResult & { model_id: string; provider_id: string; fallback_from?: string; cost_usd: number | null };
+export type RoutedChatResult = ChatResult & { model_id: string; provider_id: string; routed_model_id?: string; fallback_from?: string; cost_usd: number | null };
 
 const QUALITY_SCORE = { frontier: 4, strong: 3, standard: 2, light: 1, unknown: 1.5 } as const;
 const COST_SCORE = { free: 0, low: 1, medium: 2, high: 3, unknown: 2 } as const;
@@ -38,16 +39,28 @@ const NON_CHAT = /embed|whisper|tts|dall-e|moderation|rerank|audio|realtime|imag
  * then returns an ordered fallback chain used by chat() (Spec §87 provider failover).
  */
 export class ModelRouter {
-  constructor(private registry: ModelRegistry, private settings: SettingsRepo, private bus: EventBus) {}
+  constructor(private registry: ModelRegistry, private settings: SettingsRepo, private bus: EventBus, private approvals?: ApprovalService) {}
+
+  /** Exposes provider capability metadata so the agent runtime can emulate safe text tool calls when needed. */
+  modelSupportsTools(modelId: string | null | undefined): boolean | null {
+    if (!modelId) return null;
+    const model = this.registry.getModel?.(modelId);
+    return model ? model.supports_tools === true : null;
+  }
 
   candidates(req: RouteRequest): Model[] {
     const privacyMode = this.settings.get<string>('privacy_mode', 'balanced');
     const prefer = req.prefer ?? this.settings.get<string>('router_priority', 'balanced');
     const localOnly = req.privacy === 'local-only' || privacyMode === 'local-only' || prefer === 'local-only' || prefer === 'private-only';
+    const routingMode = this.settings.get<string>('routing_mode', 'auto');
+    const manuallySelectedModel = req.model_id ?? (routingMode === 'manual' ? this.settings.get<string | null>('default_model_id', null) : null);
     const providers = new Map(this.registry.listProviders().map((p) => [p.id, p]));
     return this.registry.listModels(undefined, true).filter((m) => {
       const p = providers.get(m.provider_id);
       if (!p || !p.enabled) return false;
+      // Subscription-backed ChatGPT models must be a deliberate model choice,
+      // never a silent auto-route or fallback from another provider.
+      if (p.kind === 'chatgpt-plan' && manuallySelectedModel !== m.id) return false;
       if (p.health === 'unauthorized' || p.health === 'misconfigured') return false;
       if (p.requires_api_key && !p.credential_ref) return false;
       if (req.task_type === 'embedding' ? !/embed/i.test(m.model) : NON_CHAT.test(m.model)) return false;
@@ -95,7 +108,17 @@ export class ModelRouter {
     let cands = this.candidates(req).sort((a, b) => this.score(b, req, prefer) - this.score(a, req, prefer));
     if (explicit) {
       const m = cands.find((candidate) => candidate.id === explicit);
-      if (!m) throw new ProviderError(`Selected model ${explicit} is unavailable under the current provider, privacy, and capability settings.`, 'unavailable', undefined, false);
+      if (!m) {
+        const selected = this.registry.getModel?.(explicit);
+        if (selected && req.needs_tools && selected.supports_tools !== true) {
+          const support = selected.supports_tools === false ? 'does not support' : 'has not been confirmed to support';
+          throw new ProviderError(
+            `The selected model "${selected.display_name}" ${support} tool calling, which this task needs. TJ kept your manual model selection and did not switch providers. Choose a tool-capable model in Models, or change routing mode to Auto to let TJ select an eligible model.`,
+            'unavailable', undefined, false,
+          );
+        }
+        throw new ProviderError(`Selected model ${explicit} is unavailable under the current provider, privacy, and capability settings.`, 'unavailable', undefined, false);
+      }
       // A chosen model is a spending and privacy choice. Never fall back to a
       // different model when that choice fails, especially from a free model.
       cands = [m];
@@ -106,7 +129,7 @@ export class ModelRouter {
   }
 
   /** Execute a chat with automatic fallback across the chain (Spec §87). */
-  async chat(req: RouteRequest, opts: Omit<ChatOptions, 'model'>, ctx: { project_id?: string | null; agent_id?: string | null } = {}): Promise<RoutedChatResult> {
+  async chat(req: RouteRequest, opts: Omit<ChatOptions, 'model'>, ctx: { project_id?: string | null; agent_id?: string | null; task_id?: string | null; workspace_id?: string | null; user_confirmed_spend?: boolean } = {}): Promise<RoutedChatResult> {
     const decision = this.route(req);
     const limits = {
       daily: this.settings.get<number | null>('budget_daily_usd', null),
@@ -120,8 +143,28 @@ export class ModelRouter {
     if (!eligible.length) throw new ProviderError('No model fits the configured estimated spending limits. Adjust limits or select a model with known pricing.', 'bad_request', undefined, false);
     let lastErr: any = null;
     let fallback_from: string | undefined;
+    const failedProviders = new Set<string>();
     for (let i = 0; i < eligible.length; i++) {
       const m = eligible[i];
+      const provider = this.registry.getProvider(m.provider_id);
+      const knownFree = m.cost_class === 'free' || (m.price_in_per_m === 0 && m.price_out_per_m === 0);
+      const local = provider?.privacy_class === 'local';
+      const previouslyApproved = this.approvals?.hasApproved('Use paid or unpriced AI model', m.id, 'payments.execute');
+      if (this.approvals && !ctx.user_confirmed_spend && !knownFree && !local && !previouslyApproved) {
+        const inputTokens = Math.ceil(JSON.stringify(boundedOpts.messages).length / 3);
+        const estimated = this.estimateCost(m.id, inputTokens, boundedOpts.max_tokens ?? 2048);
+        const request = this.approvals.request({
+          workspace_id: ctx.workspace_id ?? 'default', project_id: ctx.project_id ?? null, agent_id: ctx.agent_id ?? null, task_id: ctx.task_id ?? null,
+          action: 'Use paid or unpriced AI model', target: m.id,
+          why: `This inference may consume provider credits or money${ctx.task_id ? ` while task ${ctx.task_id} is running` : ''}. Approve this request before TJ sends the prompt.`,
+          tools: ['model.inference'], resources_affected: [m.provider_id],
+          estimated_cost: estimated == null ? 'Unknown; provider pricing is unavailable' : `$${estimated.toFixed(6)} maximum estimate for this request`,
+          risks: [estimated == null ? 'The provider may charge an unknown amount' : 'The provider may charge for this inference'], rollback_available: false,
+          permission: 'payments.execute', risk: 'high', payload: { model_id: m.id, provider_id: m.provider_id, estimated_cost_usd: estimated },
+        });
+        const decision = await this.approvals.waitFor(request.id);
+        if (decision.status !== 'approved' && decision.status !== 'approved_workflow') throw new ProviderError(`User approval is required before using ${m.id}; approval ${decision.status}.`, 'bad_request', undefined, false);
+      }
       const adapter = this.registry.adapter(m.provider_id);
       this.bus.emit({
         name: i === 0 ? 'model.selected' : 'model.fallback', severity: i === 0 ? 'debug' : 'warning',
@@ -131,10 +174,18 @@ export class ModelRouter {
       const t = performance.now();
       try {
         const r = await this.withRetry(() => adapter.chat({ ...boundedOpts, model: m.model }), 2);
-        const cost = this.registry.recordUsage({ model_id: m.id, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: r.usage.tokens_in, tokens_out: r.usage.tokens_out, latency_ms: r.latency_ms, success: true });
-        return { ...r, model_id: m.id, provider_id: m.provider_id, fallback_from, cost_usd: cost };
+        const isFreeLlmAuto = m.model === 'auto' && this.registry.isFreeLlmAutoProvider(m.provider_id);
+        const routedModel = isFreeLlmAuto
+          ? this.registry.findModelForProvider(m.provider_id, r.routed_via) ?? this.registry.findModelForProvider(m.provider_id, r.raw_model)
+          : undefined;
+        const usageModelId = routedModel?.id ?? m.id;
+        const cost = this.registry.recordUsage({ model_id: usageModelId, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: r.usage.tokens_in, tokens_out: r.usage.tokens_out, latency_ms: r.latency_ms, success: true });
+        if (isFreeLlmAuto && usageModelId !== m.id) this.registry.setModelHealth(m.id, 'healthy');
+        if (failedProviders.has(m.provider_id)) this.registry.setHealth(m.provider_id, 'healthy', null, r.latency_ms);
+        return { ...r, model_id: m.id, provider_id: m.provider_id, routed_model_id: routedModel?.id, fallback_from, cost_usd: cost };
       } catch (e: any) {
         lastErr = e;
+        failedProviders.add(m.provider_id);
         this.registry.recordUsage({ model_id: m.id, provider_id: m.provider_id, project_id: ctx.project_id, agent_id: ctx.agent_id, tokens_in: 0, tokens_out: 0, latency_ms: performance.now() - t, success: false });
         const kind = e instanceof ProviderError ? e.kind : 'unknown';
         this.bus.emit({ name: 'provider.error', severity: 'error', summary: `Provider ${m.provider_id} failed (${kind}): ${e.message}`, model_id: m.id, agent_id: ctx.agent_id, project_id: ctx.project_id, data: { kind } });

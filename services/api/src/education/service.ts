@@ -101,6 +101,7 @@ export class EducationService {
       let url: URL;
       try { url = new URL(record.url); } catch { throw new EducationError('Resource URL is invalid.'); }
       if (!['http:', 'https:'].includes(url.protocol)) throw new EducationError('Resource URL must use HTTP or HTTPS.');
+      if (url.username || url.password) throw new EducationError('Resource URLs must not contain embedded credentials.');
       return { label, url: url.toString() };
     });
     if ((this.db.get<{ count: number }>('SELECT COUNT(*) AS count FROM education_lessons WHERE plan_id=?', [planId])?.count ?? 0) >= 200) throw new EducationError('Lesson limit of 200 per plan reached.', 409);

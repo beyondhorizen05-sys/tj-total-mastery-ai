@@ -5,7 +5,7 @@ import path from 'node:path';
 import Fastify from 'fastify';
 import { Database } from '../src/db/database.js';
 import { Vault } from '../src/security/vault.js';
-import { ApiWorkbench, type Resolver, type Transport } from '../src/workbench/service.js';
+import { ApiWorkbench, isPublicAddress, type Resolver, type Transport } from '../src/workbench/service.js';
 import { registerWorkbenchRoutes } from '../src/server/routes/workbench.js';
 
 describe('API Workbench', () => {
@@ -23,6 +23,14 @@ describe('API Workbench', () => {
   });
   afterEach(() => { db.close(); fs.rmSync(vaultDir, { recursive: true, force: true }); });
 
+  it('allows global IPv6 while rejecting IANA special-purpose non-global ranges', () => {
+    expect(isPublicAddress('2001:4860:4860::8888')).toBe(true);
+    expect(isPublicAddress('2001:20::1')).toBe(true);
+    for (const address of ['2001:2::1', '2001:0002:0000::1', '2001:10::1', '2001:db8::1', '3fff::1', '5f00::1']) {
+      expect(isPublicAddress(address), address).toBe(false);
+    }
+  });
+
   it('blocks local targets, URL credentials, secret query strings and unsafe headers', () => {
     const base = { name: 'test', method: 'GET' as const };
     for (const url of ['http://api.example.com', 'https://localhost/', 'https://127.0.0.1/', 'https://[::1]/', 'https://user:pass@api.example.com/', 'https://api.example.com/?api_key=secret']) {
@@ -37,6 +45,14 @@ describe('API Workbench', () => {
   it('rejects a hostname resolving to a private address before transport and records failure', async () => {
     service = new ApiWorkbench(db, new Vault(db, vaultDir), async () => [{ address: '169.254.169.254', family: 4 }], transport);
     const saved = service.save({ name: 'metadata', method: 'GET', url: 'https://api.example.com/latest/meta-data' });
+    await expect(service.run(saved.id)).rejects.toThrow(/private, local or unsupported/);
+    expect(transport).not.toHaveBeenCalled();
+    expect(service.history(saved.id)[0]).toMatchObject({ ok: false, status: null });
+  });
+
+  it('rejects deprecated 6to4 relay anycast as a non-public destination', async () => {
+    service = new ApiWorkbench(db, new Vault(db, vaultDir), async () => [{ address: '192.88.99.1', family: 4 }], transport);
+    const saved = service.save({ name: 'special address', method: 'GET', url: 'https://api.example.com/' });
     await expect(service.run(saved.id)).rejects.toThrow(/private, local or unsupported/);
     expect(transport).not.toHaveBeenCalled();
     expect(service.history(saved.id)[0]).toMatchObject({ ok: false, status: null });

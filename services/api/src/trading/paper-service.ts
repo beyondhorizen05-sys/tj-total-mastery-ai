@@ -12,6 +12,7 @@ export interface PaperTrade { date: string; action: 'buy' | 'sell' | 'risk_exit'
 interface PaperSettings { enabled: boolean; max_position_pct: number; max_exposure_pct: number; max_daily_loss_pct: number }
 const limitsSchema = z.strictObject({ enabled: z.boolean(), max_position_pct: z.number().min(1).max(100), max_exposure_pct: z.number().min(1).max(100), max_daily_loss_pct: z.number().min(0.1).max(100) });
 const runSchema = z.strictObject({ dataset_id: z.string().uuid(), initial_cash: z.number().min(100).max(1_000_000_000), fast_window: z.number().int().min(2).max(100), slow_window: z.number().int().min(3).max(250) });
+const DECIMAL = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 export function parseOhlcCsv(csv: string): Bar[] {
   if (typeof csv !== 'string' || Buffer.byteLength(csv, 'utf8') > 2_000_000) throw new PaperError('CSV must be text under 2 MB');
@@ -31,7 +32,11 @@ export function parseOhlcCsv(csv: string): Bar[] {
     const parsedDate = new Date(`${date}T00:00:00Z`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date || date <= previous) throw new PaperError(`Dates must be valid, unique, and ascending (row ${lineIndex + 2})`);
     previous = date;
-    const number = (field: string) => Number(cells[index(field)]);
+    const number = (field: string) => {
+      const raw = cells[index(field)];
+      if (!DECIMAL.test(raw)) return Number.NaN;
+      return Number(raw);
+    };
     const open = number('open'), high = number('high'), low = number('low'), close = number('close');
     if (![open, high, low, close].every((value) => Number.isFinite(value) && value >= 0.0001 && value <= 1_000_000_000) || high < Math.max(open, close) || low > Math.min(open, close) || high < low) throw new PaperError(`Invalid OHLC prices at row ${lineIndex + 2}`);
     const volume = index('volume') < 0 || cells[index('volume')] === '' ? null : number('volume');

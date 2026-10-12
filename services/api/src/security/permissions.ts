@@ -51,17 +51,29 @@ export class PermissionEngine {
     // 2. Explicit policies (user-defined trusted automation rules, workflow-scoped approvals, denies).
     const policies = this.listPolicies().filter((p) => this.policyMatches(p, ctx));
     const deny = policies.find((p) => p.decision === 'deny');
-    if (deny) return this.record(ctx, { decision: 'deny', risk, reason: `Denied by policy "${deny.name}"`, matched_policy: deny.id });
+    if (deny) {
+      this.consumeOnce(deny);
+      return this.record(ctx, { decision: 'deny', risk, reason: `Denied by policy "${deny.name}"`, matched_policy: deny.id });
+    }
+
+    // Level 0 is a complete execution lock: policies cannot grant actions or read access.
+    if (autonomy <= 0) return this.record(ctx, { decision: 'deny', risk, reason: 'Autonomy level 0 disables all tool access' });
+
+    // Read-Only is a hard ceiling: even an explicit allow cannot make it perform actions.
+    if (autonomy <= 1) {
+      const readOnly = risk === 'low' && (ctx.permission.endsWith('.read') || ctx.permission === 'system.info' || ctx.permission === 'network.http' || ctx.permission === 'connector.use');
+      return this.record(ctx, { decision: readOnly ? 'allow' : 'deny', risk, reason: readOnly ? `Read-only access at autonomy ${autonomy}` : `Autonomy level ${autonomy} permits no actions` });
+    }
+
     if (risk === 'high' || risk === 'critical') return this.record(ctx, { decision: 'require_approval', risk, reason: `${risk} risk always requires just-in-time approval` });
     const allow = policies.find((p) => p.decision === 'allow');
-    if (allow) return this.record(ctx, { decision: 'allow', risk, reason: `Allowed by policy "${allow.name}"`, matched_policy: allow.id });
+    if (allow) {
+      this.consumeOnce(allow);
+      return this.record(ctx, { decision: 'allow', risk, reason: `Allowed by policy "${allow.name}"`, matched_policy: allow.id });
+    }
 
     // 3. Autonomy-level defaults (Spec §11).
     const sandboxed = this.isSandboxed(ctx.resource);
-    if (autonomy <= 1) {
-      const readOnly = risk === 'low' && (ctx.permission.endsWith('.read') || ctx.permission === 'system.info' || ctx.permission === 'network.http');
-      return this.record(ctx, { decision: readOnly ? 'allow' : 'deny', risk, reason: readOnly ? `Read-only access at autonomy ${autonomy}` : `Autonomy level ${autonomy} permits no actions` });
-    }
     if (autonomy === 2) {
       if (risk === 'low') return this.record(ctx, { decision: 'allow', risk, reason: 'Low-risk operation at Draft autonomy' });
       if (risk === 'medium' && sandboxed) return this.record(ctx, { decision: 'allow', risk, reason: 'Draft write inside TJ sandbox' });
@@ -100,7 +112,10 @@ export class PermissionEngine {
   }
 
   private policyMatches(p: PolicyRule, ctx: PermissionContext): boolean {
-    if (p.expires_at && new Date(p.expires_at) < new Date()) return false;
+    if (p.expires_at) {
+      const expiresAt = Date.parse(p.expires_at);
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
+    }
     if (!globMatch(p.permission, ctx.permission)) return false;
     if (p.agent && p.agent !== ctx.agent_id) return false;
     if (p.resource && !(ctx.resource && globMatch(p.resource, ctx.resource))) return false;
@@ -122,6 +137,10 @@ export class PermissionEngine {
   removePolicy(id: string) {
     this.db.run('DELETE FROM policies WHERE id = ?', [id]);
     this.audit.log({ actor: 'user', action: 'policy.delete', decision: 'removed', details: { id } });
+  }
+
+  private consumeOnce(policy: PolicyRule): void {
+    if (policy.scope === 'once') this.removePolicy(policy.id);
   }
 }
 

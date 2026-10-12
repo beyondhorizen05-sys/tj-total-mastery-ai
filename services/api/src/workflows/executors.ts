@@ -7,6 +7,7 @@ import type { AgentService } from '../agents/service.js';
 import type { ConnectorService } from '../connectors/service.js';
 import type { ApprovalService } from '../security/approvals.js';
 import type { PermissionEngine } from '../security/permissions.js';
+import type { WorkspaceService } from '../core/workspace.js';
 
 export interface StepExecutorDeps {
   tools: ToolRegistry;
@@ -16,6 +17,7 @@ export interface StepExecutorDeps {
   connectors: ConnectorService;
   approvals: ApprovalService;
   permissions: PermissionEngine;
+  workspace?: WorkspaceService;
 }
 
 /**
@@ -37,9 +39,9 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
       toolName,
       input,
       {
-        workspace_id: 'default',
+        workspace_id: deps.workspace?.workspaceId || 'default',
         project_id: ctx.run.project_id ?? null,
-        project_root: null,
+        project_root: ctx.run.project_id ? deps.workspace?.getProject(ctx.run.project_id)?.root_path ?? null : null,
         agent_id: 'workflow',
         agent_permissions: step.permissions,
         task_id: null,
@@ -80,11 +82,13 @@ export function registerBuiltinStepExecutors(engine: WorkflowEngine, deps: StepE
     const result = await deps.agentRuntime.run({
       agent,
       instruction,
-      workspace_id: 'default',
+      workspace_id: deps.workspace?.workspaceId || 'default',
       project_id: ctx.run.project_id ?? null,
-      project_root: null,
+      project_root: ctx.run.project_id ? deps.workspace?.getProject(ctx.run.project_id)?.root_path ?? null : null,
       task_id: `${ctx.run.id}:${step.id}`,
       workflow_run_id: ctx.run.id,
+      context: Object.keys(ctx.outputs).length ? `Results from completed workflow steps:\n${Object.entries(ctx.outputs).map(([id, output]) => `## ${ctx.workflow.steps.find((item) => item.id === id)?.name ?? id}\n${typeof output === 'string' ? output : JSON.stringify(output)}`).join('\n\n')}` : undefined,
+      task_type: /code|implement|build|develop|debug|fix|test/i.test(`${step.name} ${instruction}`) ? 'coding' : 'analysis',
       signal: ctx.signal,
     });
     if (!result.ok) throw new Error(result.error ?? result.output ?? `Agent ${agent.name} failed`);

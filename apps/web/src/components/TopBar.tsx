@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, HardDrive, ShieldCheck, Radio, Sliders, Power, Lock, Activity } from 'lucide-react';
+import { Cpu, ShieldCheck, Sliders, Power, Lock, Globe2, Focus, Workflow, Bell } from 'lucide-react';
 import type { SystemStatus } from '@tj/schemas';
 
 interface TopBarProps {
@@ -7,9 +7,10 @@ interface TopBarProps {
   stopping: boolean;
   onStopAll: () => void;
   onNavigate: (tab: string) => void;
+  activeTab: string;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onNavigate }) => {
+export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onNavigate, activeTab }) => {
   const isHealthy = status?.components.every((c) => c.state === 'healthy');
   const isStopped = status?.stop_all_engaged;
   const modelHealth = status?.components.find((component) => component.component === 'model_router')?.state;
@@ -27,7 +28,7 @@ export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onN
             width: 10, height: 10, borderRadius: '50%',
             background: isStopped ? 'var(--accent-rose)' : 'var(--accent-cyan)',
             boxShadow: isStopped ? 'var(--glow-rose)' : 'var(--glow-cyan)',
-            animation: 'pulseSlow 2s infinite ease-in-out',
+            animation: 'none',
           }} />
           <span style={{ display: 'flex', alignItems: 'center', gap: 9, whiteSpace: 'nowrap' }}>
             <span className="tj-topbar-logo">T<span>J</span></span><span className="tj-topbar-full-name" style={{ fontFamily: 'JetBrains Mono', fontWeight: 800, fontSize: 12, letterSpacing: '.12em' }}>TOTAL MASTERY AI</span>
@@ -39,42 +40,24 @@ export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onN
 
         <div className="tj-topbar-mode" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: 'var(--text-muted)', padding: '2px 8px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: 4, border: '1px solid var(--border-subtle)' }}>
           <Lock size={11} color="var(--accent-emerald)" />
-          <span>MODE:</span>
+          <span>PRIVACY:</span>
           <strong style={{ color: 'var(--text-main)', textTransform: 'uppercase' }}>{status?.mode ?? 'local'}</strong>
         </div>
       </div>
 
-      <div className="tj-topbar-metrics" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div className="tj-topbar-model" onClick={() => onNavigate('models')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', cursor: 'pointer', padding: '3px 6px' }}>
-          <Cpu size={13} color="var(--accent-purple)" />
-          <span style={{ color: 'var(--text-muted)' }}>MODEL:</span>
-          <span style={{ color: status?.current_model_id ? 'var(--text-main)' : 'var(--accent-amber)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-            {status?.current_model_id ?? 'NO PROVIDER'}
-          </span>
-        </div>
+      <nav className="tj-mode-switch" aria-label="Workspace mode">
+        {[
+          { id: 'command', label: 'Living World', icon: Globe2, active: activeTab === 'command' },
+          { id: 'focus', label: 'Focus', icon: Focus, active: activeTab === 'focus' || activeTab === 'chat' },
+          { id: 'workflows', label: 'Workflow', icon: Workflow, active: activeTab === 'workflows' },
+        ].map((mode) => {
+          const Icon = mode.icon;
+          return <button key={mode.id} type="button" aria-pressed={mode.active} onClick={() => onNavigate(mode.id)} className={mode.active ? 'is-active' : ''}><Icon size={14} /><span>{mode.label}</span></button>;
+        })}
+      </nav>
 
-        <div onClick={() => onNavigate('agents')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', cursor: 'pointer', padding: '3px 6px' }}>
-          <Radio size={13} color="var(--accent-cyan)" />
-          <span style={{ color: 'var(--text-muted)' }}>ACTIVE AGENTS:</span>
-          <span style={{ color: 'var(--text-main)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>{status?.active_agents ?? 0}</span>
-        </div>
-
-        <div onClick={() => onNavigate('tasks')} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', cursor: 'pointer', padding: '3px 6px' }}>
-          <Activity size={13} color="var(--accent-emerald)" />
-          <span style={{ color: 'var(--text-muted)' }}>RUNNING TASKS:</span>
-          <span style={{ color: 'var(--text-main)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>{status?.running_tasks ?? 0}</span>
-        </div>
-
-        {status?.resources?.ram_total_mb && (
-          <div className="tj-topbar-ram" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            <HardDrive size={13} />
-            <span>RAM:</span>
-            <span style={{ color: 'var(--text-main)', fontFamily: 'JetBrains Mono' }}>
-              {Math.round(status.resources.ram_used_mb / 1024)}/{Math.round(status.resources.ram_total_mb / 1024)}GB
-            </span>
-          </div>
-        )}
-
+      <div className="tj-topbar-metrics" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button type="button" className="tj-topbar-model" onClick={() => onNavigate('models')}><Cpu size={13} /><span>{status?.current_model_id ?? 'Choose AI provider'}</span></button>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', padding: '2px 8px', borderRadius: 4,
           background: isHealthy ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
@@ -88,6 +71,7 @@ export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onN
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button type="button" onClick={() => onNavigate('activity')} aria-label="Open notifications and recent activity" title="Open notifications and event history" className="tj-notification-toggle"><Bell size={15} /><span>Notifications</span></button>
         <button onClick={() => onNavigate('settings')} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}>
           <Sliders size={15} />
         </button>

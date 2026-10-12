@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
+import { apiFetch } from '../api';
 import './CommandPalette.css';
 
 export type PaletteAction = {
@@ -15,6 +16,9 @@ export const CommandPalette: React.FC<{ actions: PaletteAction[]; onClose: () =>
   const [selected, setSelected] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileResults, setFileResults] = useState<string[]>([]);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -23,6 +27,19 @@ export const CommandPalette: React.FC<{ actions: PaletteAction[]; onClose: () =>
 
   useEffect(() => { input.current?.focus(); }, []);
   useEffect(() => { setSelected(0); setError(null); }, [query]);
+  useEffect(() => {
+    const needle = query.trim();
+    if (needle.length < 2) { setFileResults([]); setFileLoading(false); setFileError(null); return; }
+    let current = true;
+    setFileLoading(true); setFileError(null);
+    const timer = window.setTimeout(() => {
+      void apiFetch<{ results: string[] }>('/api/v1/files/search?query=' + encodeURIComponent(needle))
+        .then((result) => { if (current) setFileResults(result.results); })
+        .catch((reason: unknown) => { if (current) { setFileResults([]); setFileError(reason instanceof Error ? reason.message : 'File search failed'); } })
+        .finally(() => { if (current) setFileLoading(false); });
+    }, 250);
+    return () => { current = false; window.clearTimeout(timer); };
+  }, [query]);
 
   const activate = async (action: PaletteAction) => {
     if (busy) return;
@@ -44,6 +61,7 @@ export const CommandPalette: React.FC<{ actions: PaletteAction[]; onClose: () =>
       <div className="tj-palette-list" role="listbox" aria-label="Available commands">
         {matches.length ? matches.map((action, index) => <button key={action.id} type="button" role="option" aria-selected={selected === index} className={selected === index ? 'selected' : ''} disabled={busy} onMouseEnter={() => setSelected(index)} onClick={() => void activate(action)}><strong>{action.label}</strong><small>{action.detail}</small></button>) : <p className="tj-palette-empty">No matching action is available.</p>}
       </div>
+      {query.trim().length >= 2 && <section className="tj-palette-files" aria-label="Allowed folder search results"><div className="tj-palette-heading">FILES IN ALLOWED FOLDERS</div>{fileLoading ? <p className="tj-palette-empty">Searching…</p> : fileError ? <p className="tj-palette-error" role="alert">{fileError}</p> : fileResults.length ? <div className="tj-palette-file-results">{fileResults.map((result, index) => <p key={`${result}-${index}`}>{result}</p>)}</div> : <p className="tj-palette-empty">No file matches. Add a folder in Settings to make it searchable.</p>}</section>}
       {error && <p className="tj-palette-error" role="alert">{error}</p>}
       <div className="tj-palette-footer">↑ ↓ Choose <span>↵ Open</span><span>Esc Close</span></div>
     </section>

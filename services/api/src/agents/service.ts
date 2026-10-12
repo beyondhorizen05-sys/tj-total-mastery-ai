@@ -87,8 +87,18 @@ export class AgentService {
 
   delete(id: string) {
     const agent = this.get(id);
+    if (!agent) return false;
+    if (['thinking', 'working', 'waiting_approval', 'meeting'].includes(agent.status)) {
+      throw new Error(`Cannot delete ${agent.name} while it is ${agent.status.replaceAll('_', ' ')}.`);
+    }
+    const activeTask = this.db.get<{ title: string; status: string }>(
+      "SELECT title, status FROM tasks WHERE agent_id = ? AND status IN ('queued','analyzing','waiting','running','retrying','awaiting_approval','paused') LIMIT 1",
+      [id],
+    );
+    if (activeTask) throw new Error(`Cannot delete ${agent.name}; task “${activeTask.title}” is ${activeTask.status.replaceAll('_', ' ')}.`);
     this.db.run('DELETE FROM agents WHERE id = ?', [id]);
-    if (agent) this.bus.emit({ name: 'agent.deleted', summary: `Agent deleted: ${agent.name}`, agent_id: id, project_id: agent.project_id });
+    this.bus.emit({ name: 'agent.deleted', summary: `Agent deleted: ${agent.name}`, agent_id: id, project_id: agent.project_id });
+    return true;
   }
 
   setStatus(id: string, status: AgentStatus, taskId?: string | null) {
@@ -103,6 +113,7 @@ export class AgentService {
     const affected = this.list({ project_id: null }).filter((agent) => ['thinking','working','waiting_approval','meeting'].includes(agent.status));
     this.db.run("UPDATE agents SET status = ?, current_task_id = NULL, updated_at = ? WHERE status IN ('thinking','working','waiting_approval','meeting')", [to, now()]);
     for (const agent of affected) this.bus.emit({ name: 'agent.updated', summary: `${agent.name} status: ${to}`, agent_id: agent.id, project_id: agent.project_id, data: { status: to } });
+    return affected.length;
   }
 
   addMetrics(id: string, d: { tasks_completed?: number; tasks_failed?: number; tool_calls?: number; tokens?: number; cost?: number; confidence?: number }) {

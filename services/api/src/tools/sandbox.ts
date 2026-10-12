@@ -12,7 +12,15 @@ export class Sandbox {
   constructor(private roots: () => string[]) {}
 
   normalize(p: string): string {
-    return path.resolve(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    const normalized = path.resolve(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    return normalized || '/';
+  }
+
+  private canonicalPath(candidate: string): string {
+    let probe = candidate;
+    while (!fs.existsSync(probe) && path.dirname(probe) !== probe) probe = path.dirname(probe);
+    try { return this.normalize(path.join(fs.realpathSync(probe), path.relative(probe, candidate))); }
+    catch { return this.normalize(candidate); }
   }
 
   resolve(input: string, projectRoot: string | null): string {
@@ -23,19 +31,14 @@ export class Sandbox {
     return abs;
   }
 
-  isInside(abs: string): boolean {
-    const n = this.normalize(abs);
-    let real = n;
-    try {
-      // follow symlinks of the deepest existing ancestor to prevent link escapes
-      let probe = abs;
-      while (!fs.existsSync(probe) && path.dirname(probe) !== probe) probe = path.dirname(probe);
-      const realProbe = fs.realpathSync(probe);
-      real = this.normalize(path.join(realProbe, path.relative(probe, abs)));
-    } catch {}
-    return this.roots().some((r) => {
-      const root = this.normalize(r);
-      return n === root || n.startsWith(root + '/') || real === root || real.startsWith(root + '/');
+  isInside(abs: string, projectRoot?: string | null): boolean {
+    // Compare canonical paths only: lexical membership alone accepts a symlink or
+    // junction inside a trusted folder that resolves outside it.
+    const real = this.canonicalPath(abs);
+    const roots = [...this.roots(), ...(projectRoot ? [projectRoot] : [])];
+    return roots.some((r) => {
+      const root = this.canonicalPath(r);
+      return real === root || real.startsWith(root + '/');
     });
   }
 

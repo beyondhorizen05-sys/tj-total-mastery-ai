@@ -62,7 +62,7 @@ export function registerConnectorRoutes(
 
     // 1. Evaluate permissions if engine available
     if (deps.permissions) {
-      const checks = [...new Set(['connector.use', ...runtime.manifest.permissions])].map((permission) => deps.permissions!.evaluate({
+      const checks = [...new Set(['connector.use', ...(actionDef.permissions ?? runtime.manifest.permissions)])].map((permission) => deps.permissions!.evaluate({
         permission: permission as Parameters<PermissionEngine['evaluate']>[0]['permission'],
         agent_id: agentId,
         resource: `${p.id}:${p.action}`,
@@ -92,6 +92,9 @@ export function registerConnectorRoutes(
 
         // Wait for human decision
         const decision = await deps.approvals.waitFor(appReq.id, 60000);
+        if (decision.status === 'edited') {
+          return reply.status(409).send({ error: 'This approval was edited. Submit the updated connector action again so the exact payload can be reviewed and approved.' });
+        }
         if (decision.status !== 'approved') {
           return reply.status(403).send({ error: `Action rejected: ${decision.status}` });
         }

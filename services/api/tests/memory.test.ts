@@ -55,6 +55,31 @@ describe('Hybrid Memory Store', () => {
     expect(new Date(mem.expires_at!).getTime()).toBeGreaterThan(Date.now());
   });
 
+  it('recalculates expiry when retention changes and makes restored memories searchable', async () => {
+    const mem = await memory.create({
+      workspace_id: 'default', type: 'preference', content: 'Keep my session preference', retention: 'session',
+    });
+    db.run('UPDATE memories SET expires_at=? WHERE id=?', ['2000-01-01T00:00:00.000Z', mem.id]);
+    expect(memory.list().map((item) => item.id)).not.toContain(mem.id);
+
+    const kept = memory.update(mem.id, { retention: 'long' });
+    expect(kept.retention).toBe('long');
+    expect(kept.expires_at).toBeNull();
+    expect(memory.list().map((item) => item.id)).toContain(mem.id);
+    expect((await memory.search('session preference')).map((result) => result.memory.id)).toContain(mem.id);
+
+    const short = memory.update(mem.id, { retention: 'short' });
+    expect(short.expires_at).not.toBeNull();
+    const shortDays = (Date.parse(short.expires_at!) - Date.now()) / 86400000;
+    expect(shortDays).toBeGreaterThan(29);
+    expect(shortDays).toBeLessThan(31);
+
+    const session = memory.update(mem.id, { retention: 'session' });
+    const sessionHours = (Date.parse(session.expires_at!) - Date.now()) / 3600000;
+    expect(sessionHours).toBeGreaterThan(23);
+    expect(sessionHours).toBeLessThan(25);
+  });
+
   it('updates memory versions on edit', async () => {
     const mem = await memory.create({
       workspace_id: 'default',

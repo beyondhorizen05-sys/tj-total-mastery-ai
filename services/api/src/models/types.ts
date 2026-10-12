@@ -53,6 +53,8 @@ export interface ChatResult {
   usage: ChatUsage;
   latency_ms: number;
   raw_model: string;
+  /** Upstream router's selected provider/model, when it exposes X-Routed-Via. */
+  routed_via?: string;
 }
 
 export interface DiscoveredModel {

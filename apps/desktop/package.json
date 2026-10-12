@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cargo tauri dev",
-    "package": "cargo tauri build",
+    "dev": "tauri dev",
+    "package": "tauri build",
     "build": "cargo check --manifest-path src-tauri/Cargo.toml"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1"
   }
 }

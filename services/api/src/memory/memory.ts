@@ -9,6 +9,11 @@ export const MEMORY_JSON_COLS = ['provenance', 'related_entities'];
 export const MEMORY_BOOL_COLS = ['has_embedding', 'archived'];
 export const MEMORY_SELECT = 'id, workspace_id, project_id, agent_id, type, content, source, owner, confidence, provenance, sensitivity, retention, related_entities, has_embedding, embedding_model, version, archived, created_at, updated_at, expires_at';
 
+const expiresForRetention = (retention: Memory['retention']): string | null =>
+  retention === 'session' ? new Date(Date.now() + 24 * 3600e3).toISOString()
+    : retention === 'short' ? new Date(Date.now() + 30 * 24 * 3600e3).toISOString()
+      : null;
+
 export interface MemoryInput {
   workspace_id: string;
   type: Memory['type'];
@@ -38,7 +43,7 @@ export class MemoryService {
     const ts = now();
     const id = uuid();
     const retention = input.retention ?? 'long';
-    const expires = retention === 'session' ? new Date(Date.now() + 24 * 3600e3).toISOString() : retention === 'short' ? new Date(Date.now() + 30 * 24 * 3600e3).toISOString() : null;
+    const expires = expiresForRetention(retention);
     this.db.run(
       `INSERT INTO memories (id, workspace_id, project_id, agent_id, type, content, source, owner, confidence, provenance, sensitivity, retention, related_entities, version, archived, created_at, updated_at, expires_at)
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
@@ -82,18 +87,21 @@ export class MemoryService {
       if (this.db.ftsAvailable) { this.db.run('DELETE FROM memories_fts WHERE memory_id = ?', [id]); this.db.run('INSERT INTO memories_fts (content, memory_id) VALUES (?,?)', [patch.content, id]); }
       void this.embedOne(id, patch.content, patch.sensitivity ?? m.sensitivity);
     }
-    for (const k of ['confidence', 'sensitivity', 'retention'] as const) if (patch[k] != null) this.db.run(`UPDATE memories SET ${k}=?, updated_at=? WHERE id=?`, [patch[k], ts, id]);
+    for (const k of ['confidence', 'sensitivity'] as const) if (patch[k] != null) this.db.run(`UPDATE memories SET ${k}=?, updated_at=? WHERE id=?`, [patch[k], ts, id]);
+    if (patch.retention != null) this.db.run('UPDATE memories SET retention=?, expires_at=?, updated_at=? WHERE id=?', [patch.retention, expiresForRetention(patch.retention), ts, id]);
     if (patch.sensitivity === 'secret') this.db.run('UPDATE memories SET embedding=NULL, has_embedding=0, embedding_model=NULL WHERE id=?', [id]);
     if (patch.archived != null) this.db.run('UPDATE memories SET archived=?, updated_at=? WHERE id=?', [patch.archived ? 1 : 0, ts, id]);
     this.bus.emit({ name: 'memory.updated', summary: `Memory updated: ${id.slice(0, 8)}`, data: { memory_id: id } });
     return this.get(id)!;
   }
 
-  delete(id: string) {
-    this.db.run('DELETE FROM memories WHERE id = ?', [id]);
+  delete(id: string): boolean {
+    const deleted = this.db.run('DELETE FROM memories WHERE id = ?', [id]).changes > 0;
+    if (!deleted) return false;
     this.db.run('DELETE FROM memory_versions WHERE memory_id = ?', [id]);
     if (this.db.ftsAvailable) this.db.run('DELETE FROM memories_fts WHERE memory_id = ?', [id]);
     this.bus.emit({ name: 'memory.deleted', summary: `Memory deleted: ${id.slice(0, 8)}`, data: { memory_id: id } });
+    return true;
   }
 
   versions(id: string) {
@@ -107,13 +115,15 @@ export class MemoryService {
     if (f.agent_id) { where.push('(agent_id = ? OR agent_id IS NULL)'); p.push(f.agent_id); }
     where.push('archived = ?'); p.push(f.archived ? 1 : 0);
     where.push('(expires_at IS NULL OR expires_at > ?)'); p.push(now());
-    p.push(Math.min(f.limit ?? 100, 500), f.offset ?? 0);
+    const limit = Number.isSafeInteger(f.limit) ? Math.max(1, Math.min(f.limit!, 500)) : 100;
+    const offset = Number.isSafeInteger(f.offset) ? Math.max(0, Math.min(f.offset!, 100_000)) : 0;
+    p.push(limit, offset);
     return this.db.all<any>(`SELECT ${MEMORY_SELECT} FROM memories WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT ? OFFSET ?`, p).map((r) => mapRow<Memory>(r, MEMORY_JSON_COLS, MEMORY_BOOL_COLS));
   }
 
   /** Hybrid search: keyword (FTS5/LIKE) + semantic (cosine) fused with RRF. */
   async search(query: string, f: { project_id?: string | null; agent_id?: string; type?: string; limit?: number } = {}): Promise<Array<{ memory: Memory; score: number; matched_by: string[] }>> {
-    const limit = f.limit ?? 10;
+    const limit = Number.isSafeInteger(f.limit) ? Math.max(1, Math.min(f.limit!, 100)) : 10;
     const ranks = new Map<string, { score: number; by: Set<string> }>();
     const bump = (id: string, rank: number, by: string) => {
       const e = ranks.get(id) ?? { score: 0, by: new Set<string>() };

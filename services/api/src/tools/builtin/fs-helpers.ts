@@ -34,6 +34,7 @@ export function searchTree(root: string, query: string, maxHits = 50): string[] 
     if (depth > 6 || hits.length >= maxHits) return;
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       if (e.name === 'node_modules' || e.name === '.git') continue;
+      if (e.isSymbolicLink()) continue;
       const p = path.join(dir, e.name);
       if (e.isDirectory()) { walk(p, depth + 1); continue; }
       if (e.name.toLowerCase().includes(q)) { hits.push(`${p} (name)`); continue; }

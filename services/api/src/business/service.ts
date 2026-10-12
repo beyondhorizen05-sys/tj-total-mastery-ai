@@ -133,7 +133,7 @@ export class BusinessService {
     const workspace = this.workspaceId();
     const count = (name: BusinessKind, extra = '') => this.db.get<{ value: number }>(`SELECT COUNT(*) value FROM ${table[name]} WHERE workspace_id = ? AND deleted_at IS NULL ${extra}`, [workspace])?.value ?? 0;
     const pipeline = this.db.all<{ currency: string; stage: string; amount_minor: number; deals: number }>("SELECT currency, stage, SUM(amount_minor) amount_minor, COUNT(*) deals FROM crm_deals WHERE workspace_id = ? AND deleted_at IS NULL GROUP BY currency, stage", [workspace]);
-    const overdue = this.db.get<{ value: number }>("SELECT COUNT(*) value FROM crm_tasks WHERE workspace_id = ? AND deleted_at IS NULL AND status = 'open' AND due_at < ?", [workspace, new Date().toISOString()])?.value ?? 0;
+    const overdue = this.db.get<{ value: number }>("SELECT COUNT(*) value FROM crm_tasks WHERE workspace_id = ? AND deleted_at IS NULL AND status = 'open' AND due_at IS NOT NULL AND julianday(due_at) < julianday(?)", [workspace, new Date().toISOString()])?.value ?? 0;
     return { companies: count('companies'), contacts: count('contacts'), leads: count('contacts', "AND status = 'lead'"), customers: count('contacts', "AND status = 'customer'"), deals: count('deals'), open_tasks: count('tasks', "AND status = 'open'"), overdue_tasks: overdue, pipeline };
   }
 }

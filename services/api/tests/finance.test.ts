@@ -84,6 +84,9 @@ describe('local finance analysis', () => {
     expect(finance.listTransactions()).toHaveLength(2);
     expect(finance.listTransactions().find((item) => item.category === 'food')?.description).toBe('Lunch, cafe');
     expect(() => finance.importCsv(csv, 'october.csv')).toThrow(/already imported/);
+    const normalizedLines = csv.replace(/\r\n/g, '\n').split('\n').filter(Boolean);
+    const reformatted = [normalizedLines[0], ...normalizedLines.slice(1).reverse()].join('\n');
+    expect(() => finance.importCsv(reformatted, 'october-reordered.csv')).toThrow(/already imported/);
     const invalid = 'date,kind,amount,category,description\n2026-10-03,expense,1.00,food,ok\n2026-10-04,expense,1.001,food,bad';
     expect(() => finance.importCsv(invalid, 'bad.csv')).toThrow(/row 3/);
     expect(finance.listTransactions()).toHaveLength(2);

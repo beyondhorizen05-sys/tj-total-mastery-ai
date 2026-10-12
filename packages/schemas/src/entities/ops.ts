@@ -34,6 +34,7 @@ export const ConnectorAction = z.object({
   description: z.string(),
   input_schema: JSONRecord,
   risk: z.enum(['low', 'medium', 'high', 'critical']),
+  permissions: z.array(Permission).optional(),
 });
 export type ConnectorAction = z.infer<typeof ConnectorAction>;
 

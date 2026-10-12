@@ -83,6 +83,13 @@ export class CapabilityRegistry {
       missing: this.deps.tools.get('web_fetch') ? null : 'Web fetch tool is not registered', ui: true, tests: true,
     });
     list.push({
+      capability_id: 'tools.github_repository', name: 'GitHub Repository Inspector', domain: 'development',
+      description: 'Read-only inspection of public GitHub repository metadata, bounded file trees, and selected text files',
+      status: this.deps.tools.get('github_inspect_repository') ? 'AVAILABLE' : 'UNAVAILABLE', provider: 'GitHub REST API',
+      required_permissions: ['network.http'], required_credentials: [], health: 'unknown', latency_ms: null, version: '1.0.0',
+      implementation: 'github_inspect_repository', missing: this.deps.tools.get('github_inspect_repository') ? null : 'GitHub repository inspection tool is not registered', ui: true, tests: true,
+    });
+    list.push({
       capability_id: 'memory.keyword', name: 'Memory Search', domain: 'memory',
       description: this.deps.db.ftsAvailable ? 'FTS5 keyword search with BM25 ranking' : 'Basic keyword search; FTS5 unavailable', status: databaseReady ? 'AVAILABLE' : 'UNAVAILABLE',
       provider: 'node:sqlite FTS5', required_permissions: ['memory.read', 'memory.write'],
@@ -90,12 +97,19 @@ export class CapabilityRegistry {
       implementation: 'MemoryService', missing: databaseReady ? null : 'Database unavailable', ui: true, tests: true,
     });
     const embeddedCount = this.deps.db.get<{ count: number }>('SELECT COUNT(*) AS count FROM memories WHERE has_embedding = 1')?.count ?? 0;
+    // Do not call the provider here: a status read must not spend inference credits. Candidates
+    // confirm that routing has a configured, enabled embedding model under current privacy policy.
+    const embeddingCandidates = this.deps.router.candidates({ task_type: 'embedding' });
+    const semanticReady = embeddedCount > 0 && embeddingCandidates.length > 0;
+    const semanticMissing = semanticReady ? null
+      : embeddingCandidates.length === 0 ? 'No enabled embedding model is available under the current provider and privacy settings'
+        : 'An embedding model is configured, but no memories have embeddings yet; save or re-embed memories';
     list.push({
       capability_id: 'memory.semantic', name: 'Semantic Memory Search', domain: 'memory',
-      description: 'Vector similarity search over stored memory embeddings', status: embeddedCount > 0 ? 'EXPERIMENTAL' : 'NEEDS_SETUP',
-      provider: null, required_permissions: ['memory.read'], required_credentials: ['Embedding-capable model'],
-      health: 'unknown', latency_ms: null, version: '1.0.0', implementation: 'MemoryService',
-      missing: embeddedCount > 0 ? 'Embedding provider availability has not been verified in this view' : 'No embedded memories yet; configure an embedding model and save memory', ui: true, tests: true,
+      description: 'Vector similarity search over stored memory embeddings', status: semanticReady ? 'EXPERIMENTAL' : 'NEEDS_SETUP',
+      provider: embeddingCandidates[0]?.provider_id ?? null, required_permissions: ['memory.read'], required_credentials: embeddingCandidates.length ? [] : ['Embedding-capable model'],
+      health: semanticReady ? 'unknown' : 'misconfigured', latency_ms: null, version: '1.0.0', implementation: 'MemoryService',
+      missing: semanticMissing, ui: true, tests: true,
     });
     list.push({
       capability_id: 'workflows.engine', name: 'DAG Workflow Engine', domain: 'workflows',

@@ -17,16 +17,22 @@ import type { ModelRouter } from '../../models/router.js';
 import { FishAudioService } from '../../core/fish-audio.js';
 import { FishHandsFreeListener } from '../../core/fish-listener.js';
 import { LocalASR } from '../../core/local-asr.js';
+import { VoiceTurnGate } from '../../core/voice-turn-gate.js';
 import { getPersona, personaInstruction } from '../../core/persona.js';
 import { WAKE, isComputerIntent, isScreenObservationCommand, isVisualScreenCommand, takeSpeakableChunk } from '../../core/voice-intent.js';
 import type { CapabilityWorkflowService } from '../../self-improvement/capability-workflow.js';
+import type { WorkflowEngine } from '../../workflows/engine.js';
+import type { AutomationScheduler } from '../../workflows/automation-scheduler.js';
 
-type Deps = { settings: SettingsRepo; bus: EventBus; health: HealthMonitor; orchestrator: Orchestrator; tools: ToolRegistry; runtime: AgentRuntime; agents: AgentService; approvals: ApprovalService; vault: Vault; router: ModelRouter; dataDir: string; capabilityWorkflow?: CapabilityWorkflowService };
+type Deps = { settings: SettingsRepo; bus: EventBus; health: HealthMonitor; orchestrator: Orchestrator; tools: ToolRegistry; runtime: AgentRuntime; agents: AgentService; approvals: ApprovalService; vault: Vault; router: ModelRouter; dataDir: string; capabilityWorkflow?: CapabilityWorkflowService; workflowEngine: WorkflowEngine; scheduler: AutomationScheduler };
 const commandSchema = z.object({ text: z.string().trim().min(1).max(2000) });
 
 export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
   let busy = false;
   let conversing = false;
+  let browserVoiceActive = false;
+  let browserSpeaking = false;
+  const browserTurnGate = new VoiceTurnGate();
   const approvalCodes = new Map<string, string>();
   const languageContext = new AsyncLocalStorage<string | null>();
   const fish = new FishAudioService(deps.vault, deps.settings);
@@ -46,23 +52,40 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
   };
   const welcomePlayed = () => deps.settings.get<number>('welcome_greeting_version', 0) >= 2;
   const currentListener = () => handsfreeMode() ? asrProvider() === 'fish' ? fishListener : localListener : listener;
+  const voiceSessionActive = () => browserVoiceActive || currentListener().status().listening;
   let speechQueue = Promise.resolve();
+  let speechGeneration = 0;
+  let activeSpeech: AbortController | null = null;
+  let activeConversation: AbortController | null = null;
   const speak = (message: string, overrideVoice?: string) => {
+    if (browserVoiceActive) {
+      browserSpeaking = true;
+      deps.bus.emit({ name: 'voice.response', summary: message, data: { speech_chunk: true } });
+      return Promise.resolve();
+    }
+    const generation = speechGeneration;
     speechQueue = speechQueue.catch(() => {}).then(async () => {
+      if (generation !== speechGeneration) return;
+      const speechController = new AbortController();
+      activeSpeech = speechController;
       const handsfree = currentListener();
       const handsfreeActive = handsfree instanceof FishHandsFreeListener && handsfree.status().listening;
       if (handsfreeActive) handsfree.suspend();
       try {
         const selected = overrideVoice ?? getPersona(deps.settings).voice_id;
         const spoken = message.replace(/[{}[\]_*#]/g, ' ').trim();
-        if (selected?.startsWith('fish:')) await fish.playStreaming(spoken, selected.slice(5));
-        else if (!selected || selected.startsWith('windows:')) await speakLocally(spoken.replace(/\bT\s*J\b/gi, 'Tee Jay'), selected ?? undefined);
+        if (selected?.startsWith('fish:')) await fish.playStreaming(spoken, selected.slice(5), speechController.signal);
+        else if (!selected || selected.startsWith('windows:')) await speakLocally(spoken.replace(/\bT\s*J\b/gi, 'Tee Jay'), selected ?? undefined, speechController.signal);
         else throw new Error('Selected voice is unavailable. Choose a Fish Audio or Windows voice in TJ settings.');
       } catch (error) {
+        if (speechController.signal.aborted) return;
         deps.bus.emit({ name: 'voice.error', severity: 'error', summary: error instanceof Error ? error.message : String(error) });
         await speakLocally('Voice playback failed. Check Fish Audio in settings.');
         throw error;
-      } finally { if (handsfreeActive) handsfree.resume(); }
+      } finally {
+        if (activeSpeech === speechController) activeSpeech = null;
+        if (handsfreeActive) handsfree.resume();
+      }
     });
     return speechQueue;
   };
@@ -80,14 +103,14 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       } catch { /* Keep the truthful original response if no model is available. */ }
     }
     deps.bus.emit({ name: error ? 'voice.error' : 'voice.response', severity: error ? 'error' : 'info', summary: message });
-    if (!alreadySpoken && currentListener().status().listening) await speak(message.slice(0, 700)).catch(() => {});
+    if (!alreadySpoken && voiceSessionActive()) await speak(message.slice(0, 700)).catch(() => {});
     return { ok: !error, response: message };
   };
   const enabled = () => deps.settings.get<boolean>('computer_control_enabled', false) === true && computerAvailable();
   const voiceAvailable = () => process.platform === 'win32';
   const history: Array<{ user: string; assistant: string }> = [];
   const chatHistory: Array<{ user: string; assistant: string }> = [];
-  const stopListening = () => { listener.stop(); fishListener.stop(); localListener.stop(); };
+  const stopListening = () => { browserTurnGate.invalidate(); listener.stop(); fishListener.stop(); localListener.stop(); };
   const execute = async (tool: string, args: Record<string, unknown>, spokenPhrase = '') => {
     try {
       const result = await deps.tools.execute(tool, args, {
@@ -117,6 +140,8 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
 
   const converse = async (phrase: string) => {
     conversing = true;
+    const turnController = new AbortController();
+    activeConversation = turnController;
     try {
       const useDefault = voiceUsesDefaultModel();
       const freeModels = useDefault ? [] : deps.router.candidates({ task_type: 'chat', complexity: 'low', max_cost_class: 'free' });
@@ -126,7 +151,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       if (!modelId) return respond(useDefault ? 'Choose a default model in Models for voice conversation.' : 'No free conversation model is available. Configure one in Models.', true);
       let streamed = '';
       let spokenLength = 0;
-      const voiceActive = currentListener().status().listening;
+      const voiceActive = voiceSessionActive();
       const route = { task_type: 'chat' as const, complexity: 'low' as const, needs_tools: false, model_id: modelId, max_cost_class: useDefault ? undefined : 'free' as const };
       const messages = [
           { role: 'system', content: `${personaInstruction(getPersona(deps.settings))}\nYou are in a live voice conversation. Reply in one or two short, natural sentences. Start answering immediately. Match the user's language and script. Never claim to have used a tool or seen the screen.` },
@@ -137,7 +162,9 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
         messages: [...messages],
         max_tokens: 180,
         temperature: 0.5,
+        signal: turnController.signal,
         onDelta: (delta) => {
+          if (turnController.signal.aborted) return;
           streamed += delta;
           if (!voiceActive) return;
           const pending = streamed.slice(spokenLength);
@@ -148,6 +175,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
           }
         },
       });
+      if (turnController.signal.aborted) return { ok: true, response: 'Turn interrupted.' };
       // An empty streamed completion is a provider failure, not a valid answer.
       // Try another free provider without streaming; an explicitly chosen paid
       // model is retried only on itself.
@@ -158,6 +186,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       }
       const answer = result.text.trim();
       if (!answer) return respond('I could not generate a reply. Please try again.', true);
+      if (turnController.signal.aborted) return { ok: true, response: 'Turn interrupted.' };
       if (voiceActive) {
         const rest = result.text.slice(spokenLength).trim();
         if (rest) void speak(rest);
@@ -165,8 +194,11 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       chatHistory.push({ user: phrase, assistant: answer });
       if (chatHistory.length > 6) chatHistory.shift();
       return respond(answer, false, true, voiceActive);
-    } catch (error) { return respond(error instanceof Error ? error.message : String(error), true); }
-    finally { conversing = false; }
+    } catch (error) {
+      if (turnController.signal.aborted) return { ok: true, response: 'Turn interrupted.' };
+      return respond(error instanceof Error ? error.message : String(error), true);
+    }
+    finally { conversing = false; if (activeConversation === turnController) activeConversation = null; }
   };
 
   const command = async (text: string) => {
@@ -174,7 +206,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     if (!phrase) return respond('Yes. Tell me what to do.');
     if (/^(stop listening|turn off listening|mute microphone)$/i.test(phrase)) { deps.settings.set('voice_autostart', false); stopListening(); return respond('Voice listening stopped.'); }
     if (/^(stop all|emergency stop)$/i.test(phrase)) {
-      deps.health.setStopAll(true); deps.orchestrator.stopAll(); deps.approvals.denyAllPending('voice_stop_all');
+      deps.health.setStopAll(true); deps.scheduler.pause(); deps.workflowEngine.cancelAll(); deps.orchestrator.stopAll(); deps.approvals.denyAllPending('voice_stop_all');
       return respond('All TJ actions stopped.');
     }
     const decisionPhrase = phrase.match(/^(approve|deny)(?: (?:that|action))?(?:\s+(\d{2}))?$/i);
@@ -258,6 +290,10 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
   const localListener = new FishHandsFreeListener((wav) => localASR.transcribe(wav), 'local-whisper', deps.bus, async (heard, language) => {
     await languageContext.run(language, () => command(heard));
   });
+  deps.health.setMicrophoneStatusProvider(() => {
+    const status = browserVoiceActive ? { available: true, listening: true, speaking: browserSpeaking, starting: false, transcribing: false, culture: 'auto', engine: 'browser-full-duplex', microphone: 'Browser microphone', last_transcription_ms: null, error: null } : currentListener().status();
+    return !status.available ? 'unknown' : status.listening ? 'on' : 'off';
+  });
   const startCurrent = async () => {
     if (handsfreeMode()) {
       if (listener.status().listening) listener.stop();
@@ -275,7 +311,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     const highRisk = event.data.risk === 'high' || event.data.risk === 'critical';
     const code = highRisk ? '' : String(randomInt(10, 100));
     if (id && code) approvalCodes.set(id, code);
-    if (currentListener().status().listening) void speak(highRisk
+    if (voiceSessionActive()) void speak(highRisk
       ? `Approval needed: ${event.summary}. Decide in the Approvals screen.`
       : `Approval needed: ${event.summary}. Say the wake word, approve ${code}. To deny, say the wake word, deny.`);
   });
@@ -293,9 +329,75 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
 
   app.get('/api/v1/computer/status', async () => {
     const bridge = computerAvailable() ? await runComputerBridge({ action: 'status' }) : { ok: false, error: 'Windows bridge unavailable' };
-    return { available: bridge.ok === true, enabled: enabled(), bridge, voice: currentListener().status(), local_asr: localASR.status() };
+    return { available: bridge.ok === true, enabled: enabled(), bridge, voice: browserVoiceActive ? { available: true, listening: true, speaking: browserSpeaking, starting: false, transcribing: false, culture: 'auto', engine: 'browser-full-duplex', microphone: 'Browser microphone', last_transcription_ms: null, error: null } : currentListener().status(), local_asr: localASR.status() };
   });
-  app.get('/api/v1/voice/status', async () => currentListener().status());
+  app.get('/api/v1/voice/status', async () => browserVoiceActive ? { available: true, listening: true, speaking: browserSpeaking, starting: false, transcribing: false, culture: 'auto', engine: 'browser-full-duplex', microphone: 'Browser microphone', last_transcription_ms: null, error: null } : currentListener().status());
+  app.post('/api/v1/voice/interrupt', async () => {
+    browserTurnGate.invalidate();
+    speechGeneration++;
+    activeConversation?.abort();
+    activeSpeech?.abort();
+    const listenerNow = currentListener();
+    if (listenerNow instanceof FishHandsFreeListener) listenerNow.resume();
+    return { ok: true, interrupted: true, voice: browserVoiceActive ? { available: true, listening: true, speaking: false, starting: false, transcribing: false, culture: 'auto', engine: 'browser-full-duplex', microphone: 'Browser microphone', last_transcription_ms: null, error: null } : listenerNow.status() };
+  });
+  app.post('/api/v1/voice/browser/start', async (_request, reply) => {
+    try {
+      stopListening();
+      if (asrProvider() === 'fish') {
+        if (!fish.configured()) return reply.status(503).send({ error: 'Configure Fish Audio transcription before starting browser voice.' });
+      } else {
+        if (!localASR.available()) return reply.status(503).send({ error: 'Install the local multilingual Whisper model before starting browser voice.' });
+        await localASR.start();
+      }
+      browserVoiceActive = true;
+      return { available: true, listening: true, speaking: false, starting: false, transcribing: false, culture: 'auto', engine: 'browser-full-duplex', microphone: 'Browser microphone', last_transcription_ms: null, error: null };
+    } catch (error) { return reply.status(503).send({ error: error instanceof Error ? error.message : 'Browser voice could not start.' }); }
+  });
+  app.post('/api/v1/voice/browser/state', async (request, reply) => {
+    const parsed = z.object({ speaking: z.boolean() }).strict().safeParse(request.body);
+    if (!parsed.success || !browserVoiceActive) return reply.status(400).send({ error: 'Browser voice session is not active.' });
+    browserSpeaking = parsed.data.speaking;
+    return { ok: true };
+  });
+  app.post('/api/v1/voice/browser/turn', async (request, reply) => {
+    if (!browserVoiceActive) return reply.status(409).send({ error: 'Start a voice conversation before sending audio.' });
+    const parsed = z.object({ wav_base64: z.string().min(100).max(12_000_000) }).strict().safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'A valid microphone audio clip is required.' });
+    const turnGeneration = browserTurnGate.begin();
+    try {
+      const wav = Buffer.from(parsed.data.wav_base64, 'base64');
+      if (wav.length < 1_000 || wav.length > 8_000_000 || wav.toString('ascii', 0, 4) !== 'RIFF') return reply.status(400).send({ error: 'Audio clip must be a bounded WAV recording.' });
+      const turnStartedAt = Date.now();
+      const usingFish = asrProvider() === 'fish';
+      const result = usingFish ? await fish.transcribe(wav) : await localASR.transcribe(wav);
+      const duration = Date.now() - turnStartedAt;
+      if (!browserTurnGate.isCurrent(turnGeneration) || !browserVoiceActive) return { ok: true, ignored: true, interrupted: true, transcription_ms: duration };
+      if (!result.text) return { ok: true, ignored: true, transcription_ms: duration };
+      deps.bus.emit({ name: 'voice.transcript', summary: result.text, data: { language_code: result.language_code, engine: usingFish ? 'fish-audio' : 'local-whisper', transcription_ms: duration } });
+      const response = await languageContext.run(result.language_code, () => command(result.text));
+      if (!browserTurnGate.isCurrent(turnGeneration) || !browserVoiceActive) return { ok: true, ignored: true, interrupted: true, transcription_ms: duration };
+      return { ...response, transcription_ms: duration, turn_ms: Date.now() - turnStartedAt };
+    } catch (error) { return reply.status(502).send({ error: error instanceof Error ? error.message : 'Microphone transcription failed.' }); }
+  });
+  app.post('/api/v1/voice/browser/synthesize', async (request, reply) => {
+    if (!browserVoiceActive) return reply.status(409).send({ error: 'Start a voice conversation before requesting speech.' });
+    const parsed = z.object({ text: z.string().trim().min(1).max(400) }).strict().safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'Enter a short speech segment.' });
+    const selected = getPersona(deps.settings).voice_id;
+    if (!selected?.startsWith('fish:')) return { type: 'browser-speech', voice_id: selected ?? 'windows:default' };
+    const synthesisController = new AbortController();
+    const abortSynthesis = () => synthesisController.abort();
+    request.raw.once('aborted', abortSynthesis);
+    reply.raw.once('close', () => { if (!reply.raw.writableEnded) abortSynthesis(); });
+    try {
+      const audio = await fish.synthesize(parsed.data.text, selected.slice(5), synthesisController.signal);
+      return reply.type('audio/mpeg').header('cache-control', 'no-store').send(audio);
+    } catch (error) {
+      if (synthesisController.signal.aborted) return reply;
+      return reply.status(502).send({ error: error instanceof Error ? error.message : 'Fish Audio speech generation failed.' });
+    } finally { request.raw.off('aborted', abortSynthesis); }
+  });
   app.get('/api/v1/voice/windows/voices', async (_request, reply) => {
     try { return { voices: await listLocalVoices() }; }
     catch (error) { return reply.status(503).send({ error: error instanceof Error ? error.message : 'Could not list Windows voices.' }); }
@@ -340,7 +442,12 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     try { const state = await startCurrent(); deps.settings.set('voice_autostart', true); return state; }
     catch (error) { return reply.status(500).send({ error: error instanceof Error ? error.message : String(error) }); }
   });
-  app.post('/api/v1/voice/stop', async () => { deps.settings.set('voice_autostart', false); stopListening(); return currentListener().status(); });
+  app.post('/api/v1/voice/stop', async () => {
+    deps.settings.set('voice_autostart', false);
+    speechGeneration++; activeConversation?.abort(); activeSpeech?.abort();
+    browserVoiceActive = false; browserSpeaking = false; stopListening(); localASR.stop();
+    return currentListener().status();
+  });
   app.post('/api/v1/voice/command', async (request) => command(commandSchema.parse(request.body).text));
 
   app.get('/api/v1/voice/fish/config', async () => ({ configured: fish.configured(), handsfree: handsfreeMode(), transcription: asrProvider() }));

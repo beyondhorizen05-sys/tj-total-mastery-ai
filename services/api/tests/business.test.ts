@@ -60,6 +60,14 @@ describe('local Business OS CRM', () => {
     expect(() => business.update('companies', company.id, { name: 'Hijack' })).toThrow('not found');
   });
 
+  it('counts overdue tasks by instant when due dates use a non-UTC offset', () => {
+    const due = new Date(Date.now() - 60 * 60 * 1000);
+    const plusFive = new Date(due.getTime() + 5 * 60 * 60 * 1000).toISOString().slice(0, 19) + '+05:00';
+    business.create('tasks', { title: 'Offset overdue', due_at: plusFive });
+    business.create('tasks', { title: 'No due date', due_at: null });
+    expect(business.summary().overdue_tasks).toBe(1);
+  });
+
   it('keeps linked deal and follow-up relationships valid when parents are edited', () => {
     const first = business.create('companies', { name: 'First' });
     const second = business.create('companies', { name: 'Second' });

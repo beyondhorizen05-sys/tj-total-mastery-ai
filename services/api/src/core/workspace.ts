@@ -53,6 +53,23 @@ export class WorkspaceService {
     this.bus.emit({ name: 'project.created', summary: `Project created: ${name}`, project_id: id, data: { root } });
     return this.getProject(id)!;
   }
+  /** Register an explicitly selected existing project directory without copying it into TJ's scratch projects folder. */
+  createProjectAtPath(name: string, description: string, rootPath: string): Project {
+    const root = path.resolve(rootPath);
+    if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw new Error('Selected project directory does not exist.');
+    const id = uuid(), ts = now();
+    this.db.run('INSERT INTO projects (id, workspace_id, name, description, root_path, status, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)', [id, this.workspaceId, name, description, root, 'active', ts, ts]);
+    this.bus.emit({ name: 'project.created', summary: `Project linked: ${name}`, project_id: id, data: { root } });
+    return this.getProject(id)!;
+  }
+
+  /** Point an existing task project at a trusted, already-selected local directory. */
+  setProjectRoot(id: string, rootPath: string) {
+    const root = path.resolve(rootPath);
+    if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw new Error('Selected project directory does not exist.');
+    const result = this.db.run('UPDATE projects SET root_path = ?, updated_at = ? WHERE id = ?', [root, now(), id]);
+    return result.changes > 0 ? this.getProject(id) : undefined;
+  }
   getProject(id: string): Project | undefined { return this.db.get<Project>('SELECT * FROM projects WHERE id = ?', [id]); }
   listProjects(): Project[] { return this.db.all<Project>('SELECT * FROM projects ORDER BY updated_at DESC'); }
   setProjectStatus(id: string, status: Project['status']) { this.db.run('UPDATE projects SET status = ?, updated_at = ? WHERE id = ?', [status, now(), id]); }
@@ -66,7 +83,7 @@ export class WorkspaceService {
   }
   getConversation(id: string): Conversation | undefined { return this.db.get<Conversation>('SELECT * FROM conversations WHERE id = ?', [id]); }
   listConversations(limit = 100): Conversation[] { return this.db.all<Conversation>('SELECT * FROM conversations ORDER BY updated_at DESC LIMIT ?', [limit]); }
-  deleteConversation(id: string) { this.db.run('DELETE FROM conversations WHERE id = ?', [id]); }
+  deleteConversation(id: string): boolean { return this.db.run('DELETE FROM conversations WHERE id = ?', [id]).changes > 0; }
   renameConversation(id: string, title: string) { this.db.run('UPDATE conversations SET title = ? WHERE id = ?', [title, id]); }
 
   // ---- messages ----

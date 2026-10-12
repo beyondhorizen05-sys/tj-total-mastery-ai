@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import type { Audit } from '../security/audit.js';
+import { BUILTIN_SKILL_CATALOG } from './builtin-catalog.js';
 
 export interface TextSkillManifest {
   id: string;
@@ -109,7 +110,7 @@ export class SkillService {
   catalogPath() { return path.join(this.root, 'catalog'); }
 
   discover() {
-    const result: Array<{ filename: string; manifest?: TextSkillManifest; error?: string }> = [];
+    const result: Array<{ filename: string; manifest?: TextSkillManifest; error?: string }> = BUILTIN_SKILL_CATALOG.map(({ filename, manifest }) => ({ filename, manifest: structuredClone(manifest) }));
     for (const name of fs.readdirSync(this.catalogPath()).filter((n) => n.endsWith('.json'))) {
       const full = path.join(this.catalogPath(), name);
       try {
@@ -140,6 +141,8 @@ export class SkillService {
 
   installFromCatalog(filename: string) {
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.json$/.test(filename)) throw new SkillError('Invalid catalog filename');
+    const builtin = BUILTIN_SKILL_CATALOG.find((entry) => entry.filename === filename);
+    if (builtin) return this.install(builtin.manifest);
     const full = path.join(this.catalogPath(), filename);
     if (!fs.existsSync(full)) throw new SkillError('Catalog skill not found', 404);
     const stat = fs.lstatSync(full);

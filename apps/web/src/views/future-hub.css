@@ -154,7 +154,7 @@
 :root[data-theme='daybreak'] .tj-future-intro h1{font-family:Georgia,serif;font-weight:400;line-height:1.05}
 :root[data-theme='daybreak'] .tj-future-intro h1 em{font-style:italic;color:var(--text-main);text-decoration:underline;text-decoration-color:var(--accent-cyan);text-decoration-thickness:2px;text-underline-offset:8px;text-shadow:none}
 :root[data-theme='daybreak'] .tj-future-portal-ring.ring-one{border-width:6px;box-shadow:0 0 45px var(--accent-cyan-dim)}
-:root[data-theme='daybreak'] .tj-future-portal-ring.ring-two,.tj-future-portal-ring.ring-three{border-style:solid}
+:root[data-theme='daybreak'] .tj-future-portal-ring.ring-two,:root[data-theme='daybreak'] .tj-future-portal-ring.ring-three{border-style:solid}
 :root[data-theme='daybreak'] .tj-future-directive{border-radius:3px;border-color:var(--border-strong);box-shadow:none;background:var(--bg-card)}
 :root[data-theme='daybreak'] .tj-module-grid.tj-future-module-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 :root[data-theme='daybreak'] .tj-future-module{border-radius:0;min-height:72px;border-left:4px solid var(--accent-cyan);background:var(--bg-card)}

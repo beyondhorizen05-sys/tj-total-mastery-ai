@@ -17,3 +17,6 @@
 .tj-palette-error{color:#fb7185;padding:8px 20px;margin:0;font-size:12px}
 .tj-palette-footer{display:flex;gap:20px;padding:10px 20px;border-top:1px solid var(--border-subtle);color:var(--text-muted);font-size:10px}
 @media(max-width:640px){.tj-palette-backdrop{padding-top:7vh}.tj-palette{max-height:80vh}}
+.tj-palette-files{border-top:1px solid var(--border-subtle);min-height:60px;overflow-y:auto;max-height:180px}
+.tj-palette-file-results{padding:0 20px 12px}
+.tj-palette-file-results p{margin:5px 0;color:var(--text-muted);font-size:11px;overflow-wrap:anywhere}

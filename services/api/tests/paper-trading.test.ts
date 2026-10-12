@@ -35,6 +35,8 @@ describe('historical paper trading only', () => {
     expect(() => parseOhlcCsv(csv.replace('2026-01-02', '2026-01-01'))).toThrow('ascending');
     expect(() => parseOhlcCsv(csv.replace('2026-01-02', '2026-99-99'))).toThrow('valid');
     expect(() => parseOhlcCsv(csv.replace('2026-01-03,10,10,10,10', '2026-01-03,10,9,10,10'))).toThrow('Invalid OHLC');
+    expect(() => parseOhlcCsv(csv.replace('2026-01-01,10,10,10,10', '2026-01-01,0xA,0xA,0xA,0xA'))).toThrow('Invalid OHLC');
+    expect(() => parseOhlcCsv(csv.replace('2026-01-01,10,10,10,10,1000', '2026-01-01,10,10,10,10,0x10'))).toThrow('Invalid volume');
   });
 
   it('requires explicit paper enable, caps position and halts on the daily-loss limit', () => {

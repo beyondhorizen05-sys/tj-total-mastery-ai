@@ -32,6 +32,13 @@ describe('Sandbox Path Traversal Prevention', () => {
     expect(sandbox.isInside(safePath)).toBe(true);
   });
 
+  it('allows the active project root in addition to configured storage roots', () => {
+    const selectedProject = path.join(tmpDir, 'selected-project');
+    fs.mkdirSync(selectedProject);
+    const file = path.join(selectedProject, 'src', 'main.ts');
+    expect(sandbox.isInside(file, selectedProject)).toBe(true);
+  });
+
   it('blocks absolute paths outside allowed roots', () => {
     const unsafePath = path.join(outsideDir, 'secret.txt');
     fs.writeFileSync(unsafePath, 'secret content', 'utf8');
@@ -43,6 +50,17 @@ describe('Sandbox Path Traversal Prevention', () => {
     const traversalPath = path.join(workspaceDir, '..', 'outside', 'secret.txt');
     const resolved = sandbox.resolve(traversalPath, workspaceDir);
     expect(sandbox.isInside(resolved)).toBe(false);
+  });
+
+  it('blocks a symlink or junction inside an allowed root when it resolves outside', () => {
+    const escape = path.join(workspaceDir, 'outside-link');
+    try { fs.symlinkSync(outsideDir, escape, process.platform === 'win32' ? 'junction' : 'dir'); }
+    catch { return; } // Symlink creation can be disabled by host policy.
+    const secret = path.join(outsideDir, 'secret.txt');
+    fs.writeFileSync(secret, 'outside');
+    const linkedFile = path.join(escape, 'secret.txt');
+    expect(fs.realpathSync(linkedFile)).toBe(secret);
+    expect(sandbox.isInside(linkedFile), `resolved ${fs.realpathSync(linkedFile)} outside ${workspaceDir}`).toBe(false);
   });
 
   it('detects forbidden system directory escapes', () => {

@@ -29,6 +29,13 @@ export type CsvAnalysis = {
 
 const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/;
 const DATE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+function validDate(value: string): boolean {
+  if (!DATE.test(value) || Number.isNaN(Date.parse(value))) return false;
+  const year = Number(value.slice(0, 4)), month = Number(value.slice(5, 7)), day = Number(value.slice(8, 10));
+  const calendarDay = new Date(0);
+  calendarDay.setUTCFullYear(year, month - 1, day);
+  return calendarDay.getUTCFullYear() === year && calendarDay.getUTCMonth() === month - 1 && calendarDay.getUTCDate() === day;
+}
 
 function parseCsv(csv: string): string[][] {
   if (Buffer.byteLength(csv, 'utf8') > CSV_LIMITS.maxBytes) throw new CsvAnalysisError('CSV exceeds the 1 MB upload limit.', 413);
@@ -120,7 +127,7 @@ export function analyzeCsv(csv: string, filename = 'uploaded.csv'): CsvAnalysis 
       if (![sum, mean, variance].every(Number.isFinite)) throw new CsvAnalysisError(`Numeric values in column ${name} exceed the supported calculation range.`);
       return { ...base, kind: 'number', numeric: { count: values.length, sum, min: sorted[0], max: sorted.at(-1)!, mean, median: median(sorted), standard_deviation: Math.sqrt(variance) } };
     }
-    const kind = nonempty.every((value) => DATE.test(value) && !Number.isNaN(Date.parse(value))) ? 'date' : 'text';
+    const kind = nonempty.every(validDate) ? 'date' : 'text';
     const frequencies = new Map<string, number>();
     for (const value of nonempty) frequencies.set(value, (frequencies.get(value) ?? 0) + 1);
     const top_values = [...frequencies].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10).map(([value, count]) => ({ value, count }));

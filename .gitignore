@@ -12,6 +12,7 @@ coverage/
 Thumbs.db
 apps/desktop/src-tauri/target/
 apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/resources/
 .vite/
 services/api/tests/tmp-*/
 services/api/tests/**/*.sqlite

@@ -1,0 +1,104 @@
+.tj-mission-room,.tj-research-room{height:100%;overflow:auto;color:#eef8ff;background:#06111e}
+.tj-room-eyebrow{display:inline-flex;align-items:center;gap:8px;color:#9eeafa;font:700 10px 'JetBrains Mono',monospace;letter-spacing:.16em}
+.tj-room-error{display:flex;align-items:center;gap:8px;padding:12px 14px;border:1px solid rgba(255,112,146,.35);border-radius:10px;color:#ffadbf;background:rgba(67,11,27,.55)}
+.tj-room-empty{padding:38px 18px;text-align:center;color:#bad1df}
+.tj-room-refresh{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid rgba(125,216,250,.33);border-radius:9px;background:rgba(13,38,59,.75);color:#eafaff;font-size:12px;font-weight:600;cursor:pointer}
+.tj-room-refresh:hover{border-color:#83eafa;background:rgba(22,62,87,.85)}
+.tj-room-refresh:focus-visible,.tj-mission-filters button:focus-visible,.tj-research-analyze:focus-visible,.tj-research-field :is(input,textarea,select):focus-visible{outline:2px solid #b3f7ff;outline-offset:2px}
+.tj-room-refresh:disabled{opacity:.55;cursor:wait}
+.tj-room-spin{animation:tj-room-spin 1s linear infinite}
+@keyframes tj-room-spin{to{transform:rotate(360deg)}}
+
+/* Architectural room elements are built in the interface; the image is a design reference. */
+.tj-mission-room{background:radial-gradient(circle at 50% 0%,#133856,#06111e 64%)}
+.tj-mission-shell{max-width:1540px;margin:0 auto;padding:20px clamp(16px,3vw,42px) 42px}
+.tj-mission-hero{position:relative;isolation:isolate;display:flex;flex-direction:column;justify-content:space-between;min-height:clamp(330px,38vw,470px);overflow:hidden;padding:clamp(20px,3vw,38px);border:1px solid rgba(118,220,253,.31);border-radius:20px;background:radial-gradient(ellipse at 52% 75%,rgba(0,190,255,.22),transparent 44%),linear-gradient(175deg,#081629 4%,#192c48 47%,#030b19 100%);box-shadow:0 22px 70px rgba(0,0,0,.36),inset 0 0 75px rgba(5,107,155,.1)}
+.tj-mission-architecture{position:absolute;inset:0;overflow:hidden;pointer-events:none;perspective:760px}
+.tj-mission-architecture:before{content:'';position:absolute;inset:10% -10% 43%;border-bottom:2px solid rgba(255,180,215,.47);border-radius:0 0 50% 50%;box-shadow:0 3px 15px rgba(255,111,177,.45)}
+.tj-mission-architecture:after{content:'';position:absolute;inset:62% -12% -33%;border-top:1px solid rgba(75,198,237,.25);border-radius:50%;background:radial-gradient(ellipse at 50% 5%,rgba(40,185,234,.23),transparent 55%),repeating-linear-gradient(90deg,transparent 0 11%,rgba(94,182,215,.055) 11.1% 11.3%);transform:perspective(460px) rotateX(63deg);box-shadow:0 -10px 45px rgba(20,173,235,.12)}
+.tj-mission-ceiling{position:absolute;left:33%;top:-27%;width:34%;height:59%;border:24px solid #0b1b34;border-radius:50%;background:radial-gradient(circle,#e2ffff 0 3%,#09c8f5 4% 5%,rgba(45,191,240,.57) 6% 14%,rgba(25,130,193,.52) 15% 49%,rgba(10,55,94,.95) 50%);box-shadow:0 12px 12px #020917,inset 0 0 0 5px rgba(90,217,255,.4),0 0 35px rgba(23,178,240,.3)}
+.tj-mission-ceiling i{position:absolute;inset:7%;border:2px solid rgba(120,234,255,.45);border-radius:50%;box-shadow:inset 0 0 25px rgba(79,209,251,.3)}
+.tj-mission-wall{position:absolute;top:31%;width:35%;height:35%;padding:10px;border:3px solid #42d4f7;border-radius:8px;background:linear-gradient(140deg,rgba(6,48,94,.93),rgba(7,23,55,.97));box-shadow:0 0 18px #2ebcfc,0 0 0 9px #172943,inset 0 0 30px rgba(16,139,224,.3)}
+.tj-mission-wall-left{left:2%;transform:rotateY(22deg) rotate(-2deg);transform-origin:right}.tj-mission-wall-right{right:2%;transform:rotateY(-22deg) rotate(2deg);transform-origin:left}
+.tj-mission-wall-grid{display:grid;width:100%;height:100%;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:6px}.tj-mission-wall-grid i{border:1px solid rgba(84,224,255,.35);background:repeating-linear-gradient(0deg,transparent 0 13px,rgba(81,223,255,.19) 14px 15px),radial-gradient(circle at 70% 35%,rgba(78,238,255,.3),transparent 35%);box-shadow:inset 0 0 12px rgba(51,195,238,.17)}
+.tj-mission-core{position:absolute;left:44%;top:32%;width:12%;height:29%;display:grid;place-items:center;border:1px solid rgba(121,238,255,.5);border-radius:50%;background:radial-gradient(circle,rgba(42,189,237,.22),rgba(5,32,65,.9));box-shadow:0 0 38px rgba(58,209,255,.43)}
+.tj-mission-core-orb{width:79%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 32% 28%,#dcffff,#69e5ff 13%,#10aaf0 34%,#08649b 64%,#041e4b 100%);box-shadow:0 0 12px #a8f4ff,0 0 55px #19bff9,inset -13px -13px 22px #052c72}
+.tj-mission-table{position:absolute;left:29%;right:29%;bottom:7%;height:26%;border:8px solid #c3d7e3;border-radius:50%;background:radial-gradient(ellipse at 50% 40%,#101c39 0 38%,#71d8f4 39% 41%,#243651 43% 62%,#99d8ec 63% 65%,#051427 68%);box-shadow:0 18px 0 #0a172c,0 31px 15px rgba(0,0,0,.63),0 0 45px rgba(8,196,255,.55)}
+.tj-mission-table i{position:absolute;left:23%;right:23%;bottom:13%;height:12%;border-radius:50%;background:#71ddfa;filter:blur(8px)}
+.tj-mission-chair{position:absolute;bottom:3%;width:5%;height:21%;border:4px solid #020813;border-radius:38% 38% 25% 25%;background:linear-gradient(110deg,#182442,#050c20);box-shadow:0 10px 12px #020510}.tj-mission-chair-left{left:31%;transform:rotate(-10deg)}.tj-mission-chair-right{right:31%;transform:rotate(10deg)}
+.tj-mission-hero-copy,.tj-mission-metrics{position:relative;z-index:1}
+.tj-mission-hero-copy{max-width:480px;text-shadow:0 2px 20px #00111b}
+.tj-mission-hero h1,.tj-research-hero h1{margin:12px 0 10px;color:#f6fbff;font:700 clamp(30px,4vw,53px)/1.05 'Plus Jakarta Sans',sans-serif;letter-spacing:-.05em}
+.tj-mission-hero p,.tj-research-hero p{max-width:450px;margin:0;color:#d2e9f5;font-size:14px;line-height:1.65}
+.tj-mission-poll-note{display:inline-block;margin-top:16px;color:#9bd3e6;font:600 10px 'JetBrains Mono',monospace;letter-spacing:.05em}
+.tj-mission-metrics{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.tj-mission-metrics>div{min-width:105px;padding:10px 15px;border:1px solid rgba(127,219,249,.23);border-radius:10px;background:rgba(4,18,34,.78);backdrop-filter:blur(12px)}
+.tj-mission-metrics strong{display:block;color:#e7fbff;font:700 24px 'Plus Jakarta Sans',sans-serif}
+.tj-mission-metrics span{color:#aad4e3;font:600 10px 'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.05em}
+.tj-mission-console{position:relative;margin-top:16px;padding:clamp(16px,2.4vw,28px);border:1px solid rgba(112,207,244,.2);border-radius:17px;background:linear-gradient(140deg,rgba(10,29,49,.96),rgba(5,17,30,.97));box-shadow:0 16px 45px rgba(0,0,0,.27)}
+.tj-mission-console-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.tj-mission-console h2{margin:4px 0 0;color:#f3fbff;font:700 22px 'Plus Jakarta Sans',sans-serif}
+.tj-mission-filters{display:flex;gap:7px;overflow-x:auto;margin:20px 0;padding-bottom:2px}
+.tj-mission-filters button{display:inline-flex;align-items:center;gap:10px;flex:none;padding:9px 12px;border:1px solid rgba(123,191,222,.2);border-radius:8px;background:rgba(17,40,59,.66);color:#bad6e4;text-transform:capitalize;cursor:pointer}
+.tj-mission-filters button:hover,.tj-mission-filters button.is-active{border-color:rgba(101,230,247,.69);background:rgba(35,89,112,.58);color:#f1fcff}
+.tj-mission-filter-count{color:#8fe9f5;font:700 11px 'JetBrains Mono',monospace}
+.tj-mission-list{display:grid;gap:9px}
+.tj-mission-task-card{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:14px;padding:16px;border:1px solid rgba(110,191,221,.21);border-radius:12px;background:linear-gradient(110deg,rgba(16,44,68,.8),rgba(8,27,46,.75));transition:border-color .18s,transform .18s}
+.tj-mission-task-card:hover{border-color:rgba(117,223,255,.58);transform:translateY(-1px)}
+.tj-mission-task-icon{display:grid;place-items:center;width:40px;height:40px;border:1px solid rgba(112,209,244,.24);border-radius:11px;background:rgba(20,79,110,.28);color:#91eaff}
+.tj-mission-task-main{min-width:0}
+.tj-mission-task-main h3{overflow:hidden;margin:0 0 5px;color:#f0f9ff;font-size:14px;text-overflow:ellipsis;white-space:nowrap}
+.tj-mission-task-main p{overflow:hidden;max-width:70ch;margin:0 0 10px;color:#a9c8d8;font-size:12px;line-height:1.4;text-overflow:ellipsis;white-space:nowrap}
+.tj-mission-task-progress{height:3px;max-width:320px;border-radius:4px;background:rgba(154,218,237,.18)}
+.tj-mission-task-progress span{display:block;height:100%;border-radius:inherit;background:#75e4f3}
+.tj-mission-task-meta{display:grid;justify-items:end;gap:8px;color:#9cc5d5;font:600 10px 'JetBrains Mono',monospace}
+.tj-mission-task-badges{display:flex;flex-wrap:wrap;justify-content:end;gap:5px}
+
+/* Lab perspective, glass walls, benches and light are native scene elements. */
+.tj-research-room{background:radial-gradient(circle at 40% 5%,#274356,#0b1b2a 62%)}
+.tj-research-shell{max-width:1460px;margin:0 auto;padding:20px clamp(16px,3vw,42px) 42px}
+.tj-research-hero{position:relative;isolation:isolate;display:flex;flex-direction:column;justify-content:flex-end;min-height:clamp(300px,35vw,430px);overflow:hidden;padding:clamp(22px,3vw,40px);border:1px solid rgba(156,234,248,.34);border-radius:20px;background:radial-gradient(ellipse at 50% 75%,rgba(69,218,246,.15),transparent 45%),linear-gradient(#142e40,#1b3745 62%,#0a1d2b);box-shadow:0 22px 60px rgba(0,0,0,.28);text-shadow:0 2px 18px #03121c}
+.tj-research-architecture{position:absolute;inset:0;pointer-events:none;overflow:hidden;perspective:700px}
+.tj-research-architecture:after{content:'';position:absolute;left:-30%;right:-30%;top:67%;bottom:-60%;border-top:2px solid rgba(171,223,234,.18);background:repeating-linear-gradient(90deg,transparent 0 12%,rgba(191,229,237,.12) 12.1% 12.2%),repeating-linear-gradient(0deg,transparent 0 18%,rgba(191,229,237,.1) 18.1% 18.2%);transform:rotateX(65deg);box-shadow:0 -15px 30px rgba(0,0,0,.2)}
+.tj-research-ceiling{position:absolute;left:18%;right:18%;top:2%;height:24%;border:1px solid rgba(188,228,234,.15);transform:rotateX(-42deg);background:repeating-linear-gradient(90deg,transparent 0 24%,rgba(189,228,234,.14) 24.1% 24.3%),repeating-linear-gradient(0deg,transparent 0 45%,rgba(189,228,234,.14) 45.1% 45.3%)}
+.tj-research-ceiling i{position:absolute;left:10%;right:10%;height:8px;background:#d8ffff;box-shadow:0 0 15px #86ebf3}.tj-research-ceiling i:first-child{top:24%}.tj-research-ceiling i:last-child{bottom:23%}
+.tj-research-wall{position:absolute;top:23%;height:43%;border:2px solid rgba(145,247,255,.82);border-radius:8px;background:linear-gradient(145deg,rgba(108,230,249,.22),rgba(5,47,67,.18));box-shadow:0 0 16px rgba(92,239,255,.55),inset 0 0 25px rgba(79,214,239,.12);display:flex;gap:5%;padding:2%}
+.tj-research-wall-left{left:-2%;width:24%;transform:rotateY(28deg)}.tj-research-wall-center{left:27%;width:46%}.tj-research-wall-right{right:-2%;width:24%;transform:rotateY(-28deg)}
+.tj-research-wall i{flex:1;border:1px solid rgba(127,241,255,.32);background:radial-gradient(circle at 50% 40%,transparent 0 19%,rgba(128,245,255,.56) 20% 21%,transparent 22%),repeating-linear-gradient(0deg,transparent 0 12px,rgba(150,245,255,.16) 13px 14px)}
+.tj-research-bench{position:absolute;bottom:14%;width:30%;height:17%;border-top:10px solid #c2e0e8;background:repeating-linear-gradient(90deg,#142d3c 0 24%,#5a7c89 24.2% 24.7%);box-shadow:0 12px 16px rgba(0,0,0,.3)}.tj-research-bench-left{left:-4%;transform:skewY(10deg)}.tj-research-bench-right{right:-4%;transform:skewY(-10deg)}
+.tj-research-floor-display{position:absolute;left:33%;right:33%;bottom:7%;height:15%;border:2px solid rgba(142,255,255,.68);border-radius:50%;transform:rotateX(68deg);background:radial-gradient(ellipse,rgba(56,217,234,.23),transparent 70%);box-shadow:0 0 30px rgba(90,233,242,.55)}
+.tj-research-hero-copy{position:relative;z-index:1;max-width:470px;padding:18px 22px;border:1px solid rgba(136,236,247,.25);border-radius:12px;background:rgba(4,25,39,.77);backdrop-filter:blur(10px)}
+.tj-research-workspace{display:grid;grid-template-columns:minmax(310px,.9fr) minmax(330px,1.1fr);align-items:start;gap:16px;margin-top:16px}
+.tj-research-panel,.tj-research-preview,.tj-research-answer{min-width:0;padding:clamp(18px,2.5vw,28px);border:1px solid rgba(142,225,245,.23);border-radius:16px;background:linear-gradient(145deg,rgba(16,43,61,.94),rgba(8,25,39,.95));box-shadow:0 15px 40px rgba(0,0,0,.23)}
+.tj-research-panel{display:grid;gap:17px}
+.tj-research-panel-heading{display:flex;align-items:center;gap:12px;color:#a5eef8}
+.tj-research-panel-heading h2,.tj-research-answer h2{margin:4px 0 0;color:#f4fbff;font:700 19px 'Plus Jakarta Sans',sans-serif}
+.tj-research-field{display:grid;gap:8px;color:#d6ebf5;font-size:13px;font-weight:600}
+.tj-research-field :is(input,textarea,select),.tj-research-upload{width:100%;min-width:0;padding:11px 12px;border:1px solid rgba(158,218,236,.28);border-radius:9px;background:rgba(3,17,29,.72);color:#edfaff;font:inherit}
+.tj-research-field input[type=file]{cursor:pointer;font-size:11px}
+.tj-research-field input[type=file]::file-selector-button{margin-right:10px;padding:6px 10px;border:1px solid rgba(145,219,240,.39);border-radius:6px;background:#123b50;color:#e5faff;cursor:pointer}
+.tj-research-upload{display:flex;align-items:center;gap:10px;color:#bad8e4;font-weight:400;overflow-wrap:anywhere}
+.tj-research-field textarea{resize:vertical;line-height:1.5}
+.tj-research-note{margin:0;color:#b8d5e2;font-size:12px;line-height:1.55}
+.tj-research-analyze{display:inline-flex;align-items:center;justify-content:center;gap:9px;justify-self:start;padding:11px 17px;border:0;border-radius:9px;background:#74e5ec;color:#071923;font-weight:800;cursor:pointer}
+.tj-research-analyze:hover{background:#abf8ff}
+.tj-research-analyze:disabled{opacity:.5;cursor:not-allowed}
+.tj-research-results{display:grid;gap:16px}
+.tj-research-preview{display:flex;flex-direction:column;min-height:315px}
+.tj-research-preview img{width:100%;max-height:420px;min-height:230px;margin-top:12px;object-fit:contain;border:1px solid rgba(153,227,243,.15);border-radius:10px;background:rgba(3,14,25,.72)}
+.tj-research-preview small{margin-top:10px;color:#b0d4e1;overflow-wrap:anywhere}
+.tj-research-preview-empty{display:grid;align-content:center;justify-items:center;flex:1;min-height:230px;margin-top:12px;border:1px dashed rgba(147,216,237,.3);border-radius:10px;color:#a2d4e3;background:radial-gradient(circle,rgba(35,106,130,.18),rgba(4,18,31,.55) 70%)}
+.tj-research-preview-empty p{margin:11px 0 0;font-size:12px}
+.tj-research-answer>div{margin-top:14px;color:#e3f3fb;white-space:pre-wrap;line-height:1.65}
+.tj-research-answer small{display:block;margin-top:16px;color:#9bc5d5}
+
+.tj-workflow-studio-root{background:linear-gradient(145deg,#04101b,#081b28);border:1px solid rgba(71,211,200,.12);border-radius:14px}
+.tj-workflow-studio-root>div:first-child h2{font-size:18px;letter-spacing:.02em}
+.tj-collaboration-hall-banner{position:relative;isolation:isolate;display:flex;align-items:flex-end;min-height:112px;overflow:hidden;padding:16px 20px;border:1px solid rgba(108,214,241,.22);border-radius:12px;background:radial-gradient(circle at 67% 120%,rgba(87,230,245,.24),transparent 35%),linear-gradient(125deg,#071728,#173d56);box-shadow:0 14px 38px rgba(0,0,0,.25)}
+.tj-collaboration-hall-banner>div{display:flex;flex-direction:column;gap:5px;padding:9px 12px;border:1px solid rgba(155,224,249,.2);border-radius:8px;background:rgba(4,13,23,.66);backdrop-filter:blur(10px)}
+.tj-collaboration-hall-banner span{color:#95e5fb;font:600 8px 'JetBrains Mono',monospace;letter-spacing:.13em}
+.tj-collaboration-hall-banner strong{color:#f0f8ff;font:600 12px 'Plus Jakarta Sans',sans-serif}
+.tj-workflow-graph-scroll{background-image:radial-gradient(circle,rgba(138,211,226,.12) 1px,transparent 1px)!important;background-size:22px 22px!important}
+@media(max-width:850px){.tj-research-workspace{grid-template-columns:1fr}.tj-mission-task-card{grid-template-columns:40px minmax(0,1fr)}.tj-mission-task-meta{grid-column:2;justify-items:start}.tj-mission-task-badges{justify-content:start}}
+@media(max-width:600px){.tj-mission-shell,.tj-research-shell{padding:12px}.tj-mission-hero,.tj-research-hero{min-height:260px;border-radius:13px}.tj-mission-console,.tj-research-panel,.tj-research-preview,.tj-research-answer{border-radius:12px}.tj-mission-hero h1,.tj-research-hero h1{font-size:32px}.tj-mission-metrics>div{min-width:88px;padding:8px 10px}.tj-collaboration-hall-banner{min-height:90px;padding:10px}}
+@media(prefers-reduced-motion:reduce){.tj-mission-task-card{transition:none}.tj-room-spin{animation:none}}

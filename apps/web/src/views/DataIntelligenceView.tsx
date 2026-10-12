@@ -6,7 +6,7 @@ type NumericStats = { count: number; sum: number; min: number; max: number; mean
 type Column = { name: string; kind: string; nonempty_count: number; missing_count: number; unique_count: number; numeric?: NumericStats; top_values?: { value: string; count: number }[] };
 type Chart = { kind: 'bar' | 'histogram'; title: string; x_label: string; y_label: string; points: { label: string; value: number }[] }
   | { kind: 'scatter'; title: string; x_label: string; y_label: string; points: { x: number; y: number }[] };
-type Analysis = { filename: string; row_count: number; column_count: number; columns: Column[]; preview: Record<string, string>[]; charts: Chart[]; warnings: string[] };
+type Analysis = { filename: string; row_count: number; column_count: number; columns: Column[]; preview: Record<string, string>[]; charts: Chart[]; warnings: string[]; format?: 'json' | 'ndjson'; structure?: { root_kind: string; document_count: number; object_count: number; array_count: number; max_depth: number; field_paths: { path: string; count: number; types: string[] }[] } };
 const MAX_BYTES = 1024 * 1024;
 const number = (value: number) => Number.isInteger(value) ? value.toLocaleString() : Number(value.toPrecision(6)).toLocaleString();
 
@@ -45,6 +45,7 @@ function DataChart({ chart }: { chart: Chart }) {
 export const DataIntelligenceView: React.FC = () => {
   const [filename, setFilename] = useState('');
   const [csv, setCsv] = useState<string | null>(null);
+  const [format, setFormat] = useState<'csv' | 'json' | 'ndjson'>('csv');
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,11 +53,12 @@ export const DataIntelligenceView: React.FC = () => {
   const chooseFile = async (file?: File) => {
     setCsv(null); setFilename(''); setAnalysis(null); setError(null);
     if (!file) return;
-    if (!/\.csv$/i.test(file.name) || file.size > MAX_BYTES) { setError('Choose a .csv file up to 1 MB.'); return; }
+    const selectedFormat = /\.ndjson$/i.test(file.name) ? 'ndjson' : /\.json$/i.test(file.name) ? 'json' : /\.csv$/i.test(file.name) ? 'csv' : null;
+    if (!selectedFormat || file.size > MAX_BYTES) { setError('Choose a .csv, .json, or .ndjson file up to 1 MB.'); return; }
     try {
       const content = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
-      setCsv(content); setFilename(file.name);
-    } catch { setError('CSV must be a readable UTF-8 text file.'); }
+      setCsv(content); setFilename(file.name); setFormat(selectedFormat);
+    } catch { setError('File must be readable UTF-8 text.'); }
   };
 
   const analyze = async (event: React.FormEvent) => {
@@ -64,7 +66,9 @@ export const DataIntelligenceView: React.FC = () => {
     if (csv === null || loading) return;
     setLoading(true); setAnalysis(null); setError(null);
     try {
-      const result = await apiFetch<{ analysis: Analysis }>('/api/v1/data/analyze/csv', { method: 'POST', body: JSON.stringify({ csv, filename }) });
+      const result = format === 'csv'
+        ? await apiFetch<{ analysis: Analysis }>('/api/v1/data/analyze/csv', { method: 'POST', body: JSON.stringify({ csv, filename }) })
+        : await apiFetch<{ analysis: Analysis }>('/api/v1/data/analyze/json', { method: 'POST', body: JSON.stringify({ content: csv, filename, format }) });
       setAnalysis(result.analysis);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setLoading(false); }
@@ -72,16 +76,17 @@ export const DataIntelligenceView: React.FC = () => {
 
   return <div style={{ maxWidth: 1200, margin: '0 auto', padding: 24, color: 'var(--text-main)' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}><BarChart3 size={27} color="var(--accent-cyan)" /><h1 style={{ margin: 0 }}>Data Intelligence</h1></div>
-    <p style={{ color: 'var(--text-muted)' }}>Analyze a CSV locally for missing values, distributions, statistics, and chart data. Files are processed in memory and are not sent to an AI provider.</p>
+    <p style={{ color: 'var(--text-muted)' }}>Analyze CSV, JSON, and NDJSON locally for missing values, distributions, statistics, structure, and chart data. Files are processed in memory and are not sent to an AI provider.</p>
     <form onSubmit={analyze} style={{ display: 'grid', gap: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20 }}>
-      <label style={{ display: 'grid', gap: 8 }}><strong>CSV file</strong><span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)' }}><FileSpreadsheet size={20} />{filename || 'UTF-8 .csv, up to 1 MB, 10,000 rows, 100 columns'}</span><input type="file" accept=".csv,text/csv" onChange={(event) => chooseFile(event.target.files?.[0])} /></label>
+      <label style={{ display: 'grid', gap: 8 }}><strong>Data file</strong><span style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)' }}><FileSpreadsheet size={20} />{filename || 'UTF-8 .csv, .json, or .ndjson · up to 1 MB · 10,000 records · 100 fields'}</span><input type="file" accept=".csv,.json,.ndjson,text/csv,application/json,application/x-ndjson" onChange={(event) => chooseFile(event.target.files?.[0])} /></label>
       <button type="submit" disabled={csv === null || loading} style={{ justifySelf: 'start', background: 'var(--accent-cyan)', color: '#000', border: 0, borderRadius: 8, padding: '10px 18px', fontWeight: 700, opacity: csv === null || loading ? 0.5 : 1, cursor: 'pointer' }}>{loading ? 'Analyzing…' : 'Analyze data'}</button>
     </form>
     {error && <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fb7185', background: 'rgba(244,63,94,.1)', padding: 14, borderRadius: 8 }}><AlertCircle size={18} />{error}</p>}
     {analysis && <div style={{ display: 'grid', gap: 20, marginTop: 20 }}>
       <section style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20 }}>
         <h2 style={{ marginTop: 0 }}>{analysis.filename}</h2>
-        <p>{number(analysis.row_count)} rows · {analysis.column_count} columns · {analysis.columns.filter((column) => column.kind === 'number').length} numeric columns</p>
+        <p>{number(analysis.row_count)} {analysis.format ? 'records' : 'rows'} · {analysis.column_count} fields · {analysis.columns.filter((column) => column.kind === 'number').length} numeric fields</p>
+        {analysis.structure && <p>Root: {analysis.structure.root_kind} · {number(analysis.structure.object_count)} objects · {number(analysis.structure.array_count)} arrays · maximum depth {analysis.structure.max_depth}</p>}
         {analysis.warnings.map((warning, index) => <p key={index} style={{ color: 'var(--text-muted)', marginBottom: 4 }}>{warning}</p>)}
       </section>
       <section><h2>Columns and statistics</h2><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg-secondary)' }}><thead><tr>{['Column', 'Type', 'Filled', 'Missing', 'Unique', 'Mean', 'Median', 'Range / most common'].map((heading) => <th key={heading} style={{ textAlign: 'left', padding: 10, borderBottom: '1px solid var(--border-subtle)' }}>{heading}</th>)}</tr></thead><tbody>{analysis.columns.map((column) => <tr key={column.name}>{[

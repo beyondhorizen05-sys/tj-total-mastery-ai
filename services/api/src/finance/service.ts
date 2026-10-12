@@ -208,7 +208,10 @@ export class FinanceService {
       try { return this.transactionInput({ date: row[0].trim(), kind: row[1].trim().toLowerCase(), amount: row[2].trim(), category: row[3], description: row[4] }); }
       catch (error) { if (error instanceof FinanceError) throw new FinanceError(`CSV row ${index + 2}: ${error.message}`); throw error; }
     });
-    const hash = createHash('sha256').update(csv, 'utf8').digest('hex');
+    // Hash the parsed financial content rather than transport formatting so a
+    // CRLF/LF conversion or reordered export cannot double-import one batch.
+    const canonical = records.map((item) => JSON.stringify([item.date, item.kind, item.amount_minor, item.category, item.description])).sort().join('\n');
+    const hash = createHash('sha256').update(canonical, 'utf8').digest('hex');
     if (this.db.get('SELECT id FROM finance_secure_imports WHERE sha256=?', [hash])) throw new FinanceError('This exact CSV file was already imported.', 409);
     if (this.transactions().length + records.length > 20_000) throw new FinanceError('Transaction limit of 20,000 would be exceeded.', 409);
     const batch = uuid(), time = now();

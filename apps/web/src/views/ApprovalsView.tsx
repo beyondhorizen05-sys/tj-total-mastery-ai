@@ -21,7 +21,7 @@ export const ApprovalsView: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleDecide = async (id: string, decision: 'approve_once' | 'deny') => {
+  const handleDecide = async (id: string, decision: 'approve_once' | 'approve_workflow' | 'deny') => {
     if (busyId) return;
     setBusyId(id);
     setDecisionError(null);
@@ -58,6 +58,9 @@ export const ApprovalsView: React.FC = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
           {pending.map((a) => (
+            (() => {
+              const modelInference = a.action === 'Use paid or unpriced AI model' && a.permission === 'payments.execute' && a.tools.includes('model.inference');
+              return (
             <div
               key={a.id}
               style={{
@@ -79,8 +82,9 @@ export const ApprovalsView: React.FC = () => {
                 {a.resources_affected.length > 0 && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>Affected: {a.resources_affected.join(', ')}</div>}
                 {a.risks.length > 0 && <div style={{ fontSize: '0.8rem', color: '#fbbf24', marginTop: 4 }}>Known risks: {a.risks.join('; ')}</div>}
                 {a.estimated_cost && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 4 }}>Estimated cost: {a.estimated_cost}</div>}
+                {modelInference && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 6 }}>Remembering this choice applies only to this exact model. Other models and sensitive tool actions still require their own authorization.</div>}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8 }}>
                 <button
                   onClick={() => handleDecide(a.id, 'approve_once')}
                   disabled={busyId !== null}
@@ -99,6 +103,25 @@ export const ApprovalsView: React.FC = () => {
                 >
                   <CheckCircle size={16} /> {busyId === a.id ? 'Saving…' : 'Approve once'}
                 </button>
+                {modelInference && <button
+                  onClick={() => handleDecide(a.id, 'approve_workflow')}
+                  disabled={busyId !== null}
+                  title={`Remember permission for ${a.target} only`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '8px 12px',
+                    background: 'var(--accent-cyan)',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#001216',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {busyId === a.id ? 'Saving…' : 'Remember this model'}
+                </button>}
                 <button
                   onClick={() => handleDecide(a.id, 'deny')}
                   disabled={busyId !== null}
@@ -119,6 +142,8 @@ export const ApprovalsView: React.FC = () => {
                 </button>
               </div>
             </div>
+              );
+            })()
           ))}
         </div>
       )}
@@ -146,11 +171,11 @@ export const ApprovalsView: React.FC = () => {
             <span
               style={{
                 fontWeight: 700,
-                color: a.status === 'approved' ? '#34d399' : '#fb7185',
+                color: ['approved', 'approved_workflow'].includes(a.status) ? '#34d399' : '#fb7185',
                 textTransform: 'uppercase',
               }}
             >
-              {a.status}
+              {a.status === 'approved_workflow' && a.action === 'Use paid or unpriced AI model' ? 'model allowed' : a.status}
             </span>
           </div>
         ))}

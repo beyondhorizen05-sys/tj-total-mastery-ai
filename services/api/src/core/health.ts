@@ -4,12 +4,16 @@ import os from 'node:os';
 import type { ModelRouter } from '../models/router.js';
 import type { ApprovalService } from '../security/approvals.js';
 import type { SettingsRepo } from '../db/repo.js';
+import type { ModelRegistry } from '../models/registry.js';
+
+const MODEL_HEALTH_MAX_AGE_MS = 5 * 60 * 1000;
 
 export interface HealthMonitorDeps {
   db: Database;
   router: ModelRouter;
   approvals: ApprovalService;
   settings: SettingsRepo;
+  registry?: ModelRegistry;
   version?: string;
 }
 
@@ -17,6 +21,7 @@ export class HealthMonitor {
   private startTime = Date.now();
   private stopAllEngaged = false;
   private tjState: TJState = 'idle';
+  private microphoneStatusProvider: (() => 'off' | 'on' | 'unknown') | null = null;
 
   constructor(private deps: HealthMonitorDeps) {}
 
@@ -31,6 +36,10 @@ export class HealthMonitor {
 
   isStopped(): boolean {
     return this.stopAllEngaged;
+  }
+
+  setMicrophoneStatusProvider(provider: () => 'off' | 'on' | 'unknown') {
+    this.microphoneStatusProvider = provider;
   }
 
   async getStatus(): Promise<SystemStatus> {
@@ -58,15 +67,36 @@ export class HealthMonitor {
       checked_at: now,
     });
 
-    const candidates = this.deps.router.candidates({ task_type: 'chat' });
+    const routingMode = this.deps.settings.get<string>('routing_mode', 'auto');
+    const defaultModelId = this.deps.settings.get<string | null>('default_model_id', null);
+    const eligibleModels = this.deps.router.candidates({ task_type: 'chat' });
+    const candidates = routingMode === 'manual' && defaultModelId
+      ? eligibleModels.filter((model) => model.id === defaultModelId)
+      : eligibleModels;
     const hasActive = candidates.length > 0;
+    const providerById = new Map((this.deps.registry?.listProviders() ?? []).map((provider) => [provider.id, provider]));
+    const candidateProviders = [...new Set(candidates.map((model) => model.provider_id))].map((id) => providerById.get(id)).filter((provider) => provider !== undefined);
+    const freshHealthyProviderIds = new Set(candidateProviders.filter((provider) => provider.health === 'healthy' && provider.last_checked_at
+      && Number.isFinite(Date.parse(provider.last_checked_at)) && Date.now() - Date.parse(provider.last_checked_at) <= MODEL_HEALTH_MAX_AGE_MS).map((provider) => provider.id));
+    const hasPreviouslySuccessfulRoute = candidates.some((model) => model.health === 'healthy' && freshHealthyProviderIds.has(model.provider_id));
+    const hasDiscoveredRoute = candidates.some((model) => model.health === 'unknown' && freshHealthyProviderIds.has(model.provider_id));
+    const providerFailure = candidateProviders.find((provider) => ['offline', 'unauthorized', 'rate-limited', 'degraded', 'misconfigured'].includes(provider.health));
+    const hasStaleOrUnknownProvider = candidateProviders.some((provider) => provider.health !== 'healthy' || !provider.last_checked_at
+      || !Number.isFinite(Date.parse(provider.last_checked_at)) || Date.now() - Date.parse(provider.last_checked_at) > MODEL_HEALTH_MAX_AGE_MS);
     const modelState: ComponentHealth['state'] = !hasActive ? 'misconfigured'
-      : candidates.some((model) => model.health === 'healthy') ? 'healthy'
-      : candidates.some((model) => model.health === 'unknown') ? 'unknown' : 'degraded';
+      : this.deps.registry
+          ? hasPreviouslySuccessfulRoute || hasDiscoveredRoute ? 'healthy'
+          : providerFailure?.health === 'offline' ? 'offline'
+          : providerFailure?.health === 'unauthorized' ? 'unauthorized'
+            : providerFailure?.health === 'rate-limited' ? 'rate-limited'
+              : providerFailure ? 'degraded'
+                : candidateProviders.length === 0 || hasStaleOrUnknownProvider ? 'unknown' : 'degraded'
+        : candidates.some((model) => model.health === 'healthy') ? 'healthy'
+          : candidates.some((model) => model.health === 'unknown') ? 'unknown' : 'degraded';
     components.push({
       component: 'model_router',
       state: modelState,
-      detail: hasActive ? `${candidates.length} eligible model(s); ${modelState === 'healthy' ? 'inference succeeded previously' : modelState === 'degraded' ? 'inference failures recorded' : 'inference not verified'}` : 'No active model provider configured',
+      detail: hasActive ? `${candidates.length} eligible model(s); ${modelState === 'healthy' ? hasPreviouslySuccessfulRoute ? 'provider reachable and a model has prior inference success' : 'provider reachable and a model was discovered; inference has not been tested' : modelState === 'offline' ? 'provider connectivity check failed' : modelState === 'unauthorized' ? 'provider credentials were rejected' : modelState === 'rate-limited' ? 'provider rate limit reached' : modelState === 'degraded' ? 'provider or model failures recorded' : modelState === 'misconfigured' ? 'provider configuration is invalid' : 'provider health is stale or inference is not verified'}` : 'No active model provider configured',
       latency_ms: null,
       checked_at: now,
     });
@@ -79,6 +109,8 @@ export class HealthMonitor {
     const costToday = this.deps.db.get<{ cost: number }>("SELECT COALESCE(SUM(cost_usd), 0) AS cost FROM usage WHERE date(ts) = date('now')")?.cost ?? 0;
     const costMonth = this.deps.db.get<{ cost: number }>("SELECT COALESCE(SUM(cost_usd), 0) AS cost FROM usage WHERE strftime('%Y-%m', ts) = strftime('%Y-%m', 'now')")?.cost ?? 0;
     const privacy = this.deps.settings.get<string>('privacy_mode', 'balanced');
+    let microphone: 'off' | 'on' | 'unknown' = 'unknown';
+    try { microphone = this.microphoneStatusProvider?.() ?? 'unknown'; } catch { /* Report unknown if the listener is unavailable. */ }
 
     const totalMem = os.totalmem() / (1024 * 1024);
     const freeMem = os.freemem() / (1024 * 1024);
@@ -98,7 +130,7 @@ export class HealthMonitor {
       cost_today_usd: costToday,
       cost_month_usd: costMonth,
       security_state: pendingApprovals > 0 ? 'attention' : 'secure',
-      microphone: 'unknown',
+      microphone,
       unread_notifications: pendingApprovals,
       stop_all_engaged: this.stopAllEngaged,
       components,

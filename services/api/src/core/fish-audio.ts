@@ -58,30 +58,32 @@ export class FishAudioService {
     return { text: result.text.trim(), language_code: result.language_code || null };
   }
 
-  async synthesize(text: string, voiceId: string): Promise<Buffer> {
-    const response = await this.ttsResponse(text, voiceId);
+  async synthesize(text: string, voiceId: string, signal?: AbortSignal): Promise<Buffer> {
+    const response = await this.ttsResponse(text, voiceId, signal);
     const audio = Buffer.from(await response.arrayBuffer());
     if (audio.length < 100 || audio.length > 10_000_000) throw new Error('Fish Audio returned an invalid audio clip.');
     return audio;
   }
 
-  private async ttsResponse(text: string, voiceId: string): Promise<Response> {
+  private async ttsResponse(text: string, voiceId: string, signal?: AbortSignal): Promise<Response> {
     if (!voiceId || text.trim().length === 0) throw new Error('Choose a Fish Audio voice and enter text.');
     const response = await fetch(`${BASE}/v1/tts`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${this.key()}`, 'Content-Type': 'application/json', model: 's2.1-pro-free' },
       body: JSON.stringify({ text: text.slice(0, 700), reference_id: voiceId, format: 'mp3', latency: 'balanced' }),
-      signal: AbortSignal.timeout(45_000),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(45_000)]) : AbortSignal.timeout(45_000),
     });
     if (!response.ok) throw new Error(`Fish Audio speech generation failed (HTTP ${response.status}).`);
     return response;
   }
 
-  async playStreaming(text: string, voiceId: string): Promise<void> {
-    const response = await this.ttsResponse(text, voiceId);
+  async playStreaming(text: string, voiceId: string, signal?: AbortSignal): Promise<void> {
+    const response = await this.ttsResponse(text, voiceId, signal);
     const body = response.body;
     if (!body) throw new Error('Fish Audio returned no audio stream.');
     const child = spawn('ffplay', ['-nodisp', '-autoexit', '-loglevel', 'error', '-i', 'pipe:0'], { windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] });
+    const abortPlayer = () => { child.stdin?.destroy(); child.kill(); };
+    signal?.addEventListener('abort', abortPlayer, { once: true });
     let error = '';
     child.stderr.on('data', (chunk) => { if (error.length < 500) error += chunk.toString(); });
     const finished = new Promise<void>((resolve, reject) => {
@@ -110,7 +112,7 @@ export class FishAudioService {
     } catch (reason) {
       child.kill();
       throw reason;
-    }
+    } finally { signal?.removeEventListener('abort', abortPlayer); }
   }
 
   async play(audio: Buffer): Promise<void> {

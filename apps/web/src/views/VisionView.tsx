@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Eye, ImagePlus, AlertCircle } from 'lucide-react';
+import { Eye, ImagePlus, AlertCircle, Microscope, ScanSearch } from 'lucide-react';
 import { apiFetch } from '../api';
 
 type VisionModel = { id: string; name: string; provider_id: string; privacy_class: string; cost_class: string };
@@ -63,44 +63,65 @@ export const VisionView: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 1050, margin: '0 auto', padding: 24, color: 'var(--text-main)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-        <Eye size={26} color="var(--accent-cyan)" /><h1 style={{ margin: 0 }}>Image understanding</h1>
+    <main className="tj-research-room">
+      <div className="tj-research-shell">
+        <header className="tj-research-hero">
+          <div className="tj-research-architecture" aria-hidden="true">
+            <div className="tj-research-ceiling"><i/><i/></div>
+            <div className="tj-research-wall tj-research-wall-left"><i/><i/><i/></div>
+            <div className="tj-research-wall tj-research-wall-center"><i/><i/><i/></div>
+            <div className="tj-research-wall tj-research-wall-right"><i/><i/><i/></div>
+            <div className="tj-research-bench tj-research-bench-left" />
+            <div className="tj-research-bench tj-research-bench-right" />
+            <div className="tj-research-floor-display" />
+          </div>
+          <div className="tj-research-hero-copy">
+            <span className="tj-room-eyebrow"><Microscope size={14} aria-hidden="true" /> TJ RESEARCH LAB / VISION</span>
+            <h1>Image understanding</h1>
+            <p>Bring an image into the lab. Choose a vision model and ask what you want TJ to examine.</p>
+          </div>
+        </header>
+
+        <div className="tj-research-workspace">
+          <form onSubmit={analyze} className="tj-research-panel" aria-label="Image analysis">
+            <div className="tj-research-panel-heading"><Eye size={20} aria-hidden="true" /><div><span className="tj-room-eyebrow">WORKSTATION 01</span><h2>Analysis setup</h2></div></div>
+            <label className="tj-research-field">
+              <span>Image</span>
+              <span className="tj-research-upload"><ImagePlus size={22} aria-hidden="true" />{fileName || 'Select PNG, JPEG, or WebP (8 MB max)'}</span>
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => chooseImage(e.target.files?.[0])} />
+            </label>
+            <label className="tj-research-field">
+              <span>Question</span>
+              <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={4000} rows={4} />
+            </label>
+            <label className="tj-research-field">
+              <span>Vision model</span>
+              <select value={modelId} onChange={(e) => setModelId(e.target.value)}>
+                <option value="">Select a model</option>
+                {status?.models.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.provider_id} · {model.privacy_class} · {model.cost_class}</option>)}
+              </select>
+            </label>
+            {status && status.models.length === 0 && <p className="tj-research-note">No configured vision model is available under {status.privacy_mode} privacy mode. Add a vision-capable provider in Models, or start a local vision model.</p>}
+            {chosen && <p className="tj-research-note">{chosen.privacy_class === 'local' ? 'This image will be processed by your local model.' : `This image will be sent to ${chosen.provider_id} when you press Analyze.`} Your current privacy mode is {status?.privacy_mode}.</p>}
+            <button className="tj-research-analyze" type="submit" disabled={!imageDataUrl || !chosen || !question.trim() || loading}><ScanSearch size={18} aria-hidden="true" />{loading ? 'Analyzing…' : 'Analyze image'}</button>
+          </form>
+
+          <div className="tj-research-results" aria-live="polite">
+            <section className="tj-research-preview" aria-label="Selected image preview">
+              <span className="tj-room-eyebrow">IMAGE BAY</span>
+              {imageDataUrl ? <img src={imageDataUrl} alt={`Preview of ${fileName}`} /> : <div className="tj-research-preview-empty"><ImagePlus size={34} aria-hidden="true" /><p>Selected image appears here</p></div>}
+              {fileName && <small>{fileName}</small>}
+            </section>
+            {error && <p role="alert" className="tj-room-error"><AlertCircle size={18} aria-hidden="true" />{error}</p>}
+            {answer && <section className="tj-research-answer" aria-labelledby="vision-answer-title">
+              <span className="tj-room-eyebrow">ANALYSIS RESULT</span>
+              <h2 id="vision-answer-title">TJ sees</h2>
+              <div>{answer.answer}</div>
+              <small>Answered by {answer.model_id}{answer.cost_usd != null ? ` · estimated cost $${answer.cost_usd.toFixed(4)}` : ''}</small>
+            </section>}
+          </div>
+        </div>
       </div>
-      <p style={{ color: 'var(--text-muted)', marginTop: 0 }}>Choose an image, ask a question, and select the model that will analyze it. TJ sends the image only when you press Analyze.</p>
-
-      <form onSubmit={analyze} style={{ display: 'grid', gap: 16, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 20 }}>
-        <label style={{ display: 'grid', gap: 8, cursor: 'pointer' }}>
-          <span style={{ fontWeight: 600 }}>Image</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-card)', border: '1px dashed var(--border-strong)', borderRadius: 8, padding: 18, color: 'var(--text-muted)' }}><ImagePlus size={22} />{fileName || 'Select PNG, JPEG, or WebP (8 MB max)'}</span>
-          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => chooseImage(e.target.files?.[0])} style={{ width: '100%' }} />
-        </label>
-        {imageDataUrl && <img src={imageDataUrl} alt="Selected image preview" style={{ maxWidth: '100%', maxHeight: 320, objectFit: 'contain', background: 'var(--bg-card)', borderRadius: 8 }} />}
-
-        <label style={{ display: 'grid', gap: 8 }}>
-          <span style={{ fontWeight: 600 }}>Question</span>
-          <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={4000} rows={3} style={{ resize: 'vertical', padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'var(--bg-card)', color: 'var(--text-main)', font: 'inherit' }} />
-        </label>
-
-        <label style={{ display: 'grid', gap: 8 }}>
-          <span style={{ fontWeight: 600 }}>Vision model</span>
-          <select value={modelId} onChange={(e) => setModelId(e.target.value)} style={{ padding: 12, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'var(--bg-card)', color: 'var(--text-main)' }}>
-            <option value="">Select a model</option>
-            {status?.models.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.provider_id} · {model.privacy_class} · {model.cost_class}</option>)}
-          </select>
-        </label>
-        {status && status.models.length === 0 && <p style={{ color: 'var(--text-muted)', margin: 0 }}>No configured vision model is available under {status.privacy_mode} privacy mode. Add a vision-capable provider in Models, or start a local vision model.</p>}
-        {chosen && <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: 13 }}>{chosen.privacy_class === 'local' ? 'This image will be processed by your local model.' : `This image will be sent to ${chosen.provider_id} when you press Analyze.`} Your current privacy mode is {status?.privacy_mode}.</p>}
-
-        <button type="submit" disabled={!imageDataUrl || !chosen || !question.trim() || loading} style={{ justifySelf: 'start', padding: '11px 20px', border: 0, borderRadius: 8, background: 'var(--accent-cyan)', color: '#000', fontWeight: 700, cursor: 'pointer', opacity: !imageDataUrl || !chosen || !question.trim() || loading ? 0.5 : 1 }}>{loading ? 'Analyzing…' : 'Analyze image'}</button>
-      </form>
-
-      {error && <p role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#fb7185', background: 'rgba(244,63,94,.1)', padding: 14, borderRadius: 8 }}><AlertCircle size={18} />{error}</p>}
-      {answer && <section style={{ marginTop: 18, padding: 20, borderRadius: 12, border: '1px solid var(--border-subtle)', background: 'var(--bg-secondary)' }}>
-        <h2 style={{ marginTop: 0 }}>TJ sees</h2>
-        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{answer.answer}</div>
-        <small style={{ display: 'block', marginTop: 14, color: 'var(--text-muted)' }}>Answered by {answer.model_id}{answer.cost_usd != null ? ` · estimated cost $${answer.cost_usd.toFixed(4)}` : ''}</small>
-      </section>}
-    </div>
+    </main>
   );
 };

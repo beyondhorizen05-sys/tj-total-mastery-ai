@@ -134,6 +134,40 @@ describe('authorized weekday productivity briefing', () => {
     expect(rejected.sources.calendar.status).toBe('error');
   });
 
+  it('reads a Gmail body and implements send and reversible Trash actions', async () => {
+    const config = { client_id: 'client-id', client_secret: 'client-secret', refresh_token: 'refresh-token' };
+    await connectors.setConfig('gmail', config);
+    const requests: Array<{ url: string; method: string; body?: any }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL, init: RequestInit = {}) => {
+      const target = String(url);
+      const method = init.method ?? 'GET';
+      if (target.includes('/token')) return new Response(JSON.stringify({ access_token: 'access-token' }));
+      const body = typeof init.body === 'string' ? JSON.parse(init.body) : undefined;
+      requests.push({ url: target, method, body });
+      if (target.includes('/messages/message-1?format=full')) return new Response(JSON.stringify({
+        id: 'message-1', threadId: 'thread-1', snippet: 'hello',
+        payload: { headers: [{ name: 'From', value: 'sender@example.com' }, { name: 'Subject', value: 'Test' }], mimeType: 'text/plain', body: { data: Buffer.from('Hello from Gmail').toString('base64url') } },
+      }));
+      if (target.endsWith('/messages/send')) return new Response(JSON.stringify({ id: 'sent-1', threadId: 'thread-2' }));
+      if (target.endsWith('/messages/message-1/trash')) return new Response(JSON.stringify({ id: 'message-1', labelIds: ['TRASH'] }));
+      return new Response('unexpected request', { status: 404 });
+    }));
+
+    const read = await connectors.execute('gmail', 'read_message', { message_id: 'message-1' }) as any;
+    expect(read).toMatchObject({ id: 'message-1', subject: 'Test', body: 'Hello from Gmail', content_trust: 'untrusted_email_content' });
+    const sent = await connectors.execute('gmail', 'send', { to: 'person@example.com', subject: 'Approved subject', body: 'Approved body' }) as any;
+    expect(sent).toMatchObject({ id: 'sent-1', status: 'sent' });
+    const sendRequest = requests.find((request) => request.url.endsWith('/messages/send'))!;
+    expect(sendRequest.method).toBe('POST');
+    expect(Buffer.from(sendRequest.body.raw, 'base64url').toString('utf8')).toContain('Approved body');
+    const trashed = await connectors.execute('gmail', 'trash', { message_id: 'message-1' }) as any;
+    expect(trashed).toMatchObject({ id: 'message-1', status: 'moved_to_trash' });
+    expect(requests.find((request) => request.url.endsWith('/messages/message-1/trash'))?.method).toBe('POST');
+    expect((await connectors.get('gmail'))?.scopes).toEqual([
+      'https://www.googleapis.com/auth/gmail.modify', 'https://www.googleapis.com/auth/gmail.send',
+    ]);
+  });
+
   it('creates a disabled 8 AM weekday automation only through explicit request, with valid timezone', async () => {
     const app = Fastify();
     const bus = new EventBus(db);
@@ -165,5 +199,38 @@ describe('authorized weekday productivity briefing', () => {
     expect(local).toMatch(/08:00/);
     expect(local).toMatch(/Mon|Tue|Wed|Thu|Fri/);
     scheduler.stop(); await app.close();
+  });
+
+  it('dispatches the weekday briefing at 08:00 Dubai time and records its output', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-09T03:59:50.000Z')); // Friday, 07:59:50 in Dubai
+    try {
+      const bus = new EventBus(db);
+      const engine = new WorkflowEngine(db, bus, () => 'default');
+      engine.registerExecutor('connector', async (step) => connectors.execute(String(step.config.connector_id), String(step.config.action), (step.config.input as Record<string, any>) ?? {}));
+      const scheduler = new AutomationScheduler({ db, engine, bus });
+      const workflow = engine.save({
+        name: 'Scheduled briefing acceptance',
+        steps: [{ id: 'briefing', name: 'Briefing', kind: 'connector', depends_on: [],
+          config: { connector_id: 'tj_productivity', action: 'weekday_summary', input: {} },
+          retry: { max_attempts: 1, backoff_ms: 1000, max_backoff_ms: 1000 }, timeout_ms: 120000,
+          permissions: ['network.http'], risk: 'low', continue_on_error: false }],
+      });
+      const auto = scheduler.save({ name: 'Friday briefing', workflow_id: workflow.id,
+        trigger: { kind: 'schedule', config: { cron: '0 8 * * 1-5', timezone: 'Asia/Dubai' } } });
+      expect(auto.next_run_at).toBe('2026-10-09T04:00:00.000Z');
+      await vi.advanceTimersByTimeAsync(10_000);
+      const runs = engine.listRuns({ workflow_id: workflow.id });
+      expect(runs).toHaveLength(1);
+      const completed = await engine.wait(runs[0].id);
+      expect(completed.status).toBe('completed');
+      expect((completed.step_state.briefing.output as any).sources.calendar.status).toBe('not_connected');
+      expect((completed.step_state.briefing.output as any).sources.email.status).toBe('not_connected');
+      expect(scheduler.get(auto.id)?.run_count).toBe(1);
+      expect(scheduler.get(auto.id)?.next_run_at).toBe('2026-10-12T04:00:00.000Z'); // Monday
+      scheduler.stop();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

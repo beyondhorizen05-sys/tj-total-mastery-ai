@@ -21,6 +21,7 @@ describe('Connectors Integration with Mocked Fetch', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     try {
       db.close();
       fs.rmSync(testDir, { recursive: true, force: true });
@@ -68,5 +69,52 @@ describe('Connectors Integration with Mocked Fetch', () => {
     const searchRes = (await connectors.execute('tavily', 'search', { query: 'test search' })) as any;
     expect(searchRes.results).toBeDefined();
     expect(searchRes.results[0].title).toBe('TJ Total Mastery');
+  });
+
+  it('connects Microsoft 365 with bounded read-only calendar and email actions', async () => {
+    await connectors.setConfig('microsoft365', { tenant_id: 'tenant.example', client_id: 'app-id', client_secret: 'secret', user_id: 'user@example.com' });
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL, init: RequestInit = {}) => {
+      const target = String(url); calls.push(target);
+      if (target.includes('/oauth2/v2.0/token')) return new Response(JSON.stringify({ access_token: 'graph-token' }));
+      expect((init.headers as any)?.authorization).toBe('Bearer graph-token');
+      return new Response(JSON.stringify({ displayName: 'Test User', value: [] }));
+    }));
+    expect((await connectors.test('microsoft365')).ok).toBe(true);
+    await connectors.execute('microsoft365', 'list_events', { start_datetime: '2026-10-10T00:00:00Z', end_datetime: '2026-10-11T00:00:00Z' });
+    await connectors.execute('microsoft365', 'list_messages', { top: 5 });
+    expect(calls.some((url) => url.includes('/users/user%40example.com/calendarView'))).toBe(true);
+    expect(calls.some((url) => url.includes('/users/user%40example.com/messages?'))).toBe(true);
+    await expect(connectors.execute('microsoft365', 'list_events', { start_datetime: '2026-10-10T00:00:00Z', end_datetime: '2026-12-01T00:00:00Z' })).rejects.toThrow(/31 days/);
+  });
+
+  it('connects Shopify only through a validated myshopify domain and reads GraphQL data', async () => {
+    await connectors.setConfig('shopify', { shop_domain: 'tj-store.myshopify.com', access_token: 'shop-secret' });
+    const fetchMock = vi.fn(async (url: string | URL, init: RequestInit = {}) => {
+      expect(String(url)).toBe('https://tj-store.myshopify.com/admin/api/2026-10/graphql.json');
+      expect((init.headers as any)['x-shopify-access-token']).toBe('shop-secret');
+      return new Response(JSON.stringify({ data: { shop: { name: 'TJ Store', myshopifyDomain: 'tj-store.myshopify.com' }, products: { edges: [] } } }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    expect((await connectors.test('shopify')).ok).toBe(true);
+    expect(await connectors.execute('shopify', 'shop_info', {})).toMatchObject({ shop: { name: 'TJ Store' } });
+    await expect(connectors.execute('shopify', 'list_products', { first: 100 })).rejects.toThrow(/from 1 to 50/);
+    await connectors.setConfig('shopify', { shop_domain: 'example.com' });
+    expect((await connectors.test('shopify')).ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps Alpaca hard-bound to paper trading and exposes no order-submit operation', async () => {
+    await connectors.setConfig('alpaca', { key_id: 'paper-key', secret_key: 'paper-secret' });
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify({ status: 'ACTIVE', orders: [] }));
+    }));
+    expect((await connectors.test('alpaca')).ok).toBe(true);
+    expect(await connectors.execute('alpaca', 'orders', { limit: 5 })).toMatchObject({ orders: [] });
+    expect(connectors.getRuntime('alpaca')?.actions.submit_order).toBeUndefined();
+    expect(calls.every((url) => url.startsWith('https://paper-api.alpaca.markets/'))).toBe(true);
+    await expect(connectors.execute('alpaca', 'orders', { limit: 500 })).rejects.toThrow(/from 1 to 50/);
   });
 });

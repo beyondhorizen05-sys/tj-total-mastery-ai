@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
 import { analyzeCsv, CSV_LIMITS } from '../src/data/csv-analysis.js';
 import { registerDataRoutes } from '../src/server/routes/data.js';
+import { analyzeJson, JSON_LIMITS } from '../src/data/json-analysis.js';
 
 describe('local CSV analysis', () => {
   it('counts an explicitly quoted empty value as a data row', () => {
@@ -41,6 +42,12 @@ describe('local CSV analysis', () => {
     expect(result.columns[0].numeric?.sum).toBe(465);
     expect(result.warnings.some((warning) => warning.includes('Preview'))).toBe(true);
   });
+
+  it('does not label impossible calendar dates as dates', () => {
+    expect(analyzeCsv('date\n2024-02-29').columns[0].kind).toBe('date');
+    expect(analyzeCsv('date\n2026-02-30').columns[0].kind).toBe('text');
+    expect(analyzeCsv('date\n2026-13-01').columns[0].kind).toBe('text');
+  });
 });
 
 describe('CSV analysis API', () => {
@@ -60,6 +67,66 @@ describe('CSV analysis API', () => {
     expect(tooLarge.statusCode).toBe(413);
     const path = await app.inject({ method: 'POST', url: '/api/v1/data/analyze/csv', payload: { csv: 'x\n1', filename: '../private.csv' } });
     expect(path.statusCode).toBe(400);
+    await app.close();
+  });
+});
+
+describe('local JSON and NDJSON analysis', () => {
+  it('flattens nested object records and reports useful structure and field types', () => {
+    const result = analyzeJson(JSON.stringify([{ id: 1, user: { city: 'Dubai' }, active: true }, { id: 2, user: { city: 'Lahore' }, active: false }]), 'people.json');
+    expect(result).toMatchObject({ format: 'json', row_count: 2, structure: { root_kind: 'array', document_count: 2, object_count: 4, array_count: 0, max_depth: 3 } });
+    expect(result.columns.find((column) => column.name === 'id')).toMatchObject({ kind: 'number', numeric: { sum: 3, mean: 1.5 } });
+    expect(result.structure.field_paths).toContainEqual({ path: 'user.city', count: 2, types: ['string'] });
+  });
+
+  it('analyzes NDJSON object records and rejects malformed or non-object lines', () => {
+    const result = analyzeJson('{"score":3}\n{"score":5,"tag":"ok"}', 'scores.ndjson', 'ndjson');
+    expect(result).toMatchObject({ format: 'ndjson', row_count: 2, structure: { root_kind: 'array', document_count: 2 } });
+    expect(result.columns.find((column) => column.name === 'score')?.numeric?.mean).toBe(4);
+    expect(() => analyzeJson('{"a":1}\nnope', 'x.ndjson', 'ndjson')).toThrow(/line 2/);
+    expect(() => analyzeJson('1\n{"a":2}', 'x.ndjson', 'ndjson')).toThrow(/must contain a JSON object/);
+  });
+
+  it('keeps dotted and prototype-named source keys safe and unambiguous', () => {
+    const result = analyzeJson('{"a.b":1,"a":{"b":2},"__proto__":{"safe":true}}');
+    expect(result.columns.map((column) => column.name)).toContain('a~2b');
+    expect(result.columns.map((column) => column.name)).toContain('a.b');
+    expect(result.columns.map((column) => column.name)).toContain('__proto__.safe');
+    expect(result.preview[0]['__proto__.safe']).toBe('true');
+  });
+
+  it('uses JSON types instead of inferring numbers from numeric strings or booleans', () => {
+    const result = analyzeJson('[{"numeric":2,"numericText":"3","flag":true,"nullable":4},{"numeric":5,"numericText":"03","flag":false,"nullable":null}]');
+    expect(result.columns.find((column) => column.name === 'numeric')).toMatchObject({ kind: 'number', numeric: { sum: 7 } });
+    expect(result.columns.find((column) => column.name === 'nullable')).toMatchObject({ kind: 'number', missing_count: 1, numeric: { sum: 4 } });
+    expect(result.columns.find((column) => column.name === 'numericText')).toMatchObject({ kind: 'text', top_values: [{ value: '03', count: 1 }, { value: '3', count: 1 }] });
+    expect(result.columns.find((column) => column.name === 'flag')).toMatchObject({ kind: 'text', top_values: [{ value: 'false', count: 1 }, { value: 'true', count: 1 }] });
+    expect(result.charts.some((chart) => chart.kind === 'histogram' && chart.x_label === 'numericText')).toBe(false);
+  });
+
+  it('rejects excessive bytes, records, depth, and flattened fields', () => {
+    expect(() => analyzeJson(' '.repeat(JSON_LIMITS.maxBytes + 1))).toThrow(/1 MB/);
+    expect(() => analyzeJson(`[${Array.from({ length: JSON_LIMITS.maxRows + 1 }, () => '{}').join(',')}]`)).toThrow(/records/);
+    expect(() => analyzeJson(`${'{"x":'.repeat(JSON_LIMITS.maxDepth + 1)}0${'}'.repeat(JSON_LIMITS.maxDepth + 1)}`)).toThrow(/depth/);
+    const wide = Object.fromEntries(Array.from({ length: JSON_LIMITS.maxFields + 1 }, (_, index) => [`f${index}`, index]));
+    expect(() => analyzeJson(JSON.stringify(wide))).toThrow(/flattened fields/);
+  });
+});
+
+describe('JSON analysis API', () => {
+  it('serves local JSON/NDJSON analysis and validates the filename and format', async () => {
+    const app = Fastify();
+    registerDataRoutes(app);
+    const json = await app.inject({ method: 'POST', url: '/api/v1/data/analyze/json', payload: { filename: 'sample.json', content: '[{"name":"Ada"}]' } });
+    expect(json.statusCode).toBe(200);
+    expect(json.json().analysis).toMatchObject({ format: 'json', row_count: 1, columns: [{ name: 'name', kind: 'text' }] });
+    const ndjson = await app.inject({ method: 'POST', url: '/api/v1/data/analyze/json', payload: { filename: 'sample.ndjson', format: 'ndjson', content: '{"x":2}' } });
+    expect(ndjson.statusCode).toBe(200);
+    expect(ndjson.json().analysis.format).toBe('ndjson');
+    const badName = await app.inject({ method: 'POST', url: '/api/v1/data/analyze/json', payload: { filename: '../sample.json', content: '{}' } });
+    expect(badName.statusCode).toBe(400);
+    const badFormat = await app.inject({ method: 'POST', url: '/api/v1/data/analyze/json', payload: { filename: 'sample.json', format: 'yaml', content: '{}' } });
+    expect(badFormat.statusCode).toBe(400);
     await app.close();
   });
 });

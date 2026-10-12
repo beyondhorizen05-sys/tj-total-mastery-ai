@@ -35,6 +35,13 @@ export function registerChatRoutes(
     return conv;
   });
 
+  app.delete('/api/v1/conversations/:id', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    if (!deps.ws.getConversation(id)) return reply.code(404).send({ error: 'Conversation not found' });
+    deps.ws.deleteConversation(id);
+    return { ok: true, deleted_id: id };
+  });
+
   // GET /api/v1/conversations/:id/messages
   app.get('/api/v1/conversations/:id/messages', async (req) => {
     const params = req.params as { id: string };
@@ -65,7 +72,22 @@ export function registerChatRoutes(
 
     deps.health.setState('thinking');
 
-    if (body.mode === 'auto' || body.mode === 'build') {
+    // Auto mode uses the cognitive classifier to distinguish a normal
+    // conversation from a multi-step goal. Explicit Build/Research modes stay
+    // deterministic and always enter the orchestration path.
+    const intent = body.mode === 'auto'
+      ? await deps.cognitive.classify(body.content, { project_id: body.project_id ?? null })
+      : null;
+    const shouldOrchestrate = body.mode === 'build' || body.mode === 'research' || intent?.intent === 'goal';
+
+    if (shouldOrchestrate && deps.settings.get<number>('autonomy_level', 2) === 0) {
+      const content = 'Autonomy is set to Chat only, so TJ cannot start plans or tool runs. Switch to a higher autonomy level in Settings to run this goal.';
+      deps.ws.addMessage({ conversation_id: convId, role: 'assistant', content });
+      deps.health.setState('idle');
+      return { conversation_id: convId, content, status: 'autonomy_blocked' };
+    }
+
+    if (shouldOrchestrate && (body.mode === 'auto' || body.mode === 'build')) {
       const gap = await deps.capabilityWorkflow.assess(body.content);
       if (gap) {
         const approval = deps.capabilityWorkflow.request({
@@ -80,7 +102,7 @@ export function registerChatRoutes(
     }
 
     // Auto/Build/Research modes -> dispatch orchestrator
-    if (body.mode === 'auto' || body.mode === 'build' || body.mode === 'research') {
+    if (shouldOrchestrate) {
       try {
         deps.health.setState('planning');
         const planRes = await deps.cognitive.plan(body.content, {
@@ -97,6 +119,24 @@ export function registerChatRoutes(
           planRes.plan,
           { plan_source: planRes.source }
         );
+        if (goalRes.status !== 'completed') {
+          const failureEvidence = goalRes.task_results
+            .filter((task) => task.status !== 'completed')
+            .map((task) => `${task.title} [${task.status}]: ${task.error ?? task.output}`)
+            .join('\n')
+            .slice(0, 4000);
+          const gap = await deps.capabilityWorkflow.assess(body.content, failureEvidence);
+          if (gap) {
+            const approval = deps.capabilityWorkflow.request({
+              request: body.content, ...gap, conversation_id: convId,
+              project_id: body.project_id ?? null, model_id: body.model_id ?? null,
+            });
+            const content = `The goal stopped because TJ is missing a software ability: ${gap.capability_name}. ${gap.reason} I have not marked the goal complete. Approve the isolated source change; after it passes checks and is activated, TJ will resume the original task.`;
+            deps.ws.addMessage({ conversation_id: convId, role: 'assistant', content });
+            deps.health.setState('idle');
+            return { conversation_id: convId, content, status: 'approval_required', approval_id: approval.id, capability_workflow_id: approval.id, capability_id: gap.capability_id, prior_status: goalRes.status, plan_id: goalRes.plan_id };
+          }
+        }
         const evidence = goalRes.evidence;
         const resultText = [
           goalRes.summary,
@@ -136,6 +176,22 @@ export function registerChatRoutes(
     }
 
     // Direct chat completion
+    const streaming = req.headers.accept?.includes('text/event-stream') === true;
+    const controller = streaming ? new AbortController() : null;
+    const onResponseClose = () => {
+      if (controller && !reply.raw.writableEnded) controller.abort();
+    };
+    if (streaming) {
+      reply.hijack();
+      reply.raw.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+        'x-accel-buffering': 'no',
+      });
+      reply.raw.flushHeaders?.();
+      reply.raw.on('close', onResponseClose);
+    }
     try {
       const history = deps.ws.messages(convId).map((m) => ({
         role: m.role as any,
@@ -149,6 +205,10 @@ export function registerChatRoutes(
         },
         {
           messages: [{ role: 'system', content: personaInstruction(getPersona(deps.settings)) }, ...history],
+          signal: controller?.signal,
+          onDelta: streaming ? (delta) => {
+            if (!reply.raw.writableEnded) reply.raw.write(`event: delta\ndata: ${JSON.stringify({ delta })}\n\n`);
+          } : undefined,
         },
         {
           project_id: body.project_id ?? null,
@@ -161,20 +221,53 @@ export function registerChatRoutes(
         content: res.text,
         model_id: res.model_id,
         provider_id: res.provider_id,
+        trace: {
+          tokens_in: res.usage?.tokens_in ?? 0,
+          tokens_out: res.usage?.tokens_out ?? 0,
+          cost_usd: res.cost_usd,
+          latency_ms: res.latency_ms ?? 0,
+          routed_model_id: res.routed_model_id,
+          routed_via: res.routed_via,
+        },
       });
 
       deps.health.setState('idle');
+      if (streaming) {
+        reply.raw.write(`event: done\ndata: ${JSON.stringify({
+          conversation_id: convId,
+          message: msg,
+          content: res.text,
+          model_id: res.model_id,
+          provider_id: res.provider_id,
+          routed_model_id: res.routed_model_id,
+          routed_via: res.routed_via,
+          cost_usd: res.cost_usd,
+        })}\n\n`);
+        reply.raw.end();
+        return reply;
+      }
       return {
         conversation_id: convId,
         message: msg,
         content: res.text,
         model_id: res.model_id,
         provider_id: res.provider_id,
+        routed_model_id: res.routed_model_id,
+        routed_via: res.routed_via,
         cost_usd: res.cost_usd,
       };
     } catch (e: any) {
       deps.health.setState('error');
+      if (streaming) {
+        if (!reply.raw.writableEnded) {
+          reply.raw.write(`event: error\ndata: ${JSON.stringify({ error: e.message })}\n\n`);
+          reply.raw.end();
+        }
+        return reply;
+      }
       return reply.status(500).send({ error: e.message });
+    } finally {
+      if (streaming) reply.raw.off('close', onResponseClose);
     }
   });
 

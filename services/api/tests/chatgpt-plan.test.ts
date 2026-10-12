@@ -88,6 +88,34 @@ describe('ChatGPT plan integration', () => {
     db.close();
   });
 
+  it('surfaces the OAuth token endpoint error code without exposing credentials', async () => {
+    fs.mkdirSync(testDir, { recursive: true });
+    const db = new Database(path.join(testDir, 'test.sqlite')); db.migrate();
+    let authorizeUrl = '';
+    const service = new ChatGPTPlanService(db, new Vault(db, path.join(testDir, 'vault')), true, undefined, undefined, async (url) => { authorizeUrl = url; });
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.startsWith('http://127.0.0.1:')) return realFetch(input);
+      if (url.endsWith('/api/accounts/oauth/token')) return Response.json({ error: 'invalid_grant' }, { status: 400 });
+      throw new Error(`Unexpected URL: ${url}`);
+    }));
+
+    await service.begin();
+    const authorization = new URL(authorizeUrl);
+    const callback = new URL(authorization.searchParams.get('redirect_uri')!);
+    callback.searchParams.set('state', authorization.searchParams.get('state')!);
+    callback.searchParams.set('code', 'one-use-test-code');
+    callback.searchParams.set('client_id', 'oaiapp_test');
+    const response = await fetch(callback);
+
+    expect(response.status).toBe(400);
+    expect(service.status().last_error).toContain('OpenAI token exchange failed (400: invalid_grant)');
+    expect(service.status().last_error).not.toContain('one-use-test-code');
+    service.close();
+    db.close();
+  });
+
   it('streams only documented Responses fields and requires response.completed', async () => {
     const service = { accessToken: vi.fn(async () => 'test-token'), listModels: vi.fn(async () => [{ id: 'model-a', display_name: 'Model A' }]) } as unknown as ChatGPTPlanService;
     const adapter = new ChatGPTPlanAdapter(service, 'account-a');

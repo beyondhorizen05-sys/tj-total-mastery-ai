@@ -1,20 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { MessageSquare, Mic, FileText, Send, Sparkles, AlertCircle } from 'lucide-react';
-import type { TJPersona } from '@tj/schemas';
+import { MessageSquare, Mic, FileText, Send, Sparkles, AlertCircle, Activity, Users, ShieldCheck } from 'lucide-react';
+import type { SystemStatus, TJPersona } from '@tj/schemas';
 
 interface Props {
   persona: TJPersona;
+  status: SystemStatus | null;
   messages: Array<{ id: string; role: 'user' | 'assistant' | 'system'; content: string }>;
   loading: boolean;
   error: string | null;
   onSend: (text: string) => void;
 }
 
-export const InteractionPanel: React.FC<Props> = ({ persona, messages, loading, error, onSend }) => {
+export const InteractionPanel: React.FC<Props> = ({ persona, status, messages, loading, error, onSend }) => {
   const [activeTab, setActiveTab] = useState<'chat' | 'voice' | 'notes'>('chat');
   const [quickInput, setQuickInput] = useState('');
   const [notes, setNotes] = useState('');
   const [speaking, setSpeaking] = useState(false);
+  useEffect(() => {
+    try { setNotes(localStorage.getItem('tj.pulse.notes') ?? ''); } catch { /* Storage may be disabled. */ }
+  }, []);
   useEffect(() => () => { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); window.dispatchEvent(new CustomEvent('tj:voice-state', { detail: 'idle' })); }, []);
   const speakLatest = () => {
     if (!('speechSynthesis' in window)) return;
@@ -70,6 +74,12 @@ export const InteractionPanel: React.FC<Props> = ({ persona, messages, loading, 
         })}
       </div>
 
+      <div aria-label="Live system pulse" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, padding: '9px 10px', borderBottom: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 10 }}><Users size={12} color="var(--accent-cyan)" />{status ? `${status.active_agents} agents` : 'Connecting'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 10 }}><Activity size={12} color="var(--accent-cyan)" />{status ? `${status.running_tasks} tasks` : 'Live status'}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 10 }}><ShieldCheck size={12} color={status?.pending_approvals ? 'var(--accent-amber)' : 'var(--accent-emerald)'} />{status ? `${status.pending_approvals} approvals` : 'Unavailable'}</div>
+      </div>
+
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         {activeTab === 'chat' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: 10, gap: 8, overflowY: 'auto' }}>
@@ -123,17 +133,18 @@ export const InteractionPanel: React.FC<Props> = ({ persona, messages, loading, 
             </div>
             <div>
               <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#fff' }}>TJ VOICE</div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>{'speechSynthesis' in window ? 'Play the latest reply with your selected system voice.' : 'Speech output is unavailable in this browser.'}</div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>Open TJ’s live voice session to speak and listen in real time.</div>
             </div>
-            <button onClick={speakLatest} disabled={!('speechSynthesis' in window) || !messages.some((m) => m.role === 'assistant')} style={{ background: 'var(--accent-cyan-dim)', color: 'var(--accent-cyan)', border: '1px solid var(--accent-cyan)', borderRadius: 4, padding: '8px 14px', cursor: 'pointer' }}>{speaking ? 'Stop speaking' : 'Speak latest reply'}</button>
+            <button onClick={() => window.dispatchEvent(new Event('tj:voice-open'))} style={{ background: 'var(--accent-cyan-dim)', color: 'var(--accent-cyan)', border: '1px solid var(--accent-cyan)', borderRadius: 4, padding: '8px 14px', cursor: 'pointer' }}>Open live voice controls</button>
+            <button onClick={speakLatest} disabled={!('speechSynthesis' in window) || !messages.some((m) => m.role === 'assistant')} style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)', borderRadius: 4, padding: '7px 12px', cursor: 'pointer' }}>{speaking ? 'Stop reading reply' : 'Read latest reply aloud'}</button>
           </div>
         )}
 
         {activeTab === 'notes' && (
           <div style={{ flex: 1, padding: 10, display: 'flex', flexDirection: 'column' }}>
             <textarea
-              value={notes} onChange={(e) => setNotes(e.target.value)}
-              placeholder="Temporary notes for this session…"
+              value={notes} onChange={(e) => { setNotes(e.target.value); try { localStorage.setItem('tj.pulse.notes', e.target.value); } catch { /* Storage may be disabled. */ } }}
+              placeholder="Your saved Pulse notes…"
               style={{
                 flex: 1, background: 'rgba(5, 10, 22, 0.6)', border: '1px solid var(--border-subtle)',
                 borderRadius: 4, padding: 8, color: 'var(--text-main)', fontSize: '0.72rem',

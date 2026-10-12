@@ -6,6 +6,7 @@ export const AgentsView: React.FC<{ selectedAgentId?: string | null }> = ({ sele
   const [agents, setAgents] = useState<Agent[]>([]);
   const [templates, setTemplates] = useState<AgentTemplate[]>([]);
   const [busyTemplate, setBusyTemplate] = useState<string | null>(null);
+  const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = () => {
@@ -17,6 +18,10 @@ export const AgentsView: React.FC<{ selectedAgentId?: string | null }> = ({ sele
   useEffect(() => { load(); }, []);
 
   const handleSpawn = async (tpl: AgentTemplate) => {
+    if (agents.some((agent) => agent.role.trim().toLowerCase() === tpl.role.trim().toLowerCase())) {
+      setError(`${tpl.role} is already deployed. The Orchestrator will reuse it; remove duplicates manually below.`);
+      return;
+    }
     setBusyTemplate(tpl.id);
     try {
       await apiFetch('/api/v1/agents', {
@@ -35,6 +40,19 @@ export const AgentsView: React.FC<{ selectedAgentId?: string | null }> = ({ sele
       load();
     } catch (e: any) { setError(e.message ?? 'Could not deploy agent'); }
     finally { setBusyTemplate(null); }
+  };
+
+  const roleCounts = agents.reduce((counts, agent) => {
+    const role = agent.role.trim().toLowerCase();
+    counts.set(role, (counts.get(role) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  const removeDuplicate = async (agent: Agent) => {
+    if (!window.confirm(`Delete duplicate agent “${agent.name}” (${agent.role})? Historical task records will remain.`)) return;
+    setDeletingAgentId(agent.id); setError(null);
+    try { await apiFetch(`/api/v1/agents/${agent.id}`, { method: 'DELETE' }); load(); }
+    catch (reason: any) { setError(reason.message ?? 'Could not delete agent'); }
+    finally { setDeletingAgentId(null); }
   };
 
   const selected = agents.find((agent) => agent.id === selectedAgentId);
@@ -67,10 +85,18 @@ export const AgentsView: React.FC<{ selectedAgentId?: string | null }> = ({ sele
               </div>
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>{a.description}</div>
+            {(roleCounts.get(a.role.trim().toLowerCase()) ?? 0) > 1 && <div style={{ marginBottom: 10, color: '#fbbf24', fontSize: '0.78rem' }}>Duplicate role · {roleCounts.get(a.role.trim().toLowerCase())} deployed</div>}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
               <span>Status: <strong style={{ color: ['thinking', 'working', 'waiting_approval', 'meeting'].includes(a.status) ? '#fbbf24' : a.status === 'failed' || a.status === 'blocked' ? '#fb7185' : '#34d399' }}>{a.status}</strong></span>
               <span>Tasks: {a.metrics?.tasks_completed ?? 0}</span>
             </div>
+            {(roleCounts.get(a.role.trim().toLowerCase()) ?? 0) > 1 && <button
+              type="button"
+              onClick={() => void removeDuplicate(a)}
+              disabled={deletingAgentId !== null || ['thinking', 'working', 'waiting_approval', 'meeting'].includes(a.status)}
+              title={['thinking', 'working', 'waiting_approval', 'meeting'].includes(a.status) ? 'An active agent cannot be deleted' : 'Manually delete this duplicate'}
+              style={{ marginTop: 12, padding: '6px 10px', background: 'transparent', border: '1px solid #fb7185', borderRadius: 5, color: '#fb7185', cursor: 'pointer' }}
+            >{deletingAgentId === a.id ? 'Deleting…' : ['thinking', 'working', 'waiting_approval', 'meeting'].includes(a.status) ? 'Active · cannot delete' : 'Delete duplicate'}</button>}
           </div>
         ))}
       </div>
@@ -88,10 +114,10 @@ export const AgentsView: React.FC<{ selectedAgentId?: string | null }> = ({ sele
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', flex: 1, marginBottom: 12 }}>{t.description}</div>
             <button
-              onClick={() => handleSpawn(t)} disabled={busyTemplate === t.id}
+              onClick={() => handleSpawn(t)} disabled={busyTemplate === t.id || agents.some((agent) => agent.role.trim().toLowerCase() === t.role.trim().toLowerCase())}
               style={{ padding: '6px 12px', background: 'var(--border-strong)', border: 'none', borderRadius: 4, color: '#fff', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
             >
-              {busyTemplate === t.id ? 'Deploying…' : 'Deploy Agent'}
+              {busyTemplate === t.id ? 'Deploying…' : agents.some((agent) => agent.role.trim().toLowerCase() === t.role.trim().toLowerCase()) ? 'Already deployed' : 'Deploy Agent'}
             </button>
           </div>
         ))}

@@ -63,6 +63,61 @@ export class TestProviderAdapter implements ProviderAdapter {
       return JSON.stringify({ intent: complex ? 'goal' : 'chat', complexity: complex ? 'high' : 'low', domains: complex ? ['research', 'development'] : ['general'], needs_tools: complex, summary: userText.slice(0, 80) });
     }
     if (/planner/i.test(sys)) {
+      if (userText.includes('TJ_ACCEPTANCE_E2E_RESEARCH_BUILD_TEST')) {
+        const packageJson = JSON.stringify({ name: 'tj-project-tracker-prototype', private: true, type: 'module', scripts: { test: 'node --test' } }, null, 2);
+        const trackerModule = [
+          "import fs from 'node:fs';",
+          "import path from 'node:path';",
+          "import { randomUUID } from 'node:crypto';",
+          'export function createTaskStore(filePath) {',
+          '  const file = path.resolve(filePath);',
+          "  const load = () => { if (!fs.existsSync(file)) return []; const data = JSON.parse(fs.readFileSync(file, 'utf8')); if (!Array.isArray(data)) throw new Error('Task store must be a JSON array.'); return data; };",
+          "  const save = (tasks) => { fs.writeFileSync(file, JSON.stringify(tasks, null, 2) + '\\n', 'utf8'); };",
+          "  return { list: load, add(title) { const text = String(title ?? '').trim(); if (!text) throw new Error('Task title is required.'); const task = { id: randomUUID(), title: text, completed: false, createdAt: new Date().toISOString() }; save([...load(), task]); return task; }, complete(id) { const tasks = load(); const task = tasks.find((item) => item.id === id); if (!task) throw new Error('Task not found: ' + id); task.completed = true; task.completedAt = new Date().toISOString(); save(tasks); return task; } };",
+          '}',
+          '',
+        ].join('\n');
+        const cli = [
+          "import path from 'node:path';",
+          "import { createTaskStore } from './tracker.mjs';",
+          "const store = createTaskStore(path.join(process.cwd(), 'tasks.json'));",
+          'const [command, ...args] = process.argv.slice(2);',
+          'try {',
+          "  if (command === 'add') { const task = store.add(args.join(' ')); console.log('Added: ' + task.title + ' (' + task.id + ')'); }",
+          "  else if (command === 'list') { const tasks = store.list(); console.log(tasks.length ? tasks.map((task) => (task.completed ? '[x] ' : '[ ] ') + task.title).join('\\n') : 'No tasks yet.'); }",
+          "  else if (command === 'complete') { const task = store.complete(args[0]); console.log('Completed: ' + task.title); }",
+          "  else throw new Error('Usage: node index.mjs add <title> | list | complete <id>');",
+          "} catch (error) { console.error(error.message); process.exitCode = 1; }",
+          '',
+        ].join('\n');
+        const testFile = [
+          "import test from 'node:test';",
+          "import assert from 'node:assert/strict';",
+          "import fs from 'node:fs';",
+          "import os from 'node:os';",
+          "import path from 'node:path';",
+          "import { spawnSync } from 'node:child_process';",
+          "import { fileURLToPath } from 'node:url';",
+          "import { createTaskStore } from './tracker.mjs';",
+          "test('creates, persists, lists, and completes project tasks', () => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tj-tracker-test-')); try { const file = path.join(dir, 'tasks.json'); const store = createTaskStore(file); const task = store.add('Prepare release plan'); assert.equal(task.completed, false); assert.deepEqual(createTaskStore(file).list().map((item) => item.title), ['Prepare release plan']); assert.equal(createTaskStore(file).complete(task.id).completed, true); assert.equal(createTaskStore(file).list()[0].completed, true); } finally { fs.rmSync(dir, { recursive: true, force: true }); } });",
+          "test('rejects blank task titles and unknown task IDs', () => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tj-tracker-validation-')); try { const store = createTaskStore(path.join(dir, 'tasks.json')); assert.throws(() => store.add('   '), /title is required/i); assert.throws(() => store.complete('missing'), /task not found/i); } finally { fs.rmSync(dir, { recursive: true, force: true }); } });",
+          "test('CLI smoke test adds and lists a task', () => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tj-tracker-cli-')); try { const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), 'index.mjs'); const add = spawnSync(process.execPath, [cli, 'add', 'Release prototype'], { cwd: dir, encoding: 'utf8' }); assert.equal(add.status, 0, add.stderr); assert.match(add.stdout, /Added: Release prototype/); const list = spawnSync(process.execPath, [cli, 'list'], { cwd: dir, encoding: 'utf8' }); assert.equal(list.status, 0, list.stderr); assert.match(list.stdout, /Release prototype/); } finally { fs.rmSync(dir, { recursive: true, force: true }); } });",
+          '',
+        ].join('\n');
+        const tool = (name: string, args: Record<string, unknown>) => `TOOL:${name} ${JSON.stringify(args)}`;
+        return JSON.stringify({
+          objective: userText.slice(0, 180), success_criteria: ['Three architecture approaches have source evidence', 'A working project task tracker can add, list, and complete tasks', 'Automated tests pass and smoke commands execute'], assumptions: ['Test-only deterministic provider and mocked Tavily response'], constraints: ['Use only the isolated project directory'], risks: ['This fixture does not measure live AI quality'], rollback: 'Remove the isolated test project',
+          tasks: [
+            { id: 'research', title: 'Research three project tracker approaches', role: 'Researcher', description: tool('web_search', { query: 'Compare local-first JSON, client-server relational database, and event-sourced approaches for a personal project management app', max_results: 3 }), depends_on: [], tools: ['web_search'], risk: 'low' },
+            { id: 'design', title: 'Choose the strongest prototype architecture', role: 'Analyst', description: 'Compare the three retrieved approaches. Choose local-first JSON storage for this small single-user prototype because it needs no server or external database; state its trade-offs and future migration path.', depends_on: ['research'], tools: [], risk: 'low' },
+            { id: 'package', title: 'Create the package manifest', role: 'Developer', description: tool('fs_write', { path: 'package.json', content: packageJson }), depends_on: ['design'], tools: ['fs_write'], risk: 'medium' },
+            { id: 'tracker', title: 'Implement persistent task operations', role: 'Developer', description: tool('fs_write', { path: 'tracker.mjs', content: trackerModule }), depends_on: ['package'], tools: ['fs_write'], risk: 'medium' },
+            { id: 'cli', title: 'Build the project tracker command line', role: 'Developer', description: tool('fs_write', { path: 'index.mjs', content: cli }), depends_on: ['tracker'], tools: ['fs_write'], risk: 'medium' },
+            { id: 'test-file', title: 'Write task tracker tests', role: 'QA Engineer', description: tool('fs_write', { path: 'tracker.test.mjs', content: testFile }), depends_on: ['cli'], tools: ['fs_write'], risk: 'medium' },
+            { id: 'test', title: 'Test the tracker and smoke-check its commands', role: 'QA Engineer', description: tool('shell_exec', { command: 'npm test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node index.mjs add "Release prototype"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node index.mjs list', timeout_s: 30 }), depends_on: ['test-file'], tools: ['shell_exec'], risk: 'medium' },
+          ],
+        });
+      }
       return JSON.stringify({
         objective: userText.slice(0, 120), success_criteria: ['Prototype files exist', 'Tests pass'], assumptions: ['Local tools available'], constraints: ['Sandboxed project directory'],
         risks: ['Scope creep'], rollback: 'Delete generated project directory',

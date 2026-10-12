@@ -57,11 +57,12 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
 
     const res = await fetchWithTimeout(this.url('/chat/completions'), { method: 'POST', headers: this.headers(), body: JSON.stringify(body), signal: opts.signal, timeoutMs: 180000 });
     if (!res.ok) throw classifyHttpError(res.status, await res.text());
-    if (!opts.onDelta) return this.parseNonStreaming(await res.json(), opts, t);
-    return this.parseStreaming(res.body!, opts, t);
+    const routedVia = res.headers.get('x-routed-via') ?? undefined;
+    if (!opts.onDelta) return this.parseNonStreaming(await res.json(), opts, t, routedVia);
+    return this.parseStreaming(res.body!, opts, t, routedVia);
   }
 
-  private parseNonStreaming(json: any, opts: ChatOptions, t: number): ChatResult {
+  private parseNonStreaming(json: any, opts: ChatOptions, t: number, routedVia?: string): ChatResult {
     const choice = json.choices?.[0];
     const msg = choice?.message ?? {};
     return {
@@ -71,10 +72,11 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       usage: { tokens_in: json.usage?.prompt_tokens ?? 0, tokens_out: json.usage?.completion_tokens ?? 0 },
       latency_ms: Math.round(performance.now() - t),
       raw_model: json.model ?? opts.model,
+      routed_via: routedVia,
     };
   }
 
-  private async parseStreaming(body: ReadableStream<Uint8Array>, opts: ChatOptions, t: number): Promise<ChatResult> {
+  private async parseStreaming(body: ReadableStream<Uint8Array>, opts: ChatOptions, t: number, routedVia?: string): Promise<ChatResult> {
     let text = '';
     let finish: string | undefined;
     let usage = { tokens_in: 0, tokens_out: 0 };
@@ -104,7 +106,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     }
     const tool_calls: ToolCall[] = [...toolAcc.values()].map((a) => ({ id: a.id || randomUUID(), name: a.name, arguments: safeJson(a.args) }));
     if (!usage.tokens_in) usage = { tokens_in: estimateTokens(opts.messages), tokens_out: Math.ceil(text.length / 4) };
-    return { text, tool_calls, finish_reason: tool_calls.length ? 'tool_calls' : mapFinish(finish), usage, latency_ms: Math.round(performance.now() - t), raw_model: rawModel };
+    return { text, tool_calls, finish_reason: tool_calls.length ? 'tool_calls' : mapFinish(finish), usage, latency_ms: Math.round(performance.now() - t), raw_model: rawModel, routed_via: routedVia };
   }
 
   async embed(texts: string[], model?: string): Promise<EmbedResult> {

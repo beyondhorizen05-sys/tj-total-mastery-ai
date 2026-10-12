@@ -24,7 +24,7 @@ describe('private local wellness records', () => {
     expect(entry).toMatchObject({ date: '2026-10-08', kind: 'sleep', value: 7.5, unit: 'hours', source: 'manual', source_label: 'User entered' });
     expect(service.list()[0].notes).toBe('private bedtime note');
     const row = db.get<any>('SELECT * FROM wellness_entries WHERE id=?', [entry.id]);
-    expect(JSON.stringify(row)).not.toContain('7.5');
+    expect(Object.keys(row).sort()).toEqual(['created_at', 'date', 'id', 'kind', 'secret_ref']);
     expect(JSON.stringify(row)).not.toContain('private bedtime note');
     expect(() => service.add({ date: '2026-02-30', kind: 'sleep', value: 7 })).toThrow(/Invalid calendar date/);
     expect(() => service.add({ date: '2026-10-08', kind: 'heart_rate', value: 0 })).toThrow(/between 20 and 250/);
@@ -68,6 +68,13 @@ describe('private local wellness records', () => {
     expect(questions.questions).toHaveLength(4);
     expect(questions.questions.join(' ')).toContain('clinical assessment');
     expect(() => service.trend('sleep', '2025-01-01', '2026-10-08')).toThrow(/0–365 days/);
+  });
+
+  it('bounds fractional and non-finite list limits before querying SQLite', () => {
+    service.add({ date: '2026-10-07', kind: 'sleep', value: 7 });
+    service.add({ date: '2026-10-08', kind: 'sleep', value: 8 });
+    expect(service.list({ limit: 1.9 })).toHaveLength(1);
+    expect(service.list({ limit: Number.POSITIVE_INFINITY })).toHaveLength(2);
   });
 
   it('serves no-store records and deletes both metadata and vault secret', async () => {

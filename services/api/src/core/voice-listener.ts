@@ -29,15 +29,21 @@ export async function listLocalVoices(): Promise<WindowsVoice[]> {
   });
 }
 
-export async function speakLocally(text: string, voiceId?: string): Promise<void> {
+export async function speakLocally(text: string, voiceId?: string, signal?: AbortSignal): Promise<void> {
   if (process.platform !== 'win32' || !fs.existsSync(SPEAK_SCRIPT)) return;
   await new Promise<void>((resolve, reject) => {
     const voiceName = voiceId?.startsWith('windows:') ? voiceId.slice(8) : '';
     const args = ['-NoProfile', '-NonInteractive', '-Sta', '-File', SPEAK_SCRIPT,
       ...(voiceName === 'female' ? ['-Female'] : voiceName && voiceName !== 'default' ? ['-VoiceName', voiceName] : [])];
     const child = spawn('powershell.exe', args, { windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'] });
+    const abort = () => child.kill();
+    signal?.addEventListener('abort', abort, { once: true });
     child.on('error', reject);
-    child.on('close', (code) => code === 0 ? resolve() : reject(new Error('Windows voice playback failed.')));
+    child.on('close', (code) => {
+      signal?.removeEventListener('abort', abort);
+      if (signal?.aborted || code === 0) resolve();
+      else reject(new Error('Windows voice playback failed.'));
+    });
     child.stdin?.end(text.slice(0, 450));
   });
 }

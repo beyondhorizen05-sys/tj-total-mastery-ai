@@ -18,7 +18,42 @@ const MODEL_BOOL = ['supports_tools', 'supports_streaming', 'supports_vision', '
 export class ModelRegistry {
   private adapterCache = new Map<string, ProviderAdapter>();
 
-  constructor(private db: Database, private vault: Vault, private bus: EventBus, private log: Logger, private enableTestProvider: boolean, private chatgptPlan?: ChatGPTPlanService) {}
+  constructor(private db: Database, private vault: Vault, private bus: EventBus, private log: Logger, private enableTestProvider: boolean, private chatgptPlan?: ChatGPTPlanService) {
+    for (const provider of this.listProviders()) this.ensureFreeLlmAutoModel(provider);
+  }
+
+  isFreeLlmAutoProvider(providerId: string): boolean {
+    const provider = this.getProvider(providerId);
+    return provider?.kind === 'openai-compatible' && /freellm/i.test(provider.name);
+  }
+
+  /** Add FreeLLMAPI's router alias; its internal model can change per request. */
+  ensureFreeLlmAutoModel(provider: ModelProvider): Model | null {
+    if (provider.kind !== 'openai-compatible' || !/freellm/i.test(provider.name)) return null;
+    // FreeLLMAPI runs locally but forwards requests to third-party model APIs.
+    // Do not let a localhost URL misclassify those requests as local-only.
+    if (provider.privacy_class !== 'cloud') {
+      this.db.run('UPDATE model_providers SET privacy_class=? WHERE id=?', ['cloud', provider.id]);
+      this.db.run('UPDATE models SET privacy_class=? WHERE provider_id=?', ['cloud', provider.id]);
+    }
+    this.upsertModel({ ...provider, privacy_class: 'cloud' }, {
+      id: 'auto', display_name: 'Auto · FreeLLM router',
+      supports_tools: true, supports_vision: true,
+    }, now());
+    return this.getModel(`${provider.id}/auto`) ?? null;
+  }
+
+  findModelForProvider(providerId: string, upstreamModel: string | null | undefined): Model | undefined {
+    if (!upstreamModel) return undefined;
+    const candidates = [upstreamModel, upstreamModel.split('/').slice(1).join('/')].filter(Boolean);
+    const models = this.listModels(providerId, true);
+    return models.find((model) => candidates.includes(model.model))
+      ?? models.find((model) => candidates.some((candidate) => candidate.endsWith(`/${model.model}`)));
+  }
+
+  setModelHealth(modelId: string, health: 'healthy' | 'degraded') {
+    this.db.run('UPDATE models SET health=? WHERE id=?', [health, modelId]);
+  }
 
   presets() { return PROVIDER_PRESETS; }
 
@@ -37,13 +72,14 @@ export class ModelRegistry {
     const id = input.id ?? (preset && !this.getProvider(preset.id) ? preset.id : `prov_${uuid().slice(0, 8)}`);
     const base_url = input.base_url ?? preset?.base_url ?? null;
     const requires_api_key = preset?.requires_api_key ?? (input.kind === 'anthropic' || input.kind === 'google' || input.kind === 'openai');
-    const privacy_class = preset?.privacy_class ?? (base_url && /localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/.test(base_url) ? 'local' : 'cloud');
+    const privacy_class = input.kind === 'test' ? 'local' : preset?.privacy_class ?? (base_url && /localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\]/.test(base_url) ? 'local' : 'cloud');
     let credential_ref: string | null = null;
     if (input.api_key) credential_ref = this.vault.put({ label: `${input.name} API key`, scope: `provider:${id}`, value: input.api_key.trim() });
     const p: ModelProvider = { id, name: input.name, kind: input.kind, preset: preset?.id ?? null, base_url, organization: input.organization ?? null, credential_ref, requires_api_key, privacy_class, enabled: true, health: 'unknown', last_checked_at: null, last_error: null, avg_latency_ms: null, created_at: now() };
     this.db.run('INSERT INTO model_providers (id, name, kind, preset, base_url, organization, credential_ref, requires_api_key, privacy_class, enabled, health, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)', [p.id, p.name, p.kind, p.preset, p.base_url, p.organization, p.credential_ref, p.requires_api_key ? 1 : 0, p.privacy_class, 1, 'unknown', p.created_at]);
+    this.ensureFreeLlmAutoModel(p);
     this.adapterCache.delete(id);
-    return p;
+    return this.getProvider(id)!;
   }
 
   updateProvider(id: string, patch: { name?: string; base_url?: string | null; api_key?: string | null; organization?: string | null; enabled?: boolean }): ModelProvider {
@@ -124,6 +160,7 @@ export class ModelRegistry {
     this.db.transaction(() => {
       this.db.run('UPDATE models SET available = 0 WHERE provider_id = ?', [providerId]);
       for (const d of discovered) this.upsertModel(p, d, ts);
+      this.ensureFreeLlmAutoModel(p);
     });
     return this.listModels(providerId);
   }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../api';
 import { PersonaSettings } from '../components/PersonaSettings';
 import { THEMES, loadTheme, setTheme, type ThemeId } from '../themes';
@@ -9,6 +9,11 @@ export const SettingsView: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [fishKey, setFishKey] = useState('');
   const [fishStatus, setFishStatus] = useState('');
+  const [allowedRoots, setAllowedRoots] = useState<string[]>([]);
+  const [rootDraft, setRootDraft] = useState('');
+  const [rootStatus, setRootStatus] = useState('');
+  const [rootLoading, setRootLoading] = useState(true);
+  const [rootLoadError, setRootLoadError] = useState('');
   const [profile, setProfile] = useState<{ display_name: string; locale: string; time_zone: string } | null>(null);
   const [theme, chooseTheme] = useState<ThemeId>(loadTheme);
 
@@ -17,6 +22,18 @@ export const SettingsView: React.FC = () => {
   };
 
   useEffect(() => { load(); }, []);
+  const loadAllowedRoots = useCallback(async () => {
+    setRootLoading(true); setRootLoadError('');
+    try { setAllowedRoots((await apiFetch<{ roots: string[] }>('/api/v1/security/allowed-roots')).roots); }
+    catch (reason) {
+      const message = reason instanceof Error ? reason.message : 'Could not load trusted folders';
+      setRootLoadError(message.includes('Unexpected token') || message.includes('<!doctype')
+        ? 'Trusted-folder settings need the current TJ API. Restart TJ to load this feature.'
+        : message);
+    } finally { setRootLoading(false); }
+  }, []);
+
+  useEffect(() => { void loadAllowedRoots(); }, [loadAllowedRoots]);
   useEffect(() => { void apiFetch<{ profile: { display_name: string; locale: string; time_zone: string } | null }>('/api/v1/system/setup').then((result) => setProfile(result.profile)).catch((reason) => setError(reason.message ?? 'Could not load profile')); }, []);
 
   const changeLocale = async (locale: string) => {
@@ -56,6 +73,24 @@ export const SettingsView: React.FC = () => {
     finally { setSaving(false); }
   };
 
+  const addAllowedRoot = async (event: React.FormEvent) => {
+    event.preventDefault(); setSaving(true); setRootStatus('');
+    try {
+      const result = await apiFetch<{ roots: string[] }>('/api/v1/security/allowed-roots', { method: 'POST', body: JSON.stringify({ path: rootDraft.trim() }) });
+      setAllowedRoots(result.roots); setRootDraft(''); setRootStatus('Folder added. TJ can now access it under the existing file permissions.');
+    } catch (reason) { setRootStatus(reason instanceof Error ? reason.message : 'Could not add folder'); }
+    finally { setSaving(false); }
+  };
+
+  const removeAllowedRoot = async (root: string) => {
+    setSaving(true); setRootStatus('');
+    try {
+      const result = await apiFetch<{ roots: string[] }>(`/api/v1/security/allowed-roots?path=${encodeURIComponent(root)}`, { method: 'DELETE' });
+      setAllowedRoots(result.roots); setRootStatus('Folder access removed.');
+    } catch (reason) { setRootStatus(reason instanceof Error ? reason.message : 'Could not remove folder'); }
+    finally { setSaving(false); }
+  };
+
   return (
     <div style={{ padding: 16, height: '100%', overflowY: 'auto', maxWidth: 650 }}>
       <h2 style={{ marginBottom: 8 }}>System Settings & Governance</h2>
@@ -89,6 +124,17 @@ export const SettingsView: React.FC = () => {
           <label style={{ display: 'flex', gap: 9, alignItems: 'center', cursor: 'pointer', marginTop: 12 }}><input type="checkbox" checked={settings.voice_use_default_model === true} disabled={saving} onChange={(event) => void updateSetting('voice_use_default_model', event.target.checked)} /> Use my selected default AI model for voice</label>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 6 }}>Off uses available free models. Turn on after choosing a paid model in Models; provider charges may apply.</p>
         </div>
+        <section aria-labelledby="file-roots-heading" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 16 }}>
+          <h3 id="file-roots-heading" style={{ fontSize: '1rem', marginBottom: 6 }}>Trusted file folders</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>The active project and TJ artifact folders are already available. Add specific folders you trust; requests outside them still ask for approval. Use an absolute Windows path, such as <code>C:\\Users\\You\\Documents</code>.</p>
+          <form onSubmit={(event) => void addAllowedRoot(event)} style={{ display: 'flex', gap: 8 }}>
+            <input aria-label="Absolute folder path to allow" value={rootDraft} onChange={(event) => setRootDraft(event.target.value)} placeholder="C:\\Users\\You\\Documents" disabled={saving} style={{ flex: 1, minWidth: 0, background: 'var(--bg-card)', color: '#fff', border: '1px solid var(--border-subtle)', borderRadius: 5, padding: 9 }} />
+            <button type="submit" disabled={saving || rootLoading || !!rootLoadError || !rootDraft.trim()} style={{ background: 'var(--accent-cyan)', color: '#001216', border: 0, borderRadius: 5, padding: '8px 12px', fontWeight: 700, cursor: 'pointer' }}>Add folder</button>
+          </form>
+          {rootLoadError && <p role="alert" style={{ color: '#fb7185', fontSize: 12, marginTop: 8 }}>{rootLoadError} <button type="button" disabled={rootLoading} onClick={() => void loadAllowedRoots()} style={{ marginLeft: 6, background: 'transparent', color: 'inherit', border: '1px solid var(--border-subtle)', borderRadius: 5, padding: '4px 7px', cursor: 'pointer' }}>Retry</button></p>}
+          {rootStatus && <p role={rootStatus.includes('Folder added') || rootStatus.includes('removed') ? 'status' : 'alert'} style={{ color: rootStatus.includes('Folder added') || rootStatus.includes('removed') ? 'var(--accent-cyan)' : '#fb7185', fontSize: 12, marginTop: 8 }}>{rootStatus}</p>}
+          {rootLoading ? <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Loading trusted folders…</p> : rootLoadError ? null : allowedRoots.length ? <ul aria-label="Trusted folders" style={{ listStyle: 'none', padding: 0, margin: '12px 0 0', display: 'grid', gap: 8 }}>{allowedRoots.map((root) => <li key={root} style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', padding: 9, border: '1px solid var(--border-subtle)', borderRadius: 6 }}><code style={{ overflowWrap: 'anywhere', fontSize: 12 }}>{root}</code><button type="button" disabled={saving} aria-label={`Remove trusted folder ${root}`} onClick={() => void removeAllowedRoot(root)} style={{ flex: 'none', background: 'transparent', color: '#fb7185', border: '1px solid var(--border-subtle)', borderRadius: 5, padding: '6px 9px', cursor: 'pointer' }}>Remove</button></li>)}</ul> : <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 0 }}>No extra folders added.</p>}
+        </section>
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 16 }}>
           <h3 style={{ fontSize: '1rem', marginBottom: 6 }}>Fish Audio voice and multilingual listening</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>Your API key is kept in TJ’s encrypted local vault. TJ fetches only voices owned by your Fish Audio workspace. On this computer, transcription runs locally; Fish Audio generates the selected cloned voice.</p>
@@ -113,15 +159,20 @@ export const SettingsView: React.FC = () => {
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>
             Determines when tools and file modifications require human approval.
           </p>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {[
-              { val: 1, label: 'Read-Only' },
-              { val: 2, label: 'Draft (Default)' },
-              { val: 3, label: 'Supervised' },
-              { val: 4, label: 'Autonomous' },
+              { val: 0, label: 'Chat only', detail: 'Answers without using tools.' },
+              { val: 1, label: 'Read-only', detail: 'Can inspect and retrieve information; cannot write or act.' },
+              { val: 2, label: 'Draft', detail: 'Can prepare sandbox drafts; outside or higher-risk changes ask first.' },
+              { val: 3, label: 'Supervised', detail: 'Routine low-risk operations can run automatically.' },
+              { val: 4, label: 'Workflow', detail: 'Pre-authorized low/medium-risk workflow actions can run.' },
+              { val: 5, label: 'Privileged', detail: 'Broader routine actions; high-impact actions still require approval.' },
             ].map((lvl) => (
               <button
                 key={lvl.val}
+                type="button"
+                aria-pressed={settings.autonomy_level === lvl.val}
+                title={lvl.detail}
                 onClick={() => updateSetting('autonomy_level', lvl.val)} disabled={saving}
                 style={{
                   padding: '8px 16px',
@@ -138,6 +189,16 @@ export const SettingsView: React.FC = () => {
               </button>
             ))}
           </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
+            {[
+              { val: 0, detail: 'Chat-only mode denies every tool, including read tools.' },
+              { val: 1, detail: 'Read-only mode permits eligible reads but blocks actions and writes.' },
+              { val: 2, detail: 'Draft mode permits low-risk work and sandbox drafts; other writes ask first.' },
+              { val: 3, detail: 'Supervised mode auto-runs eligible low-risk work; higher-risk actions ask first.' },
+              { val: 4, detail: 'Workflow mode allows eligible medium-risk operations; high-risk actions still ask first.' },
+              { val: 5, detail: 'Privileged mode allows routine work; high and critical risk always require approval.' },
+            ].find((level) => level.val === settings.autonomy_level)?.detail ?? 'Unknown autonomy level; tools should remain gated.'}
+          </p>
         </div>
 
         {/* Privacy Mode */}

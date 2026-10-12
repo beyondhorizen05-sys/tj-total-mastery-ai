@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
 import { Cpu, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { BrandLogo } from '../components/BrandLogo';
 
 export const ModelsView: React.FC = () => {
   const [chatgptPlan, setChatgptPlan] = useState<{ enabled: boolean; pending: boolean; accounts: Array<{ id: string; email: string | null; name: string | null; connected: boolean }>; active_account_id: string | null; last_error: string | null } | null>(null);
@@ -78,12 +79,35 @@ export const ModelsView: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [chatgptPlan?.pending]);
 
+  const activateDiscoveredRoute = async (providerId: string, discoveredModels: any[]) => {
+    const textModels = discoveredModels.filter((model) => model.available && !/embed|whisper|tts|dall-e|moderation|rerank|audio|realtime|image|transcri|guard|:batch$/i.test(model.model));
+    if (!textModels.length) return null;
+    const [allModels, currentProviders] = await Promise.all([
+      apiFetch<{ models: any[] }>('/api/v1/models?active_only=true'),
+      apiFetch<{ providers: any[] }>('/api/v1/models/providers'),
+    ]);
+    const defaultModel = allModels.models.find((model) => model.id === defaultModelId && model.available);
+    const defaultProvider = currentProviders.providers.find((provider) => provider.id === defaultModel?.provider_id);
+    if (defaultModel && defaultProvider?.health === 'healthy') return defaultModel;
+
+    const isFreeLlm = currentProviders.providers.some((provider) => provider.id === providerId && /freellm/i.test(provider.name));
+    const selected = (isFreeLlm ? textModels.find((model) => model.model.toLowerCase() === 'auto' || model.id.endsWith('/auto')) : null) ?? textModels[0];
+    await apiFetch('/api/v1/settings', { method: 'PATCH', body: JSON.stringify({ default_model_id: selected.id }) });
+    setDefaultModelId(selected.id);
+    return selected;
+  };
+
   const handleTest = async (id: string) => {
     setTesting(id);
+    setErrorMsg(null);
     try {
       const result = await apiFetch<{ ok: boolean; detail: string }>(`/api/v1/models/providers/${id}/test`, { method: 'POST' });
       if (!result.ok) throw new Error(result.detail);
-      setErrorMsg(null); setNoticeMsg(`Provider ${id} connection verified.`);
+      const discovered = await apiFetch<{ models: unknown[] }>(`/api/v1/models/providers/${id}/refresh`, { method: 'POST' });
+      const current = await apiFetch<{ models: any[] }>(`/api/v1/models?provider_id=${encodeURIComponent(id)}`);
+      setModels((previous) => [...previous.filter((model) => model.provider_id !== id), ...current.models]);
+      const route = await activateDiscoveredRoute(id, current.models);
+      setNoticeMsg(`Provider connection succeeded. ${discovered.models.length} model(s) discovered.${route ? ` Router default: ${route.display_name || route.model}. Inference will run when you send a message.` : ' No available text model was found.'}`);
       load();
     } catch (e: any) {
       setErrorMsg(`Provider test failed: ${e.message}`);
@@ -93,13 +117,19 @@ export const ModelsView: React.FC = () => {
   };
 
   const handleRefresh = async (id: string) => {
+    setTesting(id);
     try {
       const result = await apiFetch<{ models: unknown[] }>(`/api/v1/models/providers/${id}/refresh`, { method: 'POST' });
-      setErrorMsg(null); setNoticeMsg(`${result.models.length} model(s) discovered for ${id}.`);
+      const current = await apiFetch<{ models: any[] }>('/api/v1/models?active_only=true');
+      setModels(current.models);
+      const providerModels = current.models.filter((model) => model.provider_id === id);
+      const route = await activateDiscoveredRoute(id, providerModels);
+      setNoticeMsg(`${result.models.length} model(s) discovered for ${id}.${route ? ` Router default: ${route.display_name || route.model}.` : ' No available text model was found.'}`);
+      setErrorMsg(null);
       load();
     } catch (e: any) {
       setErrorMsg(`Model discovery failed: ${e.message}`);
-    }
+    } finally { setTesting(null); }
   };
 
   const handleDelete = async (id: string) => {
@@ -122,7 +152,7 @@ export const ModelsView: React.FC = () => {
       });
       setReplacementKey('');
       setEditingKeyFor(null);
-      setNoticeMsg('API key saved. Test the connection and discover models.');
+      setNoticeMsg('API key saved. Use Test connection to refresh and verify this provider.');
       load();
     } catch (e: any) {
       setErrorMsg(`Could not save API key: ${e.message}`);
@@ -150,7 +180,7 @@ export const ModelsView: React.FC = () => {
       setApiKey('');
       setCustomName('');
       setCustomBaseUrl('');
-      setNoticeMsg('Provider saved. Test its connection and discover models before using it.');
+      setNoticeMsg('Provider saved. Use Test connection to discover and verify its available route.');
       load();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to add provider');
@@ -186,7 +216,7 @@ export const ModelsView: React.FC = () => {
       {errorMsg && !showAddModal && <p role="alert" style={{ color: 'var(--accent-rose)', marginBottom: 12 }}>{errorMsg}</p>}
       {noticeMsg && <p role="status" style={{ color: 'var(--accent-emerald)', marginBottom: 12 }}>{noticeMsg}</p>}
       {chatgptPlan && <section style={{ background: 'rgba(10, 18, 34, 0.75)', border: '1px solid var(--border-subtle)', borderRadius: 10, padding: 18, marginBottom: 24 }} aria-label="ChatGPT account connection">
-        <div style={{ fontWeight: 800, color: '#fff', marginBottom: 6 }}>ChatGPT Account</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, fontWeight: 800, color: '#fff', marginBottom: 6 }}><BrandLogo id="chatgpt" name="ChatGPT" className="tj-brand-logo--provider" />ChatGPT Account</div>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', margin: '0 0 12px' }}>
           Separate from the OpenAI API key provider. Eligible accounts can authorize supported text inference through their ChatGPT plan. Usage is subject to account and app limits.
         </p>
@@ -237,6 +267,10 @@ export const ModelsView: React.FC = () => {
             const providerModels = models.filter((m) => m.provider_id === p.id);
             const providerDefault = providerModels.find((m) => m.id === defaultModelId);
             const selectedModel = selectedModels[p.id] ?? providerDefault?.id ?? '';
+            const listedCount = providerModels.filter((m) => m.available).length;
+            const failedCount = providerModels.filter((m) => ['degraded', 'offline', 'unauthorized'].includes(m.health)).length;
+            const untestedCount = providerModels.filter((m) => m.health === 'unknown').length;
+            const priorSuccessCount = providerModels.filter((m) => m.health === 'healthy').length;
             return (
               <div
                 key={p.id}
@@ -246,10 +280,13 @@ export const ModelsView: React.FC = () => {
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                    <BrandLogo id={p.preset ?? p.id} name={p.name} className="tj-brand-logo--provider" />
+                    <div>
                     <div style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{p.name}</div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono', marginTop: 2 }}>
                       {p.privacy_class.toUpperCase()} // {p.kind}
+                    </div>
                     </div>
                   </div>
                   <span style={{
@@ -300,7 +337,7 @@ export const ModelsView: React.FC = () => {
                       borderRadius: 6, color: 'var(--accent-cyan)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer'
                     }}
                   >
-                    {testing === p.id ? 'Testing...' : 'Test Connection'}
+                    {testing === p.id ? 'Testing...' : 'Test connection'}
                   </button>
                   <button
                     onClick={() => handleRefresh(p.id)}
@@ -324,7 +361,7 @@ export const ModelsView: React.FC = () => {
                 </div>
                 <details style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: 10 }}>
                   <summary style={{ color: 'var(--accent-cyan)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700 }}>
-                    Models ({providerModels.length}){providerDefault ? ` · Default: ${providerDefault.display_name || providerDefault.model}` : ''}
+                    Models ({providerModels.length}) · {listedCount} listed · {untestedCount} not yet invoked · {priorSuccessCount} prior successes · {failedCount} prior failures{providerDefault ? ` · Default: ${providerDefault.display_name || providerDefault.model}` : ''}
                   </summary>
                   {providerModels.length === 0 ? (
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: 0 }}>
@@ -336,7 +373,7 @@ export const ModelsView: React.FC = () => {
                         onChange={(e) => setSelectedModels((current) => ({ ...current, [p.id]: e.target.value }))}
                         style={{ flex: 1, minWidth: 0, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: '#fff' }}>
                         <option value="">Select a model</option>
-                        {providerModels.map((m) => <option key={m.id} value={m.id}>{m.display_name || m.model}</option>)}
+                        {providerModels.map((m) => <option key={m.id} value={m.id}>{m.display_name || m.model} · {!m.available ? 'not listed' : p.health !== 'healthy' ? `provider ${p.health}` : m.health === 'healthy' ? 'prior success' : ['degraded', 'offline', 'unauthorized'].includes(m.health) ? 'prior failure' : 'not yet invoked'}</option>)}
                       </select>
                       <button type="button" disabled={!selectedModel || settingDefault !== null || selectedModel === defaultModelId}
                         onClick={() => void handleSetDefault(selectedModel)}

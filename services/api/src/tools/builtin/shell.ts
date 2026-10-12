@@ -17,6 +17,13 @@ export function isBlocked(cmd: string): string | null {
   return null;
 }
 
+export function requiresCommandApproval(command: string): boolean {
+  const cmd = command.trim();
+  const safeRead = /^(?:git\s+(?:status|diff|log|branch|remote|show|ls-files)\b|(?:dir|ls|echo|type|cat|pwd|where|which|get-childitem|get-content)\b)/i;
+  const safeCheck = /^(?:(?:pnpm|npm|yarn|bun)(?:\s+--filter\s+\S+)?\s+(?:run\s+)?(?:test|typecheck|lint|build)\b|(?:pnpm|npm|yarn|bun)\s+(?:exec\s+)?(?:vitest|tsc|eslint)\b|(?:npx\s+)?(?:vitest|jest|pytest)\b|python(?:\d+(?:\.\d+)?)?\s+-m\s+pytest\b|go\s+test\b|cargo\s+test\b|dotnet\s+test\b)/i;
+  return !(safeRead.test(cmd) || safeCheck.test(cmd));
+}
+
 export function shellTools(): Tool[] {
   return [
     {
@@ -24,6 +31,7 @@ export function shellTools(): Tool[] {
       input_schema: { type: 'object', properties: { command: { type: 'string' }, cwd: { type: 'string' }, timeout_s: { type: 'number' } }, required: ['command'] },
       permission: 'shell.execute', risk: 'medium', reversible: false,
       resource: (_a, ctx) => ctx.project_root,
+      requiresApproval: (a) => requiresCommandApproval(String(a.command ?? '')),
       describe: (a) => ({ action: 'Run shell command', target: String(a.command).slice(0, 200), why: 'Agent wants to execute a command', risks: ['Commands can modify files or system state', 'Not automatically reversible'] }),
       async execute(a, ctx) {
         const command = String(a.command ?? '').trim();

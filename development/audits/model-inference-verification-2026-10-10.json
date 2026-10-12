@@ -1,0 +1,3063 @@
+{
+  "generated_at": "2026-10-10",
+  "requested_models": 504,
+  "model_results": [
+    {
+      "model_id": "chatgpt_8a2cb35f5b93b614/gpt-5.6-luna",
+      "provider": "ChatGPT Account",
+      "result": "verified",
+      "evidence": "Successful explicit-model inference; response returned from requested model."
+    },
+    {
+      "model_id": "chatgpt_8a2cb35f5b93b614/gpt-5.6-sol",
+      "provider": "ChatGPT Account",
+      "result": "verified",
+      "evidence": "Successful explicit-model inference; response returned from requested model."
+    },
+    {
+      "model_id": "chatgpt_8a2cb35f5b93b614/gpt-5.6-terra",
+      "provider": "ChatGPT Account",
+      "result": "verified",
+      "evidence": "Successful explicit-model inference; response returned from requested model."
+    },
+    {
+      "model_id": "chatgpt_8a2cb35f5b93b614/gpt-6-astra",
+      "provider": "ChatGPT Account",
+      "result": "verified",
+      "evidence": "Successful explicit-model inference; response returned from requested model."
+    },
+    {
+      "model_id": "chatgpt_8a2cb35f5b93b614/gpt-6-sol",
+      "provider": "ChatGPT Account",
+      "result": "verified",
+      "evidence": "Successful explicit-model inference; response returned from requested model."
+    },
+    {
+      "model_id": "chatgpt_8a2cb35f5b93b614/gpt-6.1-sol",
+      "provider": "ChatGPT Account",
+      "result": "verified",
+      "evidence": "Successful explicit-model inference; response returned from requested model."
+    },
+    {
+      "model_id": "prov_d2993e02/agnes-2.0-flash",
+      "provider": "FreeLLM",
+      "result": "not_verified_individually",
+      "evidence": "A forced single-model request received HTTP 503. FreeLLM Auto is the supported route; this failure does not indicate Auto is unavailable.",
+      "direct_model_probe": "failed"
+    },
+    {
+      "model_id": "prov_d2993e02/agnes-2.5-flash",
+      "provider": "FreeLLM",
+      "result": "not_verified_individually",
+      "evidence": "A forced single-model request received HTTP 503. FreeLLM Auto is the supported route; this failure does not indicate Auto is unavailable.",
+      "direct_model_probe": "failed"
+    },
+    {
+      "model_id": "prov_d2993e02/aion-2.0",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/aion-3.0",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/aion-3.0-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/aion-rp-llama-3.1-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/allam-2-7b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/amazonnova-2-lite-v1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/amazonnova-canvas-v1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/amazonnova-micro-v1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/amazonnova-reel-v1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/angelic-eclipse-12b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/artsdance-2-5-pro-260801",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/assemblyaiuniversal-2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/assemblyaiuniversal-3.5-pro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/aya-expanse-32b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/aya-vision-32b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/bazaarlink-auto",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ccai-pro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/cerebras-gpt-111m-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/claude-haiku-4-5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/claude-opus-4-5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/claude-sonnet-4-5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/codestral",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/codestral-2508",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/coherecommand-a-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-a",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-a-2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-a-reasoning",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-a-translate",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-a-vision",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-r",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-r-2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-r7b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/command-r7b-arabic",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityafanasevmylifegazette",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityafanasevmylifepolyrouter",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityaikhusus2025-ctrlember-perch",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityaikhusus2025-ctrlsirius-elevator",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityaikhusus2025-ctrlsirius-scorekeeper",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48chat-model-reasoning",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48chat-model-reasoning-with-search",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48code-pair",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48free-voice",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48gpt-5-6-luna",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48gpt-5.2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48gpt-5.6-sol",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48grok-4-3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48kilo-auto-small",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48lfm-7b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48llama3-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48qwen3-coder-480b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48sft-7b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityakshaycoder48vexa",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitybakhshi7889gemma-4-31b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitycatniticatniti-ai-agent",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitycatnitimuse-glimmer-30b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitycatnitinemotron-3.5-lightning",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitycloudcompilepollinations-code-agent-but-weird",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityfadyabohamza-netizenfrugal",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitygggff123inkling",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitygggff123step-3.7-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityguest453show-your-work",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityimmature-ytalara-nova-1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityiotserver24kimi-k2.7-code-nitro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityiotserver24stealth-code",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityiotserver24supercharge",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityjustscriptzzgpt-oss-120b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitymarcosfrgdeepseek-v4-flash-0731",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitymarcosfrggemini-3.1-flash-lite",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitymarcosfrggemma-4-26b-a4b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitymarcosfrggemma-4-31b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitymarcosfrgglm-5.3-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitymarcosfrgmetraxai",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityminor-fungemma-4-31b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitymorriszdweckosaii-api-fast",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitymorriszdweckosaii-swarm",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitypegalinkgemini-3.5-flash-lite",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitypollinations-routerfloret",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitypollinations-routermidijourney",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitypollinations-routerpolli",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysaaufgpt-6-luna",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityscriptsnsenses-sysglm-5.3-flash-free",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityscriptsnsenses-sysmuse-spark-1.2-contributor-free",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysharktide3d-agent",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysharktideinferenceport-ai-gemini-2.5-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysharktideinferenceport-ai-lightning-image-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysharktideinferenceport-ai-lightning-image-turbo",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysharktideinferenceport-ai-lightning-text-v2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysharktideinferenceport-ai-lightning-text-v2-expanded-knowledge",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysharktideinferenceport-ai-qwen-3.8-27b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitysmplstufftitle-generator",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitytakax62minimax-m3-429b-vml",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitytomdacattoezra",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitytomdacattogotcha-scout",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitytomdacattollama-3.1-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communitytomdacattotiered-health-router",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityvendouplemuse-glimmer-30bfree",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityvendoupleuncensored-image-v2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityvoodoohopairforce-doubao-pro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityvoodoohopairforce-grok-4-fast",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityvoodoohopairforce-qwen3-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityxiaotian1171triage-router",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityyoanndev90agentic-gt",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityyoanndev90muse-glimmer-30bfree",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityyoanndev90qwen3.7-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityzapgamingllama3.1-8b-ultrafast",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityzapgamingllama3.1-8b-xturbo",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/communityzapgamingmercury-2.5-ultrafast",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/cydonia-24b-v4.3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-aideepseek-v4-flash-0731",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-r1-distill-qwen-32b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v3.2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v4-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v4-flash-0731",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v4-flash-0731-fast",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v4-flash-vision-exp",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v4-pro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v4-pro-0813",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v4.1-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseek-v4.1-flash-50off",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseekdeepseek-v4-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/deepseekdeepseek-v4.1-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/default",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/devstral-2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/diffusiongemma-26b-a4b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/dots3-note-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/free-router",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/fusion",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-2.5-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-2.5-flash-lite",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-3-flash-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-3.1-flash-lite",
+      "provider": "FreeLLM",
+      "result": "verified_via_auto",
+      "evidence": "FreeLLM Auto returned a successful inference routed via google/gemini-3.1-flash-lite."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-3.5-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-3.5-flash-lite",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-3.6-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-3.7-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-3.8-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemini-robotics-er-2-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-2b-it-lora",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-3-12b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-3-4b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-12b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-26b-a4b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-26b-a4b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-26b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-31b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-31b-heretic",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-31b-it",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-31b-it-nvfp4",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-e4b-ultra-uncensored",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-4-e4b-uncensored-aggressive",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-7b-it-lora",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gemma-sea-lion-v4-27b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-4.5-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-4.6v-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-4.7-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-5.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-5.2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-5.2-fast-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-5.3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-5.3-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-5.3-flashx",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm-5.3-prime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/glm5.3flashdiscounted",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-4.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-4.1-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-4.1-nano",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-4o",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-4o-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-5-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-5-nano",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-5.4-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-5.4-nano",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-5.6-luna",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-image-2.5-flare",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-image-2.5-sunburst",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-oss-120b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-oss-20b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/gpt-oss-safeguard-20b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/granite-4.0-h-micro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/hy3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/hy4-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/inkling-small",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ising-calibration-1.5-31b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/jev-latest",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/jev-router",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/kilo-auto",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/kimi-k2.6",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/kimi-k2.7-code",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/kimi-k2.8-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/kimi-k3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/kimi-k3-t",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/kimikimi-k3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/laguna-s-2.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/leanstral-1.5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/lfm2.5-2.6b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ling-3.0-flash-sante",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-2-7b-chat-lora",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3-stheno-8b-v3.2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3-super-nova-rp-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.1-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.1-nemoguard-8b-content-safety",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.1-nemoguard-8b-topic-control",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.1-nemotron-safety-guard-8b-v3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.2-11b-vision",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.2-11b-vision-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.2-1b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.2-1b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.2-1b-unsloth",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.2-3b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.2-90b-vision",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.3-70b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-3.3-70b-fp8-fast",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-4-maverick",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-4-scout",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-guard-3-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-prompt-guard-2-22m",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-prompt-guard-2-86m",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llama-sea-lion-v3-70b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/llava-1.5-7b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/lykondreamshaper-8-lcm",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/metallama-3.3-70b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/microsoftmai-image-2.5-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/microsoftmai-image-2.6",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/microsoftmai-image-2.6-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/microsofttrellis-2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mimo-v2.5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mini-magnum-12b-v1.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimax-m2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimax-m2.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimax-m2.1-highspeed",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimax-m2.5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimax-m2.5-highspeed",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimax-m2.7",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimax-m2.7-highspeed",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimax-m3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimaxaiminimax-m2.7",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/minimaxminimax-m3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ministral-14b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ministral-3-14b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ministral-3-3b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ministral-3-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ministral-3b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ministral-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-7b-instruct-v0.2-lora",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-7b-instruct-v0.3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-code",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-code-fim",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-large-3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-medium-3.5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-nemo",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-nemo-instruct-2407",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-small-3.1-24b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-small-3.2-24b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistral-small-4",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/mistralaimistral-large-3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/moondream-3.1-9b-a2b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/moonshotaikimi-k2.6",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/moonshotaikimi-k3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/muse-glimmer",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/muse-glimmer-30b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-120b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-nano-30b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-nano-30b-reasoning",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-nano-omni",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-nano-omni-reasoning",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-super",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-super-120b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-ultra",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3-ultra-550b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3.5-content-safety",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3.5-lightning",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3.5-lightning-30b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nemotron-3.5-lightning-30b-a3b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/north-mini-code",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/nvidianemotron-3.5-lightning",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/o4-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/omen-alpha",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/open-mistral-nemo-2407",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5-nano",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5.3-codex",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5.4",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5.4-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5.4-nano",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5.5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5.6-luna",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5.6-sol",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-5.6-terra",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-6-astra",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-6-luna",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-6-sol",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-audio-1.5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-audio-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-image-1-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-image-1.5",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-image-2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-oss-20b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-realtime-2.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/openaigpt-realtime-2.1-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/osaii-fast-router",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/osaii-smart-router",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/osaii-swarm",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ox-alpha",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/ox-alpha-2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/phi-4",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/pollinationsmidijourney",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/pollinationsmidijourney-large",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/poolside-laguna-s-2.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/poolside-laguna-xs-2.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/pythia-70m-deduped",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qvq-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-3.8-27b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-audio-3.0-realtime-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-audio-3.1-realtime-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-coder-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-flash-character",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-2.0",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-2.0-2026-03-03",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-2.0-pro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-2.0-pro-2026-03-03",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-2.0-pro-2026-04-22",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-2.0-pro-2026-06-22",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-3.0",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-3.0-pro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-edit",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-edit-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-edit-max-2026-01-16",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-edit-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-edit-plus-2025-10-30",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-edit-plus-2025-12-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-max-2025-12-30",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-image-plus-2026-01-09",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-mt-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-mt-lite",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-mt-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-mt-turbo",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-omni-turbo",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-plus-2025-01-25",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-plus-2025-04-28",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-plus-2025-07-14",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-plus-2025-09-11",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-plus-2025-12-01",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-plus-character",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-plus-latest",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-sea-lion-v4-32b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-sea-lion-v4.5-27b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-turbo",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-vl-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-vl-ocr-2025-11-20",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen-vl-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen2-7b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen2.5-32b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen2.5-72b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen2.5-7b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen2.5-coder-32b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen2.5-coder-32b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen2.5-coder-7b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen2.5-vl-72b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-0.6b-iq4",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-14b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-235b-a22b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-235b-a22b-instruct-2507",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-235b-a22b-thinking-2507",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-30b-a3b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-30b-a3b-fp8",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-30b-a3b-instruct-2507",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-30b-a3b-thinking-2507",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-32b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-coder-30b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-coder-30b-a3b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-coder-480b-a35b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-coder-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-coder-next",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-coder-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-coder-plus-2025-07-22",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-coder-plus-2025-09-23",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-livetranslate-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-livetranslate-flash-2025-12-01",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-livetranslate-flash-realtime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-livetranslate-flash-realtime-2025-09-22",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-max-2025-09-23",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-max-2026-01-23",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-max-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-next-80b-a3b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-next-80b-a3b-thinking",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-omni-30b-a3b-captioner",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-omni-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-omni-flash-2025-09-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-omni-flash-2025-12-01",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-omni-flash-realtime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-omni-flash-realtime-2025-09-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-omni-flash-realtime-2025-12-01",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-s2s-flash-realtime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-vl-235b-a22b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-vl-235b-a22b-thinking",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-vl-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-vl-flash-2025-10-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-vl-flash-2026-01-22",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-vl-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-vl-plus-2025-09-23",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3-vl-plus-2025-12-19",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-0.8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-122b-a10b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-27b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-35b-a3b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-397b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-397b-a17b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-9b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-flash-2026-02-23",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-livetranslate-flash-realtime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-livetranslate-flash-realtime-2026-05-19",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-omni-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-omni-flash-2026-03-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-omni-flash-realtime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-omni-flash-realtime-2026-03-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-omni-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-omni-plus-2026-03-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-omni-plus-realtime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-omni-plus-realtime-2026-03-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-plus-2026-02-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.5-plus-2026-04-20",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.6-27b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.6-35b-a3b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.6-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.6-flash-2026-04-16",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.6-max-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.6-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.6-plus-2026-04-02",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-flash-2026-07-15",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-max-2026-05-17",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-max-2026-05-20",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-max-2026-06-08",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-max-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.7-plus-2026-05-26",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-2.4t-a95b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-27b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-flash-next",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-livetranslate-flash-realtime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-max",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-max-0902",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-omni-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3.8-omni-flash-realtime",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3guard-gen-0.6b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwen3guard-gen-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwenqwen3-coder-30b-a3b-instruct",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwenqwen3.8-2.4t-a95b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwenqwen3guard-gen-8b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwq-32b",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwq-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/qwq-plus-2025-03-05",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/riva-translate-4b-instruct-v1.1",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/riva-translate-4b-instruct-v2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/sea-guard",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/seedance-2-0-fast",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/seedance-2-0-mini",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/seedance-2-0-pro",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/sensenova-6.7-flash-lite",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/sensenova-6.8-flash-lite",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/skyfall-31b-v4.2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/space-bunny-alpha",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/stealthox-alpha",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/step-5-preview",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/tiny-aya-earth",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/tiny-aya-fire",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/tiny-aya-global",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/tiny-aya-water",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/tongyi-embedding-vision-plus",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/tongyi-maiz-image-turbo",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/tongyi-tingwu-slp",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/typesafejev-1.13",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/union-alpha",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/union-alpha-free",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/union-alpha-free2",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/voxtral-small",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/voxtral-small-2507",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/x-aigrok-4.20",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/x-aigrok-4.3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/x-aigrok-4.6",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/z-aiglm-5.3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/z-aiglm-5.3-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/z-image-turbo",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/zai-orgglm-5.3-flash",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    },
+    {
+      "model_id": "prov_d2993e02/zhipuglm-5.3",
+      "provider": "FreeLLM",
+      "result": "not_individually_tested",
+      "evidence": "Catalog entry is routed internally by FreeLLM Auto according to current key availability, quota, and credits; TJ did not force this model individually."
+    }
+  ],
+  "summary": [
+    {
+      "result": "verified",
+      "count": 6
+    },
+    {
+      "result": "verified_via_auto",
+      "count": 1
+    },
+    {
+      "result": "not_verified_individually",
+      "count": 2
+    },
+    {
+      "result": "not_individually_tested",
+      "count": 495
+    }
+  ],
+  "notes": [
+    "All six remaining ChatGPT models passed individual inference.",
+    "The FreeLLM Auto route passed a real inference and dynamically selected google/gemini-3.1-flash-lite. The actual selected model is recorded as verified.",
+    "Two forced FreeLLM model-specific probes returned HTTP 503; they are not treated as proof the Auto router is down because Auto can select a different quota-eligible model.",
+    "The other 495 FreeLLM catalog entries were not forced individually. FreeLLM Auto chooses among current usable keys/models, and that actual choice is captured per successful request."
+  ],
+  "free_llm_auto_route": {
+    "result": "verified",
+    "model_id": "prov_d2993e02/auto",
+    "routed_via": "google/gemini-3.1-flash-lite",
+    "latency_ms": 5334,
+    "message": "Successful real inference through FreeLLMAPI model=auto."
+  }
+}

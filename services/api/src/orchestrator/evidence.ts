@@ -23,6 +23,7 @@ export function snapshotProjectFiles(root: string, limit = 500): ProjectSnapshot
     for (const entry of entries) {
       if (files.size >= limit) break;
       const full = path.join(current.dir, entry.name);
+      if (entry.isFile() && /(?:-wal|-shm)$/i.test(entry.name)) continue;
       if (entry.isDirectory() && current.depth < 6 && !ignored.has(entry.name)) queue.push({ dir: full, depth: current.depth + 1 });
       else if (entry.isFile()) {
         try { const stat = fs.statSync(full); files.set(path.relative(root, full), `${stat.size}:${stat.mtimeMs}`); } catch { /* File changed during scan. */ }

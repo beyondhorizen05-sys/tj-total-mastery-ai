@@ -19,9 +19,16 @@ export async function scheduleRows(rows: PlanRow[], run: (row: PlanRow) => Promi
   while ((pending.size || running.size) && !signal.aborted) {
     for (const row of rows) {
       if (!pending.has(row.pt.id) || running.size >= concurrency) continue;
+      if (tasks.get(row.task.id)?.status === 'paused') continue;
       if (row.pt.depends_on.some((d) => failed.has(d))) {
         pending.delete(row.pt.id); failed.add(row.pt.id);
-        tasks.setStatus(row.task.id, 'blocked', { error: 'A dependency failed' });
+        const blockers = row.pt.depends_on.map((id) => rows.find((candidate) => candidate.pt.id === id)).filter((candidate): candidate is PlanRow => Boolean(candidate && failed.has(candidate.pt.id)));
+        const why = blockers.map(({ task: dependency }) => {
+          const current = tasks.get(dependency.id);
+          const status = current?.status ?? dependency.status;
+          return `“${dependency.title}” ${status}${current?.error ? `: ${current.error}` : ''}`;
+        }).join('; ');
+        tasks.setStatus(row.task.id, 'blocked', { error: `Blocked by ${why || 'a failed dependency'}. Use Recover on this task after the upstream failure is repaired; TJ will retry dependencies in order and continue this goal.` });
         continue;
       }
       if (!row.pt.depends_on.every((d) => done.has(d))) continue;
@@ -35,8 +42,13 @@ export async function scheduleRows(rows: PlanRow[], run: (row: PlanRow) => Promi
       }).finally(() => { running.delete(row.pt.id); }));
     }
     if (running.size) await Promise.race(running.values());
-    else if (pending.size) {
-      for (const row of rows) if (pending.has(row.pt.id)) tasks.setStatus(row.task.id, 'blocked', { error: 'Unreachable or cyclic task dependencies' });
+    else if (pending.size && rows.some((row) => pending.has(row.pt.id) && tasks.get(row.task.id)?.status === 'paused')) {
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(resolve, 100);
+        signal.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+      });
+    } else if (pending.size) {
+      for (const row of rows) if (pending.has(row.pt.id)) tasks.setStatus(row.task.id, 'blocked', { error: 'The task plan could not be scheduled because dependencies are missing or cyclic. Fix the plan dependencies and start a new goal run.' });
       break;
     }
   }

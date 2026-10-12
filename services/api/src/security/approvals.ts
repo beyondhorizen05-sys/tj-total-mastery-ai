@@ -100,6 +100,13 @@ export class ApprovalService {
     return rows.map((r) => mapRow<Approval>(r, APPROVAL_COLS, ['rollback_available']));
   }
 
+  hasApproved(action: string, target: string, permission?: string): boolean {
+    const rows = permission
+      ? this.db.all<any>("SELECT id FROM approvals WHERE action = ? AND target = ? AND permission = ? AND status = 'approved_workflow' ORDER BY created_at DESC LIMIT 20", [action, target, permission])
+      : this.db.all<any>("SELECT id FROM approvals WHERE action = ? AND target = ? AND status = 'approved_workflow' ORDER BY created_at DESC LIMIT 20", [action, target]);
+    return rows.length > 0;
+  }
+
   pendingCount(): number {
     return this.db.get<{ c: number }>("SELECT COUNT(*) c FROM approvals WHERE status='pending'")?.c ?? 0;
   }

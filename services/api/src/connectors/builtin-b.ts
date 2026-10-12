@@ -2,7 +2,18 @@ import type { ConnectorRuntime } from './sdk.js';
 import { field, httpJson, manifest } from './sdk.js';
 
 const haHeaders = (c: Record<string, string>) => ({ authorization: `Bearer ${c.token}`, 'content-type': 'application/json' });
-const haBase = (c: Record<string, string>) => c.url.replace(/\/+$/, '');
+const haBase = (c: Record<string, string>) => {
+  let url: URL;
+  try { url = new URL(c.url); } catch { throw new Error('Home Assistant URL must be an absolute HTTP(S) URL'); }
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password || url.search || url.hash) {
+    throw new Error('Home Assistant URL must be an HTTP(S) base URL without credentials, query, or fragment');
+  }
+  return url.toString().replace(/\/+$/, '');
+};
+const haServicePart = (value: unknown, label: string) => {
+  if (typeof value !== 'string' || !/^[a-z][a-z0-9_]*$/.test(value)) throw new Error(`Invalid Home Assistant ${label}`);
+  return value;
+};
 
 export const homeAssistant: ConnectorRuntime = {
   manifest: manifest({
@@ -17,11 +28,11 @@ export const homeAssistant: ConnectorRuntime = {
   }),
   async test(c) {
     try { const r = await httpJson(`${haBase(c)}/api/`, { headers: haHeaders(c), timeoutMs: 8000 }); return { ok: true, detail: r?.message ?? 'Connected' }; }
-    catch (e: any) { return { ok: false, detail: `${e.message} (is Home Assistant reachable at ${c.url}?)` }; }
+    catch (e: any) { return { ok: false, detail: e instanceof Error ? e.message : 'Home Assistant connection failed' }; }
   },
   actions: {
     states: async (c) => ({ retrieved_at: new Date().toISOString(), states: await httpJson(`${haBase(c)}/api/states`, { headers: haHeaders(c) }) }),
-    call_service: (c, i) => httpJson(`${haBase(c)}/api/services/${i.domain}/${i.service}`, { method: 'POST', headers: haHeaders(c), body: JSON.stringify(i.data ?? {}) }),
+    call_service: (c, i) => httpJson(`${haBase(c)}/api/services/${haServicePart(i.domain, 'domain')}/${haServicePart(i.service, 'service')}`, { method: 'POST', headers: haHeaders(c), body: JSON.stringify(i.data ?? {}) }),
   },
 };
 
@@ -50,9 +61,5 @@ export const genericWebhook: ConnectorRuntime = {
   actions: { post: async (c, i) => { const res = await fetch(c.url, { method: 'POST', headers: { 'content-type': 'application/json', ...(c.auth_header ? { authorization: c.auth_header } : {}) }, body: JSON.stringify(i.payload ?? {}), signal: AbortSignal.timeout(15000) }); const t = await res.text(); if (!res.ok) throw new Error(`HTTP ${res.status}: ${t.slice(0, 120)}`); return { status: res.status, body: t.slice(0, 2000) }; } },
 };
 
-/** Planned connectors are listed honestly with no runtime. */
-export const PLANNED = [
-  { id: 'microsoft365', name: 'Microsoft 365 (Outlook/Calendar)', category: 'productivity', note: 'Requires an Azure AD app registration.' },
-  { id: 'shopify', name: 'Shopify', category: 'business', note: 'Requires a Shopify custom app token.' },
-  { id: 'alpaca', name: 'Alpaca (paper trading)', category: 'finance', note: 'Planned. Real-money trading additionally needs limits, kill switch and immutable audit log.' },
-];
+/** No roadmap-only connectors remain in this slice; all three former entries now have real runtimes. */
+export const PLANNED: Array<{ id: string; name: string; category: string; note: string }> = [];

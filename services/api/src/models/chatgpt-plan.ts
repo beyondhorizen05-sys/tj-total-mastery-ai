@@ -42,7 +42,7 @@ interface PendingAttempt {
 }
 
 class TokenExchangeError extends Error {
-  constructor(readonly status: number, readonly code: string | null) { super(`OpenAI token exchange failed (${status})`); }
+  constructor(readonly status: number, readonly code: string | null) { super(`OpenAI token exchange failed (${status}${code ? `: ${code}` : ''})`); }
 }
 
 export interface ChatGPTPlanStatus {

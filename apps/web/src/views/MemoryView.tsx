@@ -6,13 +6,22 @@ import type { Memory } from '@tj/schemas';
 export const MemoryView: React.FC = () => {
   const [items, setItems] = useState<Memory[]>([]);
   const [query, setQuery] = useState('');
+  const [projectScope, setProjectScope] = useState('');
+  const [agentScope, setAgentScope] = useState('');
   const [searching, setSearching] = useState(false);
   const [newMemory, setNewMemory] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const scopeQuery = () => {
+    const params = new URLSearchParams();
+    if (projectScope.trim()) params.set('project_id', projectScope.trim());
+    if (agentScope.trim()) params.set('agent_id', agentScope.trim());
+    return params.toString();
+  };
   const load = () => {
-    apiFetch<{ items: Memory[] }>('/api/v1/memory/items').then((r) => setItems(r.items)).catch((reason) => setError(reason.message ?? 'Could not load memories'));
+    const scope = scopeQuery();
+    apiFetch<{ items: Memory[] }>(`/api/v1/memory/items${scope ? `?${scope}` : ''}`).then((r) => setItems(r.items)).catch((reason) => setError(reason.message ?? 'Could not load memories'));
   };
 
   useEffect(() => { load(); }, []);
@@ -22,7 +31,10 @@ export const MemoryView: React.FC = () => {
     if (!query.trim()) { load(); return; }
     setSearching(true);
     try {
-      const res = await apiFetch<{ results: Array<{ memory: Memory }> }>(`/api/v1/memory/search?q=${encodeURIComponent(query)}`);
+      const params = new URLSearchParams({ q: query.trim() });
+      if (projectScope.trim()) params.set('project_id', projectScope.trim());
+      if (agentScope.trim()) params.set('agent_id', agentScope.trim());
+      const res = await apiFetch<{ results: Array<{ memory: Memory }> }>(`/api/v1/memory/search?${params.toString()}`);
       setItems(res.results.map((r) => r.memory));
     } catch (e: any) {
       setError(e.message ?? 'Search failed');
@@ -41,7 +53,7 @@ export const MemoryView: React.FC = () => {
     if (!newMemory.trim()) return;
     setSaving(true); setError(null);
     try {
-      await apiFetch('/api/v1/memory/items', { method: 'POST', body: JSON.stringify({ type: 'preference', content: newMemory.trim(), source: 'user' }) });
+      await apiFetch('/api/v1/memory/items', { method: 'POST', body: JSON.stringify({ type: 'preference', content: newMemory.trim(), source: 'user', project_id: projectScope.trim() || null, agent_id: agentScope.trim() || null }) });
       setNewMemory(''); load();
     } catch (reason: any) { setError(reason.message ?? 'Could not save memory'); }
     finally { setSaving(false); }
@@ -60,12 +72,14 @@ export const MemoryView: React.FC = () => {
         <button type="submit" disabled={saving || !newMemory.trim()} style={{ padding: '0 14px', color: '#fff', background: 'var(--accent-blue)', border: 0, borderRadius: 6, cursor: 'pointer' }}>{saving ? 'Saving…' : 'Save memory'}</button>
       </form>
 
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 24, maxWidth: 500 }}>
+      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 24, maxWidth: 900, flexWrap: 'wrap' }}>
         <input
           type="text" value={query} onChange={(e) => setQuery(e.target.value)}
           placeholder="Search memories via FTS5..."
           style={{ flex: 1, padding: '10px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-main)', fontSize: '0.9rem', outline: 'none' }}
         />
+        <input aria-label="Scope memories to project ID" value={projectScope} maxLength={200} onChange={(event) => setProjectScope(event.target.value)} placeholder="Project ID (optional)" style={{ width: 170, padding: '10px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-main)', fontSize: '0.85rem' }} />
+        <input aria-label="Scope memories to agent ID" value={agentScope} maxLength={200} onChange={(event) => setAgentScope(event.target.value)} placeholder="Agent ID (optional)" style={{ width: 170, padding: '10px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-main)', fontSize: '0.85rem' }} />
         <button
           type="submit" disabled={searching}
           style={{ padding: '0 16px', background: 'var(--border-strong)', border: 'none', borderRadius: 6, color: '#fff', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}

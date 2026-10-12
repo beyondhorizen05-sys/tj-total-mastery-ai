@@ -3,10 +3,26 @@
   "productName": "TJ Total Mastery AI",
   "version": "2.0.0",
   "identifier": "com.tj.totalmasteryai",
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "TJ Total Mastery AI",
+    "category": "Productivity",
+    "shortDescription": "Your personal AI operating environment",
+    "longDescription": "TJ Total Mastery AI brings conversations, agents, workflows, and connected tools into one personal intelligence workspace.",
+    "resources": ["resources/node.exe", "resources/services/api/dist/main.js", "resources/services/api/dist/public"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
   "build": {
     "beforeDevCommand": "pnpm --filter @tj/web dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm --filter @tj/web build",
+    "beforeBuildCommand": "pnpm -C ../.. run build && node ../../scripts/prepare-desktop.mjs",
     "frontendDist": "../../web/dist"
   },
   "app": {
@@ -24,16 +40,5 @@
     "security": {
       "csp": "default-src 'self' tauri: http: https: ws: 'unsafe-inline' 'unsafe-eval'"
     }
-  },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ]
   }
 }

@@ -4,6 +4,7 @@ import type { ModelRegistry } from '../../models/registry.js';
 import type { ModelRouter } from '../../models/router.js';
 import { z } from 'zod';
 import type { ChatGPTPlanService } from '../../models/chatgpt-plan.js';
+import { ProviderError } from '../../models/types.js';
 
 export function registerModelRoutes(
   app: FastifyInstance,
@@ -63,6 +64,37 @@ export function registerModelRoutes(
     const p = req.params as { id: string };
     const res = await deps.registry.testConnection(p.id);
     return res;
+  });
+
+  // A real, non-persistent inference check for one discovered model. The
+  // router records success/failure against that exact model and never falls
+  // back to another provider because model_id is explicit.
+  app.post('/api/v1/models/verify', async (req, reply) => {
+    const { model_id: id } = z.object({ model_id: z.string().min(1) }).strict().parse(req.body);
+    const model = deps.registry.getModel(id);
+    if (!model || !model.available) return reply.code(404).send({ ok: false, model_id: id, detail: 'Model is not available in the current provider catalog.' });
+    const provider = deps.registry.getProvider(model.provider_id);
+    if (!provider?.enabled) return reply.code(409).send({ ok: false, model_id: id, detail: 'Model provider is disabled.' });
+    try {
+      const result = await deps.router.chat(
+        { task_type: 'chat', complexity: 'low', needs_tools: false, model_id: id },
+        { messages: [{ role: 'user', content: 'Reply with exactly: TJ_MODEL_TEST_OK' }], max_tokens: 16, temperature: 0 },
+        { user_confirmed_spend: true },
+      );
+      if (result.model_id !== id || !result.text.trim()) {
+        return { ok: false, model_id: id, detail: 'The requested model did not return a usable response.', stop_batch: false };
+      }
+      return {
+        ok: true, model_id: id, provider_id: model.provider_id, latency_ms: result.latency_ms,
+        routed_via: result.routed_via, routed_model_id: result.routed_model_id,
+      };
+    } catch (error: any) {
+      const detail = String(error?.message ?? 'Model inference failed')
+        .replace(/(?:sk-[A-Za-z0-9_-]{12,}|Bearer\s+\S+)/gi, '[redacted]')
+        .slice(0, 500);
+      const stop_batch = error instanceof ProviderError && ['auth', 'rate_limit', 'unavailable', 'timeout'].includes(error.kind);
+      return { ok: false, model_id: id, detail, stop_batch };
+    }
   });
 
   // POST /api/v1/models/providers/:id/refresh

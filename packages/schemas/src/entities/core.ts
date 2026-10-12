@@ -57,6 +57,8 @@ export const MessageTrace = z.object({
   cost_usd: z.number().nullable().optional(),
   latency_ms: z.number().optional(),
   fallback_from: z.string().optional(),
+  routed_model_id: z.string().optional(),
+  routed_via: z.string().optional(),
   plan_id: z.string().optional(),
   workflow_run_id: z.string().optional(),
 });

@@ -18,10 +18,12 @@ export interface SchedulerServiceDeps {
  */
 export class AutomationScheduler {
   private jobs = new Map<string, Cron>();
+  private paused = false;
 
   constructor(private deps: SchedulerServiceDeps) {}
 
   async start() {
+    if (this.paused) return;
     const automations = this.list();
     for (const auto of automations) {
       if (auto.enabled) {
@@ -31,10 +33,22 @@ export class AutomationScheduler {
   }
 
   stop() {
+    this.paused = true;
     for (const job of this.jobs.values()) {
       job.stop();
     }
     this.jobs.clear();
+    this.deps.db.run('UPDATE automations SET next_run_at = NULL WHERE enabled = 1');
+  }
+
+  isPaused() { return this.paused; }
+
+  pause() { this.stop(); }
+
+  async resume() {
+    if (!this.paused) return;
+    this.paused = false;
+    await this.start();
   }
 
   list(): Automation[] {
@@ -101,7 +115,7 @@ export class AutomationScheduler {
 
     const auto = this.get(id)!;
     this.unschedule(id);
-    if (auto.enabled) {
+    if (auto.enabled && !this.paused) {
       this.schedule(auto);
     } else {
       this.deps.db.run('UPDATE automations SET next_run_at = NULL WHERE id = ?', [id]);
@@ -145,6 +159,7 @@ export class AutomationScheduler {
   }
 
   async trigger(id: string, reason = 'manual'): Promise<string | null> {
+    if (this.paused) return null;
     const auto = this.get(id);
     if (!auto) return null;
 

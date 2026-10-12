@@ -42,6 +42,8 @@ function publicIpv4(address: string): boolean {
   if (a === 169 && b === 254) return false;
   if (a === 172 && b >= 16 && b <= 31) return false;
   if (a === 192 && (b === 168 || b === 0 || b === 2)) return false;
+  // Deprecated 6to4 relay anycast is special-purpose and not globally reachable.
+  if (a === 192 && b === 88 && parts[2] === 99) return false;
   if (a === 198 && (b === 18 || b === 19 || b === 51)) return false;
   if (a === 203 && b === 0 && parts[2] === 113) return false;
   return true;
@@ -53,8 +55,30 @@ export function isPublicAddress(address: string): boolean {
   if (family !== 6) return false;
   const lower = address.toLowerCase();
   if (lower.startsWith('::ffff:')) return publicIpv4(lower.slice(7));
-  if (lower.startsWith('2002:') || lower.startsWith('2001:0:') || lower.startsWith('2001:db8:')) return false;
-  return lower.startsWith('2') || lower.startsWith('3');
+  const value = ipv6Value(lower);
+  if (value === null || (value >> 125n) !== 1n) return false; // Only global-unicast 2000::/3.
+  const inRange = (network: bigint, bits: bigint) => (value >> (128n - bits)) === (network >> (128n - bits));
+  const prefix = (parts: number[]) => parts.reduce((result, part) => (result << 16n) | BigInt(part), 0n) << BigInt(128 - parts.length * 16);
+  const special: Array<[bigint, bigint]> = [
+    [prefix([0x2001, 0x0000]), 32n], // Teredo / IETF protocol assignment block
+    [prefix([0x2001, 0x0002, 0x0000]), 48n], // Benchmarking
+    [prefix([0x2001, 0x0010]), 28n], // Deprecated ORCHID
+    [prefix([0x2001, 0x0db8]), 32n], // Documentation
+    [prefix([0x2002]), 16n], // 6to4
+    [prefix([0x3fff]), 20n], // Documentation
+    [prefix([0x5f00]), 16n], // SRv6 SIDs
+  ];
+  return !special.some(([network, bits]) => inRange(network, bits));
+}
+
+function ipv6Value(address: string): bigint | null {
+  const halves = address.split('::');
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(':') : [];
+  const right = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const groups = halves.length === 1 ? left : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
+  if (groups.length !== 8 || groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null;
+  return groups.reduce((result, group) => (result << 16n) | BigInt(`0x${group}`), 0n);
 }
 
 function validateUrl(value: string): URL {

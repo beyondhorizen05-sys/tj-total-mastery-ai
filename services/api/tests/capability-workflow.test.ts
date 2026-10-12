@@ -49,8 +49,8 @@ describe('capability addition workflow', () => {
     const addMessage = vi.fn();
     registerChatRoutes(app, {
       ws: { createConversation: () => ({ id: 'conversation-1' }), addMessage, messages: () => [] },
-      router: { chat: vi.fn() }, cognitive: { plan }, orchestrator: { execute },
-      health: { isStopped: () => false, setState: vi.fn() }, settings: {},
+      router: { chat: vi.fn() }, cognitive: { classify: vi.fn(async () => ({ intent: 'goal', complexity: 'medium', domains: ['integrations'], needs_tools: true, summary: 'Update Shopify', source: 'heuristic' })), plan }, orchestrator: { execute },
+      health: { isStopped: () => false, setState: vi.fn() }, settings: { get: (_key: string, fallback: unknown) => fallback },
       capabilityWorkflow: {
         assess: async () => ({ capability_id: 'planned.shopify', capability_name: 'Shopify', reason: 'Integration is planned.' }),
         request: () => ({ id: 'approval-1' }),
@@ -72,6 +72,36 @@ describe('capability addition workflow', () => {
     expect(await service.assess('Write a file')).toBeNull();
     expect(approvals.request).not.toHaveBeenCalled();
     service.dispose();
+  });
+
+  it('requests an approval-gated ability after goal execution exposes a real missing-tool gap', async () => {
+    const app = Fastify();
+    const assess = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ capability_id: 'new.repository-inspector', capability_name: 'Repository Inspector', reason: 'Failure evidence shows no registered tool can inspect this source.' });
+    const request = vi.fn(() => ({ id: 'approval-new-tool' }));
+    const addMessage = vi.fn();
+    registerChatRoutes(app, {
+      ws: { createConversation: () => ({ id: 'conversation-1' }), addMessage, messages: () => [] },
+      router: { chat: vi.fn() },
+      cognitive: {
+        classify: vi.fn(async () => ({ intent: 'goal', complexity: 'medium', domains: ['research'], needs_tools: true, summary: 'Inspect repository', source: 'heuristic' })),
+        plan: vi.fn(async () => ({ plan: { tasks: [] }, source: 'model' })),
+      },
+      orchestrator: {
+        prepare: vi.fn(() => ({ id: 'prepared' })),
+        execute: vi.fn(async () => ({ status: 'partial', plan_id: 'plan-1', task_results: [{ title: 'Inspect repository', status: 'failed', error: 'Tool action failed: fs_read. Details: fs_read: File not found' }], evidence: { gaps: [], changed_files: [], source_calls: 0, test_calls: 0 }, artifacts: [], summary: 'Goal partial' })),
+      },
+      health: { isStopped: () => false, setState: vi.fn() },
+      settings: { get: (_key: string, fallback: unknown) => fallback },
+      capabilityWorkflow: { assess, request },
+    } as never);
+    const response = await app.inject({ method: 'POST', url: '/api/v1/chat', payload: { content: 'Inspect the supplied GitHub repository', mode: 'auto' } });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ status: 'approval_required', approval_id: 'approval-new-tool', capability_id: 'new.repository-inspector', prior_status: 'partial' });
+    expect(assess).toHaveBeenLastCalledWith('Inspect the supplied GitHub repository', expect.stringContaining('fs_read: File not found'));
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ conversation_id: 'conversation-1', request: 'Inspect the supplied GitHub repository' }));
+    await app.close();
   });
 
   it('requires approval, persists activation state, and resumes the original task after restart', async () => {
@@ -100,7 +130,7 @@ describe('capability addition workflow', () => {
     releaseList();
     await Promise.all([first, second]);
     const status = await restarted.progress(approval.id);
-    expect(status?.status).toBe('completed');
+    expect(status?.status, JSON.stringify(status)).toBe('completed');
     expect(orchestrator.execute).toHaveBeenCalledOnce();
     expect(improvements.start).toHaveBeenCalledOnce();
     service.dispose();

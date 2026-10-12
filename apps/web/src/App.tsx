@@ -1,13 +1,14 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { apiFetch } from './api';
+import { apiChatStream, apiFetch } from './api';
 import { TopBar } from './components/TopBar';
-import { IntelligenceFeed } from './components/IntelligenceFeed';
 import { InteractionPanel } from './components/InteractionPanel';
 import { WelcomeExperience } from './components/WelcomeExperience';
-import { VoiceControl } from './components/VoiceControl';
 import { CommandPalette, type PaletteAction } from './components/CommandPalette';
-import { CommandCenter } from './views/CommandCenter';
+import { MainInterface } from './views/MainInterface';
+import './views/reference-scenes.css';
 const ChatView = lazy(() => import('./views/ChatView').then((m) => ({ default: m.ChatView })));
+const CommandCenter = lazy(() => import('./views/CommandCenter').then((m) => ({ default: m.CommandCenter })));
+const FocusWorkspace = lazy(() => import('./views/FocusWorkspace').then((m) => ({ default: m.FocusWorkspace })));
 const CapabilitiesView = lazy(() => import('./views/CapabilitiesView').then((m) => ({ default: m.CapabilitiesView })));
 const ConnectorsView = lazy(() => import('./views/ConnectorsView').then((m) => ({ default: m.ConnectorsView })));
 const ApprovalsView = lazy(() => import('./views/ApprovalsView').then((m) => ({ default: m.ApprovalsView })));
@@ -38,7 +39,7 @@ import {
 import { DEFAULT_TJ_PERSONA, type SystemStatus, type TJPersona } from '@tj/schemas';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('command');
+  const [activeTab, setActiveTab] = useState('main');
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [persona, setPersona] = useState<TJPersona>(DEFAULT_TJ_PERSONA);
@@ -48,6 +49,20 @@ export const App: React.FC = () => {
   const [startupError, setStartupError] = useState<string | null>(null);
   const [bootDone, setBootDone] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState(false);
+  const [openNavGroups, setOpenNavGroups] = useState<string[]>(['nexus', 'work']);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [workflowInitialMode, setWorkflowInitialMode] = useState<'studio' | 'hall'>('studio');
+  const openTab = (tab: string) => { setWorkflowInitialMode('studio'); setActiveTab(tab); };
+  const openBuilding = (destination: string) => {
+    if (destination === 'collaboration_hall') {
+      setWorkflowInitialMode('hall');
+      setActiveTab('workflows');
+      return;
+    }
+    setWorkflowInitialMode('studio');
+    setActiveTab(destination);
+  };
   useEffect(() => {
     const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1200;
     const timer = window.setTimeout(() => setBootDone(true), duration);
@@ -112,13 +127,6 @@ export const App: React.FC = () => {
     try { const result = await apiFetch<{ persona: TJPersona }>('/api/v1/persona'); setPersona(result.persona); }
     catch (error) { console.error(error); }
   };
-  const chooseForm = async (embodiment: TJPersona['embodiment']) => {
-    try {
-      const result = await apiFetch<{ persona: TJPersona }>('/api/v1/persona', { method: 'PUT', body: JSON.stringify({ ...persona, embodiment }) });
-      setPersona(result.persona);
-    } catch (error) { console.error(error); }
-  };
-
   useEffect(() => {
     loadStatus();
     loadPersona();
@@ -152,18 +160,19 @@ export const App: React.FC = () => {
     if (!text.trim() || chatLoading) return;
     setChatError(null);
     setChatLoading(true);
-    setMessages((prev) => [...prev, { id: 'temp-' + Date.now(), role: 'user', content: text }]);
+    const responseId = `bot-${Date.now()}`;
+    setMessages((prev) => [...prev, { id: `user-${responseId}`, role: 'user', content: text }, { id: responseId, role: 'assistant', content: '' }]);
 
     try {
-      const res = await apiFetch<any>('/api/v1/chat', {
-        method: 'POST',
-        body: JSON.stringify({ conversation_id: activeConvId ?? undefined, content: text, mode }),
+      const res = await apiChatStream<any>({ conversation_id: activeConvId ?? undefined, content: text, mode }, (delta) => {
+        setMessages((prev) => prev.map((message) => message.id === responseId ? { ...message, content: message.content + delta } : message));
       });
       if (!activeConvId && res.conversation_id) {
         setActiveConvId(res.conversation_id);
       }
-      setMessages((prev) => [...prev, { id: res.message?.id ?? 'bot-' + Date.now(), role: 'assistant', content: res.content }]);
+      setMessages((prev) => prev.map((message) => message.id === responseId ? { id: res.message?.id ?? responseId, role: 'assistant', content: res.content } : message));
     } catch (err: any) {
+      setMessages((prev) => prev.filter((message) => message.id !== responseId || !!message.content));
       setChatError(err.message || 'Chat error');
     } finally {
       setChatLoading(false);
@@ -172,20 +181,21 @@ export const App: React.FC = () => {
   };
 
   if (showWizard === null || (showWizard === false && !bootDone)) return <div className="tj-boot-screen"><div className="tj-boot-gate"><div className="tj-brand-mark">T<span>J</span></div></div><p>{startupError ? 'CONNECTION NEEDS ATTENTION' : status ? `SYSTEM CONNECTED · ${status.tj_state.toUpperCase()}` : 'CONNECTING TO YOUR SYSTEM…'}</p>{startupError && <><p role="alert" style={{ maxWidth: 420, textAlign: 'center', letterSpacing: 0 }}>{startupError}</p><button onClick={loadStatus} style={{ padding: '10px 18px', border: '1px solid var(--accent-cyan)', color: 'var(--accent-cyan)', background: 'transparent', borderRadius: 6, cursor: 'pointer' }}>Retry connection</button></>}</div>;
-  if (showWizard) return <><WelcomeExperience onComplete={() => { window.history.replaceState(null, '', window.location.pathname); loadPersona(); setShowWizard(false); }} /><VoiceControl /></>;
+  if (showWizard) return <WelcomeExperience onComplete={() => { window.history.replaceState(null, '', window.location.pathname); loadPersona(); setShowWizard(false); }} />;
 
   const navItems = [
-    { id: 'command', label: 'Command Hub', icon: Compass },
-    { id: 'chat', label: 'Chat & Goal', icon: MessageSquare },
+    { id: 'main', label: 'Main Interface', icon: Globe2 },
+    { id: 'command', label: 'Living World', icon: Compass },
+    { id: 'chat', label: 'Conversations', icon: MessageSquare },
     { id: 'vision', label: 'Vision', icon: Eye },
     { id: 'data', label: 'Data Intelligence', icon: BarChart3 },
     { id: 'education', label: 'Education', icon: GraduationCap },
     { id: 'business', label: 'Business CRM', icon: BriefcaseBusiness },
-    { id: 'media', label: 'Media Studio', icon: Clapperboard },
+    { id: 'media', label: 'Files & Media', icon: Clapperboard },
     { id: 'wellness', label: 'Wellness', icon: HeartPulse },
     { id: 'finance', label: 'Personal Finance', icon: Wallet },
     { id: 'paper', label: 'Paper Trading', icon: LineChart },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare, badge: status?.running_tasks },
+    { id: 'tasks', label: 'Mission Control', icon: CheckSquare, badge: status?.running_tasks },
     { id: 'activity', label: 'Activity', icon: Radio },
     { id: 'agents', label: 'Agents', icon: Users },
     { id: 'workflows', label: 'Workflows', icon: Workflow },
@@ -197,11 +207,19 @@ export const App: React.FC = () => {
     { id: 'approvals', label: 'Approvals', icon: ShieldAlert, badge: status?.pending_approvals },
     { id: 'memory', label: 'Memory', icon: HardDrive },
     { id: 'graph', label: 'Knowledge Graph', icon: Network },
-    { id: 'models', label: 'Models', icon: Cpu },
+    { id: 'models', label: 'AI Providers', icon: Cpu },
     { id: 'settings', label: 'Settings', icon: Sliders },
   ];
+  const navGroups = [
+    { id: 'nexus', label: 'NEXUS', items: ['main', 'command', 'tasks', 'agents'] },
+    { id: 'work', label: 'WORKSPACE', items: ['chat', 'workflows', 'media', 'activity', 'approvals'] },
+    { id: 'intelligence', label: 'AI SYSTEMS', items: ['models', 'connectors', 'capabilities', 'skills', 'workbench', 'memory', 'graph'] },
+    { id: 'studios', label: 'STUDIOS', items: ['vision', 'data', 'education', 'business', 'wellness'] },
+    { id: 'finance', label: 'FINANCE', items: ['finance', 'paper'] },
+    { id: 'system', label: 'SYSTEM', items: ['learning', 'settings'] },
+  ];
   const paletteActions: PaletteAction[] = [
-    { id: 'ask', label: 'Ask TJ', detail: 'Open chat and send a question or goal', keywords: 'conversation', run: () => setActiveTab('chat') },
+    { id: 'ask', label: 'Ask TJ', detail: 'Open the Focus workspace and send a question or goal', keywords: 'conversation', run: () => setActiveTab('focus') },
     { id: 'voice', label: 'Start voice listening', detail: 'Use the Windows microphone for hands-free conversation', keywords: 'microphone speak', run: async () => { await apiFetch('/api/v1/voice/start', { method: 'POST' }); } },
     { id: 'memory', label: 'Search memory', detail: 'Open your saved knowledge and search', keywords: 'find knowledge', run: () => setActiveTab('memory') },
     { id: 'graph', label: 'Explore knowledge graph', detail: 'Inspect real saved project, task, agent and memory links', keywords: 'relationships network', run: () => setActiveTab('graph') },
@@ -214,8 +232,8 @@ export const App: React.FC = () => {
     { id: 'finance', label: 'Open finance analysis', detail: 'Import transactions and review budgets locally', keywords: 'spending budget money', run: () => setActiveTab('finance') },
     { id: 'paper', label: 'Open paper trading', detail: 'Backtest user supplied price data with risk limits', keywords: 'simulation investing strategy', run: () => setActiveTab('paper') },
     { id: 'agents', label: 'Create an agent', detail: 'Open available specialist templates', keywords: 'deploy specialist', run: () => setActiveTab('agents') },
-    { id: 'workflows', label: 'Create a workflow', detail: 'Open workflow builder and saved runs', keywords: 'automation', run: () => setActiveTab('workflows') },
-    { id: 'automation', label: 'Run an automation', detail: 'Open scheduled automations and workflow controls', keywords: 'schedule cron', run: () => setActiveTab('workflows') },
+    { id: 'workflows', label: 'Create a workflow', detail: 'Open workflow builder and saved runs', keywords: 'automation', run: () => openTab('workflows') },
+    { id: 'automation', label: 'Run an automation', detail: 'Open scheduled automations and workflow controls', keywords: 'schedule cron', run: () => openTab('workflows') },
     { id: 'connectors', label: 'Use a connector', detail: 'Open configured integrations and connection tests', keywords: 'integration app', run: () => setActiveTab('connectors') },
     { id: 'workbench', label: 'Open API Workbench', detail: 'Save and run a bounded public HTTP request', keywords: 'http api request', run: () => setActiveTab('workbench') },
     { id: 'skills', label: 'Run a local skill', detail: 'Install, review, enable and run a declarative skill', keywords: 'plugin template', run: () => setActiveTab('skills') },
@@ -232,72 +250,63 @@ export const App: React.FC = () => {
         status={status}
         stopping={stopping}
         onStopAll={handleStopAll}
-        onNavigate={(tab) => setActiveTab(tab)}
+        onNavigate={openTab}
+        activeTab={activeTab}
       />
 
       <div style={{ display: 'flex', flex: 1, height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
         <aside className="tj-side-rail" style={{
-          width: 60, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)', overflowY: 'auto',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 0', gap: 6, zIndex: 10,
+          width: navCollapsed ? 62 : 238, minWidth: navCollapsed ? 62 : 238, background: 'var(--bg-secondary)', borderRight: '1px solid var(--border-subtle)', overflowY: 'auto', overflowX: 'hidden',
+          display: 'flex', flexDirection: 'column', alignItems: 'stretch', padding: '12px 10px', gap: 6, zIndex: 10, transition: 'width .22s ease,min-width .22s ease',
         }}>
-          <button type="button" onClick={() => setPaletteOpen(true)} title="Search commands (Ctrl+K)" aria-label="Open command palette" style={{ width: 42, height: 42, borderRadius: 8, border: '1px solid var(--border-subtle)', background: 'rgba(0, 242, 254, 0.07)', color: 'var(--accent-cyan)', display: 'grid', placeItems: 'center', cursor: 'pointer', marginBottom: 8 }}><Search size={18} /></button>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`tj-side-rail-button ${isActive ? 'is-active' : ''}`}
-                title={navLabel(item.id, item.label, uiLanguage(locale))}
-                aria-label={navLabel(item.id, item.label, uiLanguage(locale))}
-                style={{
-                  width: 42, height: 42, borderRadius: 8, border: 'none',
-                  background: isActive ? 'rgba(0, 242, 254, 0.15)' : 'transparent',
-                  color: isActive ? 'var(--accent-cyan)' : 'var(--text-muted)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: 'pointer', position: 'relative', transition: 'all 0.2s ease',
-                  borderBottom: isActive ? '2px solid var(--accent-cyan)' : '2px solid transparent',
-                }}
-              >
-                <Icon size={18} />
-                {Boolean(item.badge && item.badge > 0) && (
-                  <span style={{
-                    position: 'absolute', top: 4, right: 4, width: 7, height: 7,
-                    borderRadius: '50%', background: 'var(--accent-rose)', boxShadow: '0 0 6px var(--accent-rose)',
-                  }} />
-                )}
-              </button>
-            );
+          <div className="tj-nav-brand-row">
+            {!navCollapsed && <span className="tj-nav-brand"><span className="tj-nav-brand-mark">T<span>J</span></span><span><b>THE LIVING NEXUS</b><small>INTELLIGENCE OS</small></span></span>}
+            <button type="button" onClick={() => setNavCollapsed((value) => !value)} aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'} className="tj-nav-icon-button">{navCollapsed ? '›' : '‹'}</button>
+          </div>
+          <button type="button" onClick={() => setPaletteOpen(true)} title="Search commands (Ctrl+K)" aria-label="Open command palette" className="tj-nav-search"><Search size={16} /><span>{navCollapsed ? '' : 'Search anything'}</span><kbd>⌘ K</kbd></button>
+          {navGroups.map((group) => {
+            const expanded = navCollapsed || openNavGroups.includes(group.id);
+            return <section className={`tj-nav-group ${expanded ? 'is-expanded' : ''}`} key={group.id}>
+              {!navCollapsed && <button type="button" className="tj-nav-group-toggle" aria-expanded={expanded} onClick={() => setOpenNavGroups((current) => current.includes(group.id) ? current.filter((id) => id !== group.id) : [...current, group.id])}><span>{group.label}</span><span>{expanded ? '−' : '+'}</span></button>}
+              {expanded && <div className="tj-nav-group-items">{group.items.map((id) => {
+                const item = navItems.find((entry) => entry.id === id)!;
+                const Icon = item.icon;
+                const isActive = activeTab === item.id || (activeTab === 'focus' && item.id === 'chat');
+                return <button key={item.id} type="button" onClick={() => openTab(item.id)} className={`tj-side-rail-button ${isActive ? 'is-active' : ''}`} title={navLabel(item.id, item.label, uiLanguage(locale))} aria-label={navLabel(item.id, item.label, uiLanguage(locale))} aria-current={isActive ? 'page' : undefined}>
+                  <Icon size={17} /><span>{navLabel(item.id, item.label, uiLanguage(locale))}</span>{Boolean(item.badge && item.badge > 0) && <i className="tj-nav-badge" />}
+                </button>;
+              })}</div>}
+            </section>;
           })}
         </aside>
 
-        {activeTab === 'command' ? (
-          <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden' }}>
-            <IntelligenceFeed status={status} onNavigate={(tab) => setActiveTab(tab)} />
+        {activeTab === 'main' ? (
+          <MainInterface status={status} onNavigate={openTab} />
+        ) : activeTab === 'command' ? (
+          <div className="tj-world-shell" style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden', position: 'relative' }}>
+            <Suspense fallback={<div role="status" style={{ padding: 24, color: 'var(--text-muted)' }}>Opening Living World…</div>}>
             <CommandCenter
               status={status}
               persona={persona}
-              onChooseForm={chooseForm}
               voiceSpeaking={voiceSpeaking}
               voicePulse={voicePulse}
-              onNavigate={(tab) => setActiveTab(tab)}
-              onSelectAgent={(id) => { setSelectedAgentId(id || null); setActiveTab('agents'); }}
+              onNavigate={openTab}
+              onOpenBuilding={openBuilding}
+              onSelectAgent={(id) => { setSelectedAgentId(id || null); openTab('agents'); }}
               onSendChat={handleSendChat}
+              onOpenPulse={() => setContextOpen((open) => !open)}
               loading={chatLoading}
             />
-            <InteractionPanel
-              persona={persona}
-              messages={messages}
-              loading={chatLoading}
-              error={chatError}
-              onSend={(txt) => handleSendChat(txt, 'chat')}
-            />
+            </Suspense>
+          </div>
+        ) : activeTab === 'focus' ? (
+          <div style={{ flex: 1, height: '100%', minWidth: 0, overflow: 'hidden', padding: 16 }}>
+            <Suspense fallback={<div role="status" style={{ padding: 24, color: 'var(--text-muted)' }}>Opening Focus workspace…</div>}><FocusWorkspace personaName={persona.name} /></Suspense>
           </div>
         ) : (
           <div style={{ flex: 1, height: '100%', overflow: 'hidden', padding: 16 }}>
             <Suspense fallback={<div role="status" style={{ padding: 24, color: 'var(--text-muted)' }}>Loading workspace…</div>}>
-            {activeTab === 'chat' && <ChatView personaName={persona.name} onNavigate={setActiveTab} />}
+            {activeTab === 'chat' && <ChatView personaName={persona.name} onNavigate={openTab} />}
             {activeTab === 'vision' && <VisionView />}
             {activeTab === 'data' && <DataIntelligenceView />}
             {activeTab === 'education' && <EducationView />}
@@ -309,7 +318,7 @@ export const App: React.FC = () => {
             {activeTab === 'tasks' && <TasksView />}
             {activeTab === 'activity' && <ActivityView />}
             {activeTab === 'agents' && <AgentsView selectedAgentId={selectedAgentId} />}
-            {activeTab === 'workflows' && <WorkflowsView />}
+            {activeTab === 'workflows' && <WorkflowsView key={workflowInitialMode} initialMode={workflowInitialMode} />}
             {activeTab === 'capabilities' && <CapabilitiesView />}
             {activeTab === 'skills' && <SkillsView />}
             {activeTab === 'learning' && <LearningView />}
@@ -324,7 +333,7 @@ export const App: React.FC = () => {
           </div>
         )}
       </div>
-      <VoiceControl />
+      <div className={`tj-pulse-drawer ${contextOpen ? 'is-open' : ''}`} aria-hidden={!contextOpen}><InteractionPanel persona={persona} status={status} messages={messages} loading={chatLoading} error={chatError} onSend={(txt) => handleSendChat(txt, 'chat')} /></div>
       {paletteOpen && <CommandPalette actions={paletteActions} onClose={() => setPaletteOpen(false)} />}
       {eventNotice && <button type="button" onClick={() => { setActiveTab(eventNotice.name === 'approval.requested' ? 'approvals' : 'activity'); setEventNotice(null); }} style={{ position: 'fixed', left: 82, bottom: 20, zIndex: 111, maxWidth: 390, padding: '12px 16px', border: '1px solid var(--accent-cyan)', borderRadius: 10, background: 'var(--bg-secondary)', color: '#fff', textAlign: 'left', cursor: 'pointer' }} role="alert">{eventNotice.summary} · Open {eventNotice.name === 'approval.requested' ? 'Approvals' : 'Activity'}</button>}
     </div>

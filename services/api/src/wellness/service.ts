@@ -122,7 +122,8 @@ export class WellnessService {
     const to = options.to ? dateOnly(options.to) : undefined;
     if (from && to && from > to) throw new Error('from must be before to');
     if (options.kind && !Object.hasOwn(metric, options.kind)) throw new Error('Unsupported metric');
-    const limit = Math.min(Math.max(Number(options.limit ?? 500) || 500, 1), maxRecords);
+    const requestedLimit = Number(options.limit ?? 500);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(Math.floor(requestedLimit), 1), maxRecords) : 500;
     const where: string[] = []; const args: unknown[] = [];
     if (from) { where.push('date>=?'); args.push(from); }
     if (to) { where.push('date<=?'); args.push(to); }

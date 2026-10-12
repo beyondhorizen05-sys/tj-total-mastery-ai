@@ -21,7 +21,7 @@
     "build": "pnpm --filter @tj/schemas run build && pnpm --filter @tj/web run build && pnpm --filter @tj/api run build",
     "build:desktop": "pnpm --filter @tj/desktop run build",
     "start": "pnpm --filter @tj/api run start",
-    "package": "pnpm run build && pnpm --filter @tj/desktop run package",
+    "package": "pnpm --filter @tj/desktop run package",
     "desktop:dev": "pnpm --filter @tj/desktop run dev"
   },
   "devDependencies": {

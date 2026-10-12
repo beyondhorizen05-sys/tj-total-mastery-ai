@@ -45,6 +45,7 @@ describe('EducationService', () => {
     expect(education.listPlans()).toEqual([]);
     const plan = education.createPlan({ title: 'Learn TypeScript', goal: 'Build a small app' });
     expect(() => education.createLesson(plan.id, { title: 'Unsafe', resources: [{ label: 'bad', url: 'javascript:alert(1)' }] })).toThrow(/HTTP or HTTPS/);
+    expect(() => education.createLesson(plan.id, { title: 'Credential URL', resources: [{ label: 'bad', url: 'https://student:secret@example.com/course' }] })).toThrow(/embedded credentials/);
     const lesson = education.createLesson(plan.id, { title: 'Types', content: 'Practice types and functions.', resources: [{ label: 'Reference', url: 'https://example.com/types' }] });
     expect(lesson.content).toBe('Practice types and functions.');
     expect(lesson.resources[0].url).toBe('https://example.com/types');

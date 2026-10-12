@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { DEFAULT_TJ_PERSONA, type TJPersona } from '@tj/schemas';
 import { apiFetch } from '../api';
-import { IdentityScene } from './IdentityScene';
+const IdentityScene = lazy(() => import('./IdentityScene').then((m) => ({ default: m.IdentityScene })));
 import { VoiceSelector } from './VoiceSelector';
 
 export const PersonaSettings: React.FC = () => {
@@ -20,7 +20,7 @@ export const PersonaSettings: React.FC = () => {
   return <section className="glass-panel" style={{ padding: 20, marginBottom: 24 }}>
     <h3 style={{ marginBottom: 6 }}>TJ Identity</h3>
     <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 17 }}>A persistent presentation layer for how TJ looks and speaks to you.</p>
-    <div style={{ height: 180, background: 'radial-gradient(circle,#153d65,#060d1c 70%)', borderRadius: 8, marginBottom: 16 }}><IdentityScene embodiment={persona.embodiment} className="tj-settings-identity-scene" /></div>
+    <div style={{ height: 180, background: 'radial-gradient(circle,#153d65,#060d1c 70%)', borderRadius: 8, marginBottom: 16 }}><Suspense fallback={null}><IdentityScene embodiment={persona.embodiment} className="tj-settings-identity-scene" /></Suspense></div>
     <div style={{ display: 'flex', gap: 7, marginBottom: 16 }}>{(['core', 'female', 'male'] as const).map((form) => <button key={form} onClick={() => update('embodiment', form)} style={chip(persona.embodiment === form)}>{form.toUpperCase()}</button>)}</div>
     <div className="tj-identity-grid">
       <label>Assistant name<input value={persona.name} maxLength={32} onChange={(e) => update('name', e.target.value)} /></label>

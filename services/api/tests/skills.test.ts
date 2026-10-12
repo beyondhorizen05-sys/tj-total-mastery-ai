@@ -45,7 +45,7 @@ describe('local text skill lifecycle', () => {
   it('discovers, installs, reviews, runs, monitors, updates and disables a real local skill', () => {
     const manifest = fixture();
     fs.writeFileSync(path.join(skills.catalogPath(), 'welcome.json'), JSON.stringify(manifest));
-    expect(skills.discover()).toEqual([expect.objectContaining({ filename: 'welcome.json', manifest: expect.objectContaining({ id: 'welcome.note' }) })]);
+    expect(skills.discover().find((entry) => entry.filename === 'welcome.json')).toEqual(expect.objectContaining({ filename: 'welcome.json', manifest: expect.objectContaining({ id: 'welcome.note' }) }));
     expect(skills.installFromCatalog('welcome.json').enabled).toBe(false);
     expect(() => skills.run('welcome.note', { name: 'A', place: 'TJ' })).toThrow('disabled');
     expect(() => skills.setEnabled('welcome.note', true, false)).toThrow('Explicit permission review');

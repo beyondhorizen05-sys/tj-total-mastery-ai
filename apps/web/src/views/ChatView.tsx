@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { apiFetch } from '../api';
-import { Send, Sparkles, AlertCircle } from 'lucide-react';
+import { apiChatStream, apiFetch } from '../api';
+import { Send, Sparkles, AlertCircle, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { VoiceControl } from '../components/VoiceControl';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  trace?: { routed_model_id?: string; routed_via?: string } | null;
 }
 
 interface ImprovementRun {
@@ -28,12 +30,27 @@ interface CapabilityWorkflow {
   result?: string | { content?: string };
 }
 
+type ChatMode = 'auto' | 'chat' | 'build' | 'improve';
+const CHAT_MODE_STORAGE_PREFIX = 'tj-chat-mode:';
+const ACTIVE_CONVERSATION_STORAGE_KEY = 'tj-active-conversation';
+const DRAFT_CONVERSATION_ID = 'draft';
+const CHAT_MODE_STORAGE_KEY = (conversationId: string | null) => `${CHAT_MODE_STORAGE_PREFIX}${conversationId ?? 'draft'}`;
+const readChatMode = (conversationId: string | null): ChatMode => {
+  try {
+    const stored = localStorage.getItem(CHAT_MODE_STORAGE_KEY(conversationId));
+    return stored === 'chat' || stored === 'build' || stored === 'improve' ? stored : 'auto';
+  } catch { return 'auto'; }
+};
+
 export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string) => void }> = ({ personaName, onNavigate }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const activeConvIdRef = useRef<string | null>(null);
+  const hasSelectedConversation = useRef(false);
+  const [historyVisible, setHistoryVisible] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [mode, setMode] = useState<'auto' | 'chat' | 'build' | 'improve'>('auto');
+  const [mode, setMode] = useState<ChatMode>(() => readChatMode(null));
   const [improvement, setImprovement] = useState<ImprovementRun | null>(null);
   const [capabilityFlow, setCapabilityFlow] = useState<CapabilityWorkflow | null>(null);
   const reportedFlows = useRef<Set<string>>(new Set());
@@ -41,12 +58,36 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const storeMode = (conversationId: string | null, nextMode: ChatMode) => {
+    try { localStorage.setItem(CHAT_MODE_STORAGE_KEY(conversationId), nextMode); } catch { /* Keep the in-memory mode if storage is unavailable. */ }
+  };
+
+  const selectConversation = (conversationId: string | null, draftMode?: ChatMode) => {
+    activeConvIdRef.current = conversationId;
+    hasSelectedConversation.current = true;
+    setActiveConvId(conversationId);
+    const selectedMode = conversationId === null && draftMode ? draftMode : readChatMode(conversationId);
+    setMode(selectedMode);
+    storeMode(conversationId, selectedMode);
+    try { localStorage.setItem(ACTIVE_CONVERSATION_STORAGE_KEY, conversationId ?? DRAFT_CONVERSATION_ID); } catch { /* Keep the selected thread in memory if storage is unavailable. */ }
+  };
+
+  const changeMode = (nextMode: ChatMode) => {
+    setMode(nextMode);
+    storeMode(activeConvIdRef.current, nextMode);
+  };
+
   const loadConversations = async () => {
     try {
       const res = await apiFetch<{ conversations: any[] }>('/api/v1/conversations');
       setConversations(res.conversations);
-      if (res.conversations.length > 0 && !activeConvId) {
-        setActiveConvId(res.conversations[0].id);
+      if (!hasSelectedConversation.current) {
+        let rememberedId: string | null = null;
+        try { rememberedId = localStorage.getItem(ACTIVE_CONVERSATION_STORAGE_KEY); } catch { /* Fall back to the most recent conversation. */ }
+        if (rememberedId === DRAFT_CONVERSATION_ID) selectConversation(null);
+        else if (rememberedId && res.conversations.some((conversation) => conversation.id === rememberedId)) selectConversation(rememberedId);
+        else if (res.conversations.length > 0) selectConversation(res.conversations[0].id);
+        else selectConversation(null);
       }
     } catch (e: any) {
       console.error(e);
@@ -59,6 +100,24 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
       setMessages(res.messages);
     } catch (e: any) {
       console.error(e);
+    }
+  };
+
+  const deleteConversation = async (conversation: { id: string; title: string }) => {
+    if (!window.confirm(`Delete “${conversation.title}” and all its messages? This cannot be undone.`)) return;
+    try {
+      await apiFetch(`/api/v1/conversations/${conversation.id}`, { method: 'DELETE' });
+      try { localStorage.removeItem(CHAT_MODE_STORAGE_KEY(conversation.id)); } catch { /* Conversation deletion should succeed if local storage is unavailable. */ }
+      const remaining = conversations.filter((item) => item.id !== conversation.id);
+      setConversations(remaining);
+      if (activeConvId === conversation.id) {
+        setMessages([]);
+        const nextId = remaining[0]?.id ?? null;
+        selectConversation(nextId);
+        if (nextId) void loadMessages(nextId);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not delete this chat');
     }
   };
 
@@ -112,69 +171,64 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
     e.preventDefault();
     if (!input.trim() || loading) return;
     const userText = input;
+    const submittedMode = mode;
     setInput('');
     setError(null);
     setLoading(true);
-
-    setMessages((prev) => [...prev, { id: 'temp-' + Date.now(), role: 'user', content: userText }]);
+    const responseId = `bot-${Date.now()}`;
+    setMessages((prev) => [...prev, { id: `user-${responseId}`, role: 'user', content: userText }, ...(submittedMode === 'improve' ? [] : [{ id: responseId, role: 'assistant' as const, content: '' }])]);
 
     try {
-      if (mode === 'improve') {
+      if (submittedMode === 'improve') {
         const run = await apiFetch<ImprovementRun>('/api/v1/self-improvement/runs', { method: 'POST', body: JSON.stringify({ prompt: userText }) });
         setImprovement(run);
         return;
       }
-      const res = await apiFetch<any>('/api/v1/chat', {
-        method: 'POST',
-        body: JSON.stringify({ conversation_id: activeConvId ?? undefined, content: userText, mode }),
+      const conversationId = activeConvIdRef.current;
+      const res = await apiChatStream<any>({ conversation_id: conversationId ?? undefined, content: userText, mode: submittedMode }, (delta) => {
+        setMessages((prev) => prev.map((message) => message.id === responseId ? { ...message, content: message.content + delta } : message));
       });
-      if (!activeConvId && res.conversation_id) {
-        setActiveConvId(res.conversation_id);
+      if (!conversationId && res.conversation_id) {
+        storeMode(res.conversation_id, submittedMode);
+        selectConversation(res.conversation_id);
         loadConversations();
       }
-      setMessages((prev) => [...prev, { id: res.message?.id ?? 'bot-' + Date.now(), role: 'assistant', content: res.content }]);
+      setMessages((prev) => prev.map((message) => message.id === responseId ? { id: res.message?.id ?? responseId, role: 'assistant', content: res.content, trace: res.message?.trace ?? { routed_model_id: res.routed_model_id, routed_via: res.routed_via } } : message));
       if (res.status === 'approval_required' && res.approval_id) {
         localStorage.setItem('tj-capability-workflow', res.approval_id);
         setCapabilityFlow({ approval_id: res.approval_id, status: 'pending_approval', capability_name: res.capability_id ?? 'New ability', reason: res.content, message: res.content });
       }
     } catch (err: any) {
+      setMessages((prev) => prev.filter((message) => message.id !== responseId || !!message.content));
       setError(err.message);
       setLoading(false);
     } finally {
-      if (mode !== 'improve') setLoading(false);
+      if (submittedMode !== 'improve') setLoading(false);
     }
   };
 
   return (
-    <div style={{ display: 'flex', height: '100%', gap: 16 }}>
+    <div className="tj-chat-view" style={{ display: 'flex', height: '100%', gap: 16 }}>
       {/* Threads Sidebar */}
-      <div style={{ width: 220, background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', padding: 12 }}>
-        <button
-          onClick={() => { setActiveConvId(null); setMessages([]); }}
-          style={{ padding: '8px 12px', background: 'var(--accent-blue)', border: 'none', borderRadius: 6, color: '#fff', fontWeight: 600, cursor: 'pointer', marginBottom: 12 }}
-        >
-          + New Chat
-        </button>
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div className="tj-chat-sidebar" style={{ width: historyVisible ? 260 : 46, flex: `0 0 ${historyVisible ? 260 : 46}px`, minWidth: 0, background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', padding: historyVisible ? 12 : 6, transition: 'width 160ms ease, flex-basis 160ms ease' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: historyVisible ? 'space-between' : 'center', gap: 6, marginBottom: historyVisible ? 10 : 0 }}>
+          {historyVisible && <button onClick={() => { selectConversation(null, mode); setMessages([]); }} style={{ flex: 1, padding: '8px 9px', background: 'var(--accent-blue)', border: 'none', borderRadius: 6, color: '#fff', fontWeight: 600, cursor: 'pointer' }}>+ New Chat</button>}
+          <button type="button" onClick={() => setHistoryVisible((visible) => !visible)} aria-label={historyVisible ? 'Hide chat history' : 'Show chat history'} title={historyVisible ? 'Hide chat history' : 'Show chat history'} style={{ display: 'grid', placeItems: 'center', flex: '0 0 30px', width: 30, height: 30, padding: 0, background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            {historyVisible ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+          </button>
+        </div>
+        {historyVisible && <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
           {conversations.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => setActiveConvId(c.id)}
-              style={{
-                padding: '8px 12px', borderRadius: 6,
-                background: c.id === activeConvId ? 'var(--bg-card-hover)' : 'transparent',
-                cursor: 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                color: c.id === activeConvId ? 'var(--text-main)' : 'var(--text-muted)',
-              }}
-            >
-              {c.title}
+            <div key={c.id} onClick={() => selectConversation(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 5px 4px 9px', borderRadius: 6, background: c.id === activeConvId ? 'var(--bg-card-hover)' : 'transparent', cursor: 'pointer', color: c.id === activeConvId ? 'var(--text-main)' : 'var(--text-muted)' }}>
+              <span title={c.title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.82rem' }}>{c.title}</span>
+              <button type="button" aria-label={`Delete chat ${c.title}`} title="Delete chat" onClick={(event) => { event.stopPropagation(); void deleteConversation(c); }} style={{ display: 'grid', placeItems: 'center', flex: '0 0 26px', width: 26, height: 26, padding: 0, border: 0, borderRadius: 5, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><Trash2 size={14} /></button>
             </div>
           ))}
-        </div>
+        </div>}
       </div>
 
       {/* Main Stream */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-subtle)', padding: 16, height: '100%' }}>
+      <div className="tj-chat-stream" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-subtle)', padding: 16, height: '100%' }}>
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 8 }}>
           {messages.length === 0 && (
             <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -189,6 +243,7 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
             return (
               <div
                 key={m.id}
+                className="tj-chat-message"
                 style={{
                   alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '75%',
                   background: isUser ? 'var(--accent-blue)' : 'var(--bg-card)',
@@ -197,6 +252,7 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
                 }}
               >
                 {m.content}
+                {m.trace?.routed_via && <div style={{ marginTop: 8, color: 'var(--text-dim)', fontSize: '0.7rem', fontFamily: 'JetBrains Mono' }}>Routed via {m.trace.routed_via}</div>}
               </div>
             );
           })}
@@ -231,11 +287,12 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
         </div>
 
         {/* Input */}
+        <VoiceControl />
         <form onSubmit={handleSend} style={{ marginTop: 16 }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             {(['auto', 'chat', 'build', 'improve'] as const).map((m) => (
               <button
-                type="button" key={m} onClick={() => setMode(m)}
+                type="button" key={m} aria-pressed={mode === m} onClick={() => changeMode(m)}
                 style={{
                   padding: '4px 10px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase',
                   border: '1px solid var(--border-subtle)', background: mode === m ? 'var(--border-strong)' : 'transparent',
