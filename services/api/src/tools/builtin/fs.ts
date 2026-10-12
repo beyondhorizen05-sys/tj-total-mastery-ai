@@ -43,14 +43,14 @@ export function fsTools(sandbox: Sandbox, db: Database, backupsDir: string): Too
 
   return [
     {
-      id: 'fs_read', name: 'Read file', description: 'Read a text file (UTF-8). Path is relative to the project root.', domain: 'files',
+      id: 'fs_read', name: 'Read file', description: 'Read an existing UTF-8 file only, never a folder. Relative paths start at the current project root. Use fs_list with path "." to discover file names; do not prepend the project path to a relative file path.', domain: 'files',
       input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
       permission: 'filesystem.read', risk: 'low', reversible: true, resource: resolve, requiresApproval: requiresOutsideApproval,
       async execute(a, ctx) {
         const abs = requireAllowedRoot(resolve(a, ctx), ctx);
-        if (!fs.existsSync(abs)) return fail(`File not found: ${abs}`);
+        if (!fs.existsSync(abs)) return fail(`File not found: ${abs}. Paths are relative to the project root. Use fs_list with path "." to find available files; do not prefix the project directory twice.`);
         const st = fs.statSync(abs);
-        if (!st.isFile()) return fail(`Not a file: ${abs}`);
+        if (!st.isFile()) return fail(`Not a file: ${abs}. This is a directory; use fs_list with path "." or the directory path instead.`);
         const buf = fs.readFileSync(abs);
         const text = buf.subarray(0, MAX_READ).toString('utf8');
         return ok(text + (buf.length > MAX_READ ? `\n…[truncated, ${buf.length} bytes total]` : ''), { data: { path: abs, size: st.size } });
@@ -62,7 +62,8 @@ export function fsTools(sandbox: Sandbox, db: Database, backupsDir: string): Too
       permission: 'filesystem.read', risk: 'low', reversible: true, resource: resolveDir, requiresApproval: requiresOutsideApprovalDir,
       async execute(a, ctx) {
         const abs = requireAllowedRoot(resolveDir(a, ctx), ctx);
-        if (!fs.existsSync(abs)) return fail(`Not found: ${abs}`);
+        if (!fs.existsSync(abs)) return fail(`Not found: ${abs}. Use relative path "." to list the active project.`);
+        if (!fs.statSync(abs).isDirectory()) return fail(`Not a directory: ${abs}. Use fs_read for files.`);
         const entries = fs.readdirSync(abs, { withFileTypes: true }).filter((e) => e.name !== 'node_modules' && e.name !== '.git').slice(0, 500);
         return ok(entries.map((e) => `${e.isDirectory() ? 'd' : '-'} ${e.name}`).join('\n') || '(empty)', { data: { path: abs, count: entries.length } });
       },

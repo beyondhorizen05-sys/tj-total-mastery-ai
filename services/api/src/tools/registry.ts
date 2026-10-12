@@ -68,7 +68,8 @@ export class ToolRegistry {
         task_id: ctx.task_id, workflow_run_id: ctx.workflow_run_id, action: d.action, target: d.target,
         why: d.why, tools: [tool.id], resources_affected: resource ? [resource] : [],
         risks: [...d.risks, 'Automatically approved by explicit Full Autonomy setting'],
-        rollback_available: tool.reversible, permission: tool.permission, risk: 'high',
+        rollback_available: tool.reversible, permission: tool.permission,
+        risk: tool.risk === 'high' || decisions.some((entry) => entry.risk === 'high') ? 'high' : 'medium',
         payload: { tool: toolId, args: redactArgs(args, toolId) },
       });
       ctx.progress?.(`Automatically approved: ${d.action}`);
@@ -79,7 +80,7 @@ export class ToolRegistry {
       const sensitiveText = toolId === 'computer_type' || toolId === 'computer_write';
       const approvalArgs = sensitiveText ? { ...args, text: `[REDACTED: ${String(args.text ?? '').length} characters]` } : args;
       const approvalRisks = [...(d.risks.length ? d.risks : [`${tool.risk} risk operation`])];
-      if (approvalRequired) approvalRisks.push('Resource is outside configured project and artifact roots');
+      if (approvalRequired) approvalRisks.push(toolId === 'shell_exec' ? 'Shell command requires approval for this command and project scope' : 'Resource is outside configured project and artifact roots');
       const approvalRisk = approvalRequired && tool.risk === 'low' ? 'medium' : tool.risk;
       const approval = this.approvals.request({ workspace_id: ctx.workspace_id, project_id: ctx.project_id, agent_id: ctx.agent_id, task_id: ctx.task_id, workflow_run_id: ctx.workflow_run_id, action: d.action, target: d.target, why: d.why, tools: [tool.id], resources_affected: resource ? [resource] : [], risks: approvalRisks, rollback_available: tool.reversible, permission: tool.permission, risk: approvalRisk, payload: { tool: toolId, args: approvalArgs } });
       ctx.progress?.(`Waiting for approval: ${d.action} → ${d.target}`);
