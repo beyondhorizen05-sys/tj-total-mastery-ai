@@ -1126,3 +1126,46 @@
   padding: 8px 12px;
   outline: none;
 }
+
+/* Day/Night HUD Toggle Button */
+.tj-cmd-daynight-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  background: rgba(14, 27, 44, 0.85);
+  border: 1px solid rgba(141, 166, 189, 0.25);
+  border-radius: 8px;
+  color: #c5daf0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(10px);
+}
+
+.tj-cmd-daynight-btn:hover {
+  transform: translateY(-1px);
+}
+
+.tj-cmd-daynight-btn.is-day {
+  border-color: rgba(245, 158, 11, 0.45);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.08) 100%);
+  color: #fbbf24;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.22);
+}
+
+.tj-cmd-daynight-btn.is-night {
+  border-color: rgba(96, 165, 250, 0.45);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.18) 0%, rgba(14, 165, 233, 0.08) 100%);
+  color: #60a5fa;
+  box-shadow: 0 0 14px rgba(96, 165, 250, 0.25);
+}
+
+.tj-cmd-daynight-btn.is-auto {
+  border-color: rgba(168, 85, 247, 0.45);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.18) 0%, rgba(236, 72, 153, 0.08) 100%);
+  color: #c084fc;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.25);
+}

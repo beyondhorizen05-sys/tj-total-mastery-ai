@@ -5,7 +5,7 @@ import {
   Send, ShieldAlert, Sliders, Sparkles, UserCheck, Users, Workflow,
   Edit3, X, Maximize2, Minimize2, Minus, Eye, BarChart3, GraduationCap,
   Briefcase, HeartPulse, Wallet, LineChart, Wrench, HardDrive, Network,
-  Plus, Trash2, Zap, Brain, Terminal
+  Plus, Trash2, Zap, Brain, Terminal, Sun, Moon
 } from 'lucide-react';
 import type { SystemStatus, TJPersona, TownAgent } from '@tj/schemas';
 import { apiFetch } from '../api';
@@ -43,14 +43,14 @@ const INITIAL_SOULS: AgentSoul[] = [
   {
     id: 'soul-1',
     name: 'LEO',
-    role: 'Zero-G Researcher',
+    role: 'Researcher',
     gender: 'male',
     personality: 'Deep mathematical focus, relentless experimentalist.',
     energy: 94,
     status: 'working',
     currentThought: 'Calibrating anti-gravity drift parameters to 0.02G tolerance.',
-    workstationPos: [-4.6, 0.44, 0.4],
-    restPos: [-5.4, 0, 1.2],
+    workstationPos: [-6.8, 0.44, -2.1],
+    restPos: [-7.8, 0, -1.8],
     assignedRoom: 'ANTIGRAVITY RESEARCH LAB',
     jacketColor: '#253d56',
     hairColor: '#2b231f',
@@ -59,14 +59,14 @@ const INITIAL_SOULS: AgentSoul[] = [
   {
     id: 'soul-2',
     name: 'BEN',
-    role: 'Cybernetics Engineer',
+    role: 'Health Information Agent',
     gender: 'male',
     personality: 'Methodical precision, robotics specialist.',
     energy: 88,
     status: 'working',
     currentThought: 'Robotic calibration rig servo latency measured at 0.8ms.',
-    workstationPos: [-3.8, 0.44, 2.7],
-    restPos: [-4.5, 0, 3.2],
+    workstationPos: [-6.4, 0.44, 4.8],
+    restPos: [-7.2, 0, 5.2],
     assignedRoom: 'BIOMETRICS & CYBERNETICS LAB',
     jacketColor: '#24374a',
     hairColor: '#1e1c1b',
@@ -74,48 +74,48 @@ const INITIAL_SOULS: AgentSoul[] = [
   },
   {
     id: 'soul-3',
-    name: 'SAM',
-    role: 'Operations Lead',
-    gender: 'male',
-    personality: 'Vigilant system monitor, rapid responder.',
-    energy: 92,
-    status: 'working',
-    currentThought: 'Monitoring dual telemetry monitors for node stability.',
-    workstationPos: [-2.1, 0.44, 2.8],
-    restPos: [-1.4, 0, 3.2],
-    assignedRoom: 'BIOMETRICS & CYBERNETICS LAB',
-    jacketColor: '#1c2e42',
-    hairColor: '#181818',
-    skinColor: '#e0af94',
-  },
-  {
-    id: 'soul-4',
     name: 'MIA',
-    role: 'Neural Data Analyst',
+    role: 'Debugger',
     gender: 'female',
-    personality: 'Intuitive pattern recognition, high aesthetic sense.',
+    personality: 'Intuitive pattern recognition, high diagnostic ability.',
     energy: 85,
     status: 'working',
-    currentThought: 'Synthesizing biometrics trend feeds across local workspace.',
-    workstationPos: [-1.0, 0.44, 2.6],
-    restPos: [-0.6, 0, 3.2],
+    currentThought: 'Tracing runtime state diffs and memory heap bounds.',
+    workstationPos: [-7.6, 0.44, 4.8],
+    restPos: [-8.2, 0, 5.2],
     assignedRoom: 'BIOMETRICS & CYBERNETICS LAB',
     jacketColor: '#384d63',
     hairColor: '#4a2e1d',
     skinColor: '#d9a285',
   },
   {
+    id: 'soul-4',
+    name: 'SAM',
+    role: 'Finance Analyst',
+    gender: 'male',
+    personality: 'Vigilant risk evaluator, quantitative trader.',
+    energy: 92,
+    status: 'working',
+    currentThought: 'Analyzing price tick spreads across backtesting windows.',
+    workstationPos: [-5.5, 2.24, 4.8],
+    restPos: [-6.2, 1.8, 5.2],
+    assignedRoom: 'FINANCE & TRADING FLOOR',
+    jacketColor: '#1c2e42',
+    hairColor: '#181818',
+    skinColor: '#e0af94',
+  },
+  {
     id: 'soul-5',
     name: 'JACS',
-    role: 'Catwalk Patrol & Security',
+    role: 'Security Reviewer',
     gender: 'male',
-    personality: 'Observant, tactical, alert to anomaly vectors.',
+    personality: 'Observant, tactical, alert to vulnerability vectors.',
     energy: 96,
     status: 'transit',
-    currentThought: 'Patrolling central bulkhead corridor; physical security nominal.',
-    workstationPos: [0.3, 1.4, 0.15],
-    restPos: [0.3, 1.4, 0.15],
-    assignedRoom: 'CATWALK BRIDGE',
+    currentThought: 'Patrolling central bulkhead vault; access policies verified.',
+    workstationPos: [-1.8, 0.44, -6.2],
+    restPos: [-2.5, 0, -5.8],
+    assignedRoom: 'SECURITY VAULT & CITADEL',
     jacketColor: '#2b3f54',
     hairColor: '#222222',
     skinColor: '#ca9478',
@@ -123,15 +123,15 @@ const INITIAL_SOULS: AgentSoul[] = [
   {
     id: 'soul-6',
     name: 'ELIAS',
-    role: 'Strategy Synthesizer',
+    role: 'Optimizer',
     gender: 'male',
-    personality: 'Strategic debater, high level multi-agent coordinator.',
+    personality: 'Evolutionary tuner, model performance architect.',
     energy: 90,
     status: 'collaborating',
-    currentThought: 'Discussing quantum reactor harmonics synchronization with Sara.',
-    workstationPos: [2.7, 1.4, 1.5],
-    restPos: [2.7, 1.4, 1.5],
-    assignedRoom: 'CENTRAL CATWALK',
+    currentThought: 'Fine-tuning provider token distribution and prompt cache.',
+    workstationPos: [5.5, 2.24, -4.6],
+    restPos: [4.8, 1.8, -4.2],
+    assignedRoom: 'AI MODELS & NEURAL ENGINE',
     jacketColor: '#22384c',
     hairColor: '#332722',
     skinColor: '#d8a186',
@@ -139,15 +139,15 @@ const INITIAL_SOULS: AgentSoul[] = [
   {
     id: 'soul-7',
     name: 'SARA',
-    role: 'Principal Scientist',
+    role: 'Automation Engineer',
     gender: 'female',
-    personality: 'Insightful, visionary, leads cross-node synchronization.',
+    personality: 'Insightful workflow architect, pipeline orchestrator.',
     energy: 91,
     status: 'collaborating',
-    currentThought: 'Validating zero-g telemetry models against live cluster stats.',
-    workstationPos: [3.7, 1.4, 1.8],
-    restPos: [3.7, 1.4, 1.8],
-    assignedRoom: 'CENTRAL CATWALK',
+    currentThought: 'Validating workflow DAG branching with real-time approval gates.',
+    workstationPos: [7.5, 2.24, 0.6],
+    restPos: [8.2, 1.8, 1.0],
+    assignedRoom: 'WORKFLOWS & AUTOMATION FACTORY',
     jacketColor: '#d8e4ef',
     hairColor: '#1c1b1a',
     skinColor: '#dba98f',
@@ -155,15 +155,15 @@ const INITIAL_SOULS: AgentSoul[] = [
   {
     id: 'soul-8',
     name: 'TARA',
-    role: 'Data Bay Architect',
+    role: 'Data Analyst',
     gender: 'female',
-    personality: 'Database optimization guru, holographic interface specialist.',
+    personality: 'Database optimization guru, holographic analytics specialist.',
     energy: 87,
     status: 'working',
     currentThought: 'Optimizing holographic data globe cluster indexes.',
-    workstationPos: [4.1, 1.4, -2.1],
-    restPos: [3.2, 1.4, -1.8],
-    assignedRoom: 'TECH SUITE & DATA BAY',
+    workstationPos: [6.5, 2.24, 5.0],
+    restPos: [7.2, 1.8, 5.5],
+    assignedRoom: 'DATA INTELLIGENCE & ANALYTICS',
     jacketColor: '#33485c',
     hairColor: '#4f301d',
     skinColor: '#d1997d',
@@ -171,14 +171,14 @@ const INITIAL_SOULS: AgentSoul[] = [
   {
     id: 'soul-9',
     name: 'KATE',
-    role: 'Mission Surveillance Commander',
+    role: 'TJ Orchestrator',
     gender: 'female',
-    personality: 'Cool under pressure, global telemetry coordinator.',
+    personality: 'Cool under pressure, central command director.',
     energy: 95,
     status: 'working',
     currentThought: 'Tracking world map geopolitical relays and active approval queues.',
-    workstationPos: [0.5, 1.4, -3.1],
-    restPos: [-0.6, 1.4, -3.1],
+    workstationPos: [0.0, 2.24, -5.3],
+    restPos: [-0.8, 1.8, -4.8],
     assignedRoom: 'MISSION CONTROL',
     jacketColor: '#203244',
     hairColor: '#2a2220',
@@ -187,14 +187,14 @@ const INITIAL_SOULS: AgentSoul[] = [
   {
     id: 'soul-10',
     name: 'CHLOE',
-    role: 'Quantum Optimizer',
+    role: 'DevOps Engineer',
     gender: 'female',
     personality: 'Algorithmic perfectionist, cooling circuit engineer.',
     energy: 89,
     status: 'working',
     currentThought: 'Monitoring RGB cryogenic cooling conduits at 3.4 Kelvin.',
-    workstationPos: [-4.2, 2.8, -2.5],
-    restPos: [-4.8, 2.8, -1.8],
+    workstationPos: [-3.5, 4.04, -4.8],
+    restPos: [-4.2, 3.6, -4.4],
     assignedRoom: 'QUANTUM COMPUTE HUB',
     jacketColor: '#2c4257',
     hairColor: '#5c3a21',
@@ -203,18 +203,226 @@ const INITIAL_SOULS: AgentSoul[] = [
   {
     id: 'soul-11',
     name: 'DAN',
-    role: 'Mainframe Compute Specialist',
+    role: 'Developer',
     gender: 'male',
-    personality: 'Hardware hacker, high-throughput compute architect.',
+    personality: 'Full-stack software artisan, low-latency engineer.',
     energy: 93,
     status: 'working',
-    currentThought: 'Load testing second-tier quantum server blades under peak flow.',
-    workstationPos: [-2.7, 2.8, -2.5],
-    restPos: [-2.0, 2.8, -1.8],
-    assignedRoom: 'QUANTUM COMPUTE HUB',
+    currentThought: 'Compiling optimized binary routes for high-throughput messaging.',
+    workstationPos: [6.5, 2.24, -4.6],
+    restPos: [7.2, 1.8, -4.2],
+    assignedRoom: 'AI MODELS & NEURAL ENGINE',
     jacketColor: '#1e3042',
     hairColor: '#1c1c1c',
     skinColor: '#d89e82',
+  },
+  {
+    id: 'soul-12',
+    name: 'ALEC',
+    role: 'Planner',
+    gender: 'male',
+    personality: 'Strategic visionary, multi-step dependency decomposition.',
+    energy: 91,
+    status: 'working',
+    currentThought: 'Decomposing autonomous compound objectives into linear stages.',
+    workstationPos: [1.2, 2.24, -5.3],
+    restPos: [1.8, 1.8, -4.8],
+    assignedRoom: 'MISSION CONTROL',
+    jacketColor: '#283e52',
+    hairColor: '#36281e',
+    skinColor: '#d49b7e',
+  },
+  {
+    id: 'soul-13',
+    name: 'NOVA',
+    role: 'Computer Operator',
+    gender: 'female',
+    personality: 'Lightning-fast desktop automation & vision agent.',
+    energy: 94,
+    status: 'working',
+    currentThought: 'Scanning active OS viewport bounds for input dispatch.',
+    workstationPos: [-1.2, 2.24, -5.3],
+    restPos: [-1.8, 1.8, -4.8],
+    assignedRoom: 'MISSION CONTROL',
+    jacketColor: '#34475c',
+    hairColor: '#1a1918',
+    skinColor: '#e2ab90',
+  },
+  {
+    id: 'soul-14',
+    name: 'ZEPHYR',
+    role: 'Designer',
+    gender: 'male',
+    personality: 'Aesthetic perfectionist, cyberpunk UI/UX visual architect.',
+    energy: 90,
+    status: 'working',
+    currentThought: 'Refining glassmorphic HUD shader highlights and color tokens.',
+    workstationPos: [-7.0, 2.24, 0.6],
+    restPos: [-7.8, 1.8, 1.0],
+    assignedRoom: 'MEDIA & CREATIVE STUDIO',
+    jacketColor: '#3a2e48',
+    hairColor: '#443228',
+    skinColor: '#cf987a',
+  },
+  {
+    id: 'soul-15',
+    name: 'VANCE',
+    role: 'Writer',
+    gender: 'male',
+    personality: 'Eloquent chronicler, crisp documentation specialist.',
+    energy: 88,
+    status: 'working',
+    currentThought: 'Archiving real-time agent execution transcripts into knowledge base.',
+    workstationPos: [8.0, 0.44, -3.2],
+    restPos: [8.8, 0, -2.8],
+    assignedRoom: 'PERSISTENT MEMORY VAULT',
+    jacketColor: '#23364a',
+    hairColor: '#282320',
+    skinColor: '#dc9f82',
+  },
+  {
+    id: 'soul-16',
+    name: 'CYRUS',
+    role: 'Analyst',
+    gender: 'male',
+    personality: 'Objective evaluator, trade-off specialist, risk assessor.',
+    energy: 92,
+    status: 'working',
+    currentThought: 'Calculating risk-reward ratios on pending tool approvals.',
+    workstationPos: [7.8, 0.44, 4.2],
+    restPos: [8.5, 0, 4.6],
+    assignedRoom: 'KNOWLEDGE GRAPH LAB',
+    jacketColor: '#1d2f40',
+    hairColor: '#1f1e1d',
+    skinColor: '#cb967b',
+  },
+  {
+    id: 'soul-17',
+    name: 'ELENA',
+    role: 'QA Engineer',
+    gender: 'female',
+    personality: 'Zero-tolerance verification, test suite architect.',
+    energy: 93,
+    status: 'working',
+    currentThought: 'Executing synthetic integration tests against API gateways.',
+    workstationPos: [8.5, 2.24, 0.6],
+    restPos: [9.0, 1.8, 1.0],
+    assignedRoom: 'WORKFLOWS & AUTOMATION FACTORY',
+    jacketColor: '#2a4258',
+    hairColor: '#4f3422',
+    skinColor: '#dba68c',
+  },
+  {
+    id: 'soul-18',
+    name: 'KAI',
+    role: 'Executive Agent',
+    gender: 'male',
+    personality: 'Enterprise governor, resource allocator, strategic director.',
+    energy: 96,
+    status: 'working',
+    currentThought: 'Allocating global compute budgets across multi-agent pipelines.',
+    workstationPos: [2.2, 0.44, 4.6],
+    restPos: [2.8, 0, 5.0],
+    assignedRoom: 'BUSINESS CRM & WAR ROOM',
+    jacketColor: '#223446',
+    hairColor: '#242120',
+    skinColor: '#d39a7e',
+  },
+  {
+    id: 'soul-19',
+    name: 'REX',
+    role: 'Business Strategist',
+    gender: 'male',
+    personality: 'Growth strategist, market expansion architect.',
+    energy: 89,
+    status: 'working',
+    currentThought: 'Synthesizing client deal conversion probabilities in pipeline.',
+    workstationPos: [1.4, 0.44, 4.6],
+    restPos: [0.8, 0, 5.0],
+    assignedRoom: 'BUSINESS CRM & WAR ROOM',
+    jacketColor: '#1b2d3f',
+    hairColor: '#1c1c1b',
+    skinColor: '#cea085',
+  },
+  {
+    id: 'soul-20',
+    name: 'IRIS',
+    role: 'Marketing Agent',
+    gender: 'female',
+    personality: 'Creative communicator, branding and outreach strategist.',
+    energy: 91,
+    status: 'working',
+    currentThought: 'Composing interactive media campaigns for external releases.',
+    workstationPos: [-6.2, 2.24, 0.6],
+    restPos: [-5.6, 1.8, 1.0],
+    assignedRoom: 'MEDIA & CREATIVE STUDIO',
+    jacketColor: '#432d4a',
+    hairColor: '#5a3824',
+    skinColor: '#dca48a',
+  },
+  {
+    id: 'soul-21',
+    name: 'FELIX',
+    role: 'Customer Support Agent',
+    gender: 'male',
+    personality: 'Empathetic communicator, rapid incident responder.',
+    energy: 94,
+    status: 'working',
+    currentThought: 'Streaming telemetry responses through The Living Pulse bridge.',
+    workstationPos: [0.0, 4.04, 0.8],
+    restPos: [-0.8, 3.6, 0.8],
+    assignedRoom: 'COMMUNICATIONS & LIVING PULSE',
+    jacketColor: '#273c50',
+    hairColor: '#262220',
+    skinColor: '#d69d80',
+  },
+  {
+    id: 'soul-22',
+    name: 'TESSA',
+    role: 'Legal Research Agent',
+    gender: 'female',
+    personality: 'Regulatory scholar, compliance and ethics supervisor.',
+    energy: 88,
+    status: 'working',
+    currentThought: 'Auditing data isolation boundaries against privacy directives.',
+    workstationPos: [-6.0, 4.04, -3.3],
+    restPos: [-6.8, 3.6, -3.0],
+    assignedRoom: 'EDUCATION & SKILL ACADEMY',
+    jacketColor: '#2e3a4e',
+    hairColor: '#3a291f',
+    skinColor: '#d8a287',
+  },
+  {
+    id: 'soul-23',
+    name: 'NIKOLAI',
+    role: 'Critic',
+    gender: 'male',
+    personality: 'Adversarial thinker, edge-case validator, devil advocate.',
+    energy: 90,
+    status: 'working',
+    currentThought: 'Stress-testing neural cluster consensus against edge-case failures.',
+    workstationPos: [7.0, 0.44, 4.2],
+    restPos: [6.4, 0, 4.6],
+    assignedRoom: 'KNOWLEDGE GRAPH LAB',
+    jacketColor: '#1c2838',
+    hairColor: '#1e1c1b',
+    skinColor: '#ca9579',
+  },
+  {
+    id: 'soul-24',
+    name: 'AURA',
+    role: 'Verifier',
+    gender: 'female',
+    personality: 'Cryptographic certifier, zero-knowledge integrity auditor.',
+    energy: 95,
+    status: 'working',
+    currentThought: 'Cryptographically validating task execution evidence hashes.',
+    workstationPos: [-0.8, 0.44, -6.2],
+    restPos: [-0.2, 0, -5.8],
+    assignedRoom: 'SECURITY VAULT & CITADEL',
+    jacketColor: '#263d54',
+    hairColor: '#2c221e',
+    skinColor: '#ddab92',
   },
 ];
 
@@ -250,6 +458,51 @@ export const CommandCenter: React.FC<Props> = ({
   // Floating Window Management
   const [activeFloatingWindow, setActiveFloatingWindow] = useState<string | null>(null);
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
+
+  // Day / Night Cycle Management
+  const [dayNightMode, setDayNightMode] = useState<'day' | 'night' | 'auto'>('night');
+  const [timeOfDay, setTimeOfDay] = useState<number>(23);
+
+  const cycleDayNight = () => {
+    setDayNightMode((prev) => {
+      if (prev === 'night') return 'day';
+      if (prev === 'day') return 'auto';
+      return 'night';
+    });
+  };
+
+  // Department 3D Room Coordinates for Smooth Camera Focus
+  const ROOM_COORDINATES: Record<string, [number, number, number]> = {
+    vision: [-7.5, 0.8, -2.5],
+    wellness: [-7.0, 0.8, 4.5],
+    approvals: [-1.5, 0.8, -6.5],
+    business: [2.0, 0.8, 4.5],
+    graph: [7.5, 0.8, 4.0],
+    memory: [8.0, 0.8, -3.5],
+    tasks: [0.0, 2.4, -5.5],
+    models: [6.0, 2.4, -4.8],
+    workflows: [8.0, 2.4, 0.5],
+    data: [6.5, 2.4, 5.0],
+    finance: [-5.5, 2.4, 4.8],
+    paper: [-5.5, 2.4, 4.8],
+    media: [-7.0, 2.4, 0.5],
+    connectors: [-2.5, 2.4, 0.0],
+    workbench: [-2.5, 2.4, 0.0],
+    skills: [-6.0, 4.2, -3.5],
+    education: [-6.0, 4.2, -3.5],
+    agents: [-3.5, 4.2, -5.0],
+    chat: [0.0, 5.2, 0.8],
+    command: [0.0, 2.4, -5.5],
+  };
+
+  const handleOpenRoom = (roomId: string) => {
+    if (ROOM_COORDINATES[roomId]) {
+      setFocusTarget(ROOM_COORDINATES[roomId]);
+    }
+    if (roomId !== 'command') {
+      openFloating(roomId);
+    }
+  };
 
   // Overlay Panels Visibility (Allow closing/minimizing everything)
   const [showBottomLeft, setShowBottomLeft] = useState(true);
@@ -785,6 +1038,32 @@ export const CommandCenter: React.FC<Props> = ({
 
           {/* Right Header Actions */}
           <div className="tj-cmd-header-actions">
+            {/* Day / Night Mode Cycle Button */}
+            <button
+              type="button"
+              className={`tj-cmd-daynight-btn is-${dayNightMode}`}
+              onClick={cycleDayNight}
+              title={`Day/Night Mode: ${dayNightMode.toUpperCase()} (Click to toggle Day, Night, Auto)`}
+              aria-label="Toggle Day and Night mode"
+            >
+              {dayNightMode === 'day' ? (
+                <>
+                  <Sun size={13} color="#f59e0b" />
+                  <span>DAY 12:00</span>
+                </>
+              ) : dayNightMode === 'night' ? (
+                <>
+                  <Moon size={13} color="#60a5fa" />
+                  <span>NIGHT 00:00</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={13} color="#c084fc" />
+                  <span>CYCLE ({Math.floor(timeOfDay).toString().padStart(2, '0')}:00)</span>
+                </>
+              )}
+            </button>
+
             <button
               type="button"
               className="tj-cmd-icon-btn"
@@ -871,9 +1150,13 @@ export const CommandCenter: React.FC<Props> = ({
           customRooms={customRooms}
           onSelectAgent={handleSelect3DAgent}
           onOpenAgentSoul={handleInspectSoul}
-          onOpenRoom={(dest) => openFloating(dest)}
+          onOpenRoom={handleOpenRoom}
           selectedAgentId={selectedSlotId}
           focusTarget={focusTarget}
+          dayNightMode={dayNightMode}
+          timeOfDay={timeOfDay}
+          onToggleDayNight={cycleDayNight}
+          onTimeOfDayChange={setTimeOfDay}
           height="100%"
         />
       </div>
