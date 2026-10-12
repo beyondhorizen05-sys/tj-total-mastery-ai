@@ -38,8 +38,9 @@ export class GoogleAdapter implements ProviderAdapter {
     if (system) body.systemInstruction = { parts: [{ text: system }] };
     if (opts.tools?.length) body.tools = [{ functionDeclarations: opts.tools.map((tl) => ({ name: tl.name, description: tl.description, parameters: stripSchema(tl.parameters) })) }];
 
+    const cleanModel = opts.model.replace(/^models\//, '');
     const method = opts.onDelta ? 'streamGenerateContent?alt=sse' : 'generateContent';
-    const res = await fetchWithTimeout(`${this.base()}/models/${encodeURIComponent(opts.model)}:${method}`, { method: 'POST', headers: this.headers(), body: JSON.stringify(body), signal: opts.signal, timeoutMs: 180000 });
+    const res = await fetchWithTimeout(`${this.base()}/models/${encodeURIComponent(cleanModel)}:${method}`, { method: 'POST', headers: this.headers(), body: JSON.stringify(body), signal: opts.signal, timeoutMs: 180000 });
     if (!res.ok) throw classifyHttpError(res.status, await res.text());
 
     let text = '';

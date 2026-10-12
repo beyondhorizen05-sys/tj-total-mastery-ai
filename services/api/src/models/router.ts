@@ -196,9 +196,42 @@ export class ModelRouter {
         // A subscription-backed request must never silently fall back to a billable API.
         if (this.registry.getProvider(m.provider_id)?.kind === 'chatgpt-plan') throw e;
         fallback_from = fallback_from ?? m.id;
+
+        // If rate limit or quota exceeded, attempt graceful fallback to an available free/OpenRouter model
+        if (kind === 'rate_limit' && i === eligible.length - 1) {
+          const fallbackModel = this.findRateLimitFallback(m.id, req, failedProviders);
+          if (fallbackModel && !eligible.some((cand) => cand.id === fallbackModel.id)) {
+            eligible.push(fallbackModel);
+          }
+        }
       }
     }
     throw lastErr ?? new ProviderError('All models in fallback chain failed', 'unavailable');
+  }
+
+  /** Locate an eligible fallback model (preferring OpenRouter free tier or FreeLLM) when primary model hits a 429 quota or rate limit. */
+  findRateLimitFallback(currentModelId: string, req: RouteRequest, excludedProviderIds: Set<string> = new Set()): Model | undefined {
+    const failedProviderId = currentModelId.split('/')[0];
+    const excludeProviders = new Set([...excludedProviderIds, failedProviderId]);
+    const candidates = this.candidates({ ...req, exclude: [currentModelId] })
+      .filter((cand) => !excludeProviders.has(cand.provider_id));
+
+    // 1. Prefer FreeLLM or OpenRouter free models
+    const preferredFree = candidates.find((cand) => {
+      const p = this.registry.getProvider(cand.provider_id);
+      const isOpenRouter = p?.preset === 'openrouter' || cand.provider_id === 'openrouter';
+      const isFreeLlm = this.registry.isFreeLlmAutoProvider(cand.provider_id);
+      const isFree = cand.cost_class === 'free' || (cand.price_in_per_m === 0 && cand.price_out_per_m === 0);
+      return (isOpenRouter && isFree) || isFreeLlm;
+    });
+    if (preferredFree) return preferredFree;
+
+    // 2. Any other free/unbilled model
+    const anyFree = candidates.find((cand) => cand.cost_class === 'free' || (cand.price_in_per_m === 0 && cand.price_out_per_m === 0));
+    if (anyFree) return anyFree;
+
+    // 3. Next eligible model from a different provider
+    return candidates[0];
   }
 
   private withinBudget(model: Model, opts: Omit<ChatOptions, 'model'>, limits: { daily: number | null; monthly: number | null; request: number | null }): boolean {

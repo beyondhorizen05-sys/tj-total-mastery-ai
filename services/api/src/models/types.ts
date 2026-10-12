@@ -102,8 +102,10 @@ export interface ProviderCredentials {
 
 export function classifyHttpError(status: number, body: string): ProviderError {
   const msg = body.slice(0, 400);
+  if (status === 429 || /RESOURCE_EXHAUSTED|quota.*exceeded|rate.*limit/i.test(body)) {
+    return new ProviderError(`Rate limited or quota exhausted (${status}): ${msg}`, 'rate_limit', status);
+  }
   if (status === 401 || status === 403) return new ProviderError(`Unauthorized (${status}): ${msg}`, 'auth', status);
-  if (status === 429) return new ProviderError(`Rate limited (429): ${msg}`, 'rate_limit', status);
   if (status === 400 || status === 404 || status === 422) return new ProviderError(`Bad request (${status}): ${msg}`, 'bad_request', status);
   if (status >= 500) return new ProviderError(`Provider unavailable (${status}): ${msg}`, 'unavailable', status);
   return new ProviderError(`HTTP ${status}: ${msg}`, 'unknown', status);

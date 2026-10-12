@@ -211,5 +211,26 @@ describe('ModelRouter Failover & Fallback', () => {
     const after = db.get<{ count: number }>('SELECT COUNT(*) AS count FROM usage WHERE model_id = ?', ['test/tj-test-echo'])?.count ?? 0;
     expect(after).toBe(before);
   });
+
+  it('falls back to an available free/backup model when a primary model encounters 429 rate limit or quota exhaustion', async () => {
+    // Add OpenRouter backup provider using test adapter with mock API key
+    const backup = registry.addProvider({ id: 'openrouter', name: 'OpenRouter Free Backup', kind: 'test', preset: 'openrouter', api_key: 'mock-openrouter-key' });
+    await registry.fetchModels(backup.id);
+    const backupModelId = `${backup.id}/tj-test-echo`;
+    db.run('UPDATE models SET cost_class = ?, price_in_per_m = 0, price_out_per_m = 0 WHERE id = ?', ['free', backupModelId]);
+
+    // Force primary model to fail with 429 rate limit
+    TestProviderControl.failKind = 'rate_limit';
+    TestProviderControl.failCount = 3;
+
+    // Chat with explicit model selection of primary model
+    const result = await router.chat({ task_type: 'chat', model_id: 'test/tj-test-echo' }, {
+      messages: [{ role: 'user', content: 'Fallback test after 429 quota exhaustion.' }],
+    });
+
+    expect(result.fallback_from).toBe('test/tj-test-echo');
+    expect(result.model_id).toBe(backupModelId);
+    expect(registry.getProvider('test')?.health).toBe('rate-limited');
+  });
 });
 
