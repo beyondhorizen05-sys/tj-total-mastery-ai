@@ -15,6 +15,23 @@ import { scheduleRows, summarizeRun } from './scheduler.js';
 import type { PlanRow, TaskResultRow } from './scheduler.js';
 import { assessGoalEvidence, snapshotProjectFiles, type GoalEvidence, type SuccessfulTool } from './evidence.js';
 import { REPO_ROOT } from '../config.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+/** Explicit local references to existing TJ source files must not be redirected to a blank scratch project. */
+export function referencesExistingTjFile(goal: string): boolean {
+  const paths = goal.match(/\b(?:docs|apps|services|packages|scripts|tests|src)\/[a-z0-9._/-]+\.(?:html|md|json|tsx?|jsx?|mjs|cjs|css|py)\b/gi) ?? [];
+  const root = path.resolve(REPO_ROOT);
+  return paths.some((relative) => {
+    try {
+      const candidate = fs.realpathSync(path.resolve(root, relative));
+      const inside = path.relative(root, candidate);
+      return inside !== '' && inside !== '..' && !inside.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(inside) && fs.statSync(candidate).isFile();
+    } catch { return false; }
+  });
+}
+
 
 export function targetsTjSource(text: string): boolean {
   return /\b(?:tj|total mastery ai|living nexus)(?:'s)?\s+(?:own\s+)?(?:repo(?:sitory)?|source(?:\s+code)?|codebase|code|implementation)\b/i.test(text)
@@ -82,7 +99,7 @@ export class Orchestrator {
     const project = target.project_id ? this.ws.getProject(target.project_id) : undefined;
     if (!project) throw new Error('This task has no active project folder to recover in.');
     const recoveryScope = `${target.title}\n${target.description ?? ''}`;
-    if (targetsTjSource(recoveryScope)) this.ws.setProjectRoot(project.id, REPO_ROOT);
+    if (targetsTjSource(recoveryScope) || referencesExistingTjFile(recoveryScope)) this.ws.setProjectRoot(project.id, REPO_ROOT);
     const activeProject = this.ws.getProject(project.id)!;
 
     const ordered: string[] = [];
@@ -183,7 +200,10 @@ export class Orchestrator {
 
   /** Create project + team + tasks from a plan; does not execute. */
   prepare(goal: string, plan: Plan, opts: { project_id?: string | null; conversation_id?: string | null; project_name?: string } = {}) {
-    const internalSourceTask = !opts.project_id && targetsTjSource(`${goal}\n${plan.objective}\n${plan.tasks.map((task) => `${task.title}\n${task.description}`).join('\n')}`);
+    const internalSourceTask = !opts.project_id && (
+      targetsTjSource(`${goal}\n${plan.objective}\n${plan.tasks.map((task) => `${task.title}\n${task.description}`).join('\n')}`)
+      || referencesExistingTjFile(goal)
+    );
     const project = opts.project_id ? this.ws.getProject(opts.project_id)! : internalSourceTask
       ? this.ws.createProjectAtPath(opts.project_name ?? 'TJ Platform Repository', goal, REPO_ROOT)
       : this.ws.createProject(opts.project_name ?? goal.slice(0, 60), goal);
