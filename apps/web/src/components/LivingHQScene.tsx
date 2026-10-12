@@ -1,364 +1,1362 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
-import type { AgentStatus, TownAgent } from '@tj/schemas';
+import type { TownAgent } from '@tj/schemas';
 import { canRenderWebGL, WebGLBoundary } from './WebGLBoundary';
 
-type RoomId = 'research_lab' | 'dev_studio' | 'meeting_hall' | 'creative_studio' | 'operations';
-type AgentCommunication = { id: string; ts: string; from_agent_id: string | null; to_agent_id: string | null; kind: string; task_id?: string | null };
-type Room = {
-  id: RoomId;
-  title: string;
-  destination: string;
-  position: readonly [number, number, number];
-  size: readonly [number, number];
-  accent: string;
-};
+export interface AgentSlotConfig {
+  id: string;
+  defaultName: string;
+  gender: 'male' | 'female';
+  hair: 'cropped' | 'ponytail' | 'bun';
+  role: string;
+  status: string;
+  roomName: string;
+  roomDestination: string;
+  position: [number, number, number];
+  rotationY: number;
+  behavior: 'working' | 'transit' | 'collaborating';
+  jacketColor: string;
+  hairColor: string;
+  isSitting?: boolean;
+}
 
-const ROOMS: readonly Room[] = [
-  { id: 'research_lab', title: 'RESEARCH LAB', destination: 'vision', position: [-4.45, 2.6, -2.15], size: [4.6, 3.8], accent: '#65b9fa' },
-  { id: 'dev_studio', title: 'AGENT WORKSPACE', destination: 'agents', position: [4.45, 2.6, -2.15], size: [4.6, 3.8], accent: '#46ded0' },
-  { id: 'meeting_hall', title: 'COLLABORATION HALL', destination: 'collaboration_hall', position: [0, 2.6, -4.2], size: [3.9, 2.55], accent: '#d2a6ff' },
-  { id: 'creative_studio', title: 'CREATION STUDIO', destination: 'media', position: [-4.45, 0, 2.4], size: [4.6, 4.2], accent: '#a58cff' },
-  { id: 'operations', title: 'MISSION CONTROL', destination: 'tasks', position: [4.45, 0, 2.4], size: [4.6, 4.2], accent: '#6cbdff' },
+export const DEFAULT_AGENT_SLOTS: AgentSlotConfig[] = [
+  {
+    id: 'slot-1',
+    defaultName: 'LEO',
+    gender: 'male',
+    hair: 'cropped',
+    role: 'RESEARCH',
+    status: 'TESTING',
+    roomName: 'ANTIGRAVITY RESEARCH LAB',
+    roomDestination: 'vision',
+    position: [-4.6, 0, 0.4],
+    rotationY: 0.8,
+    behavior: 'working',
+    jacketColor: '#2b3f54',
+    hairColor: '#3a2e28',
+  },
+  {
+    id: 'slot-2',
+    defaultName: 'BEN',
+    gender: 'male',
+    hair: 'cropped',
+    role: 'CYBERNETICS',
+    status: 'CALIBRATION',
+    roomName: 'BIOMETRICS & CYBERNETICS LAB',
+    roomDestination: 'wellness',
+    position: [-3.8, 0, 2.7],
+    rotationY: 0.4,
+    behavior: 'working',
+    jacketColor: '#24374a',
+    hairColor: '#2b231f',
+  },
+  {
+    id: 'slot-3',
+    defaultName: 'SAM',
+    gender: 'male',
+    hair: 'cropped',
+    role: 'OPERATIONS',
+    status: 'SYSTEM',
+    roomName: 'BIOMETRICS & CYBERNETICS LAB',
+    roomDestination: 'wellness',
+    position: [-2.1, 0, 2.8],
+    rotationY: 0,
+    behavior: 'working',
+    jacketColor: '#1c2e42',
+    hairColor: '#1a1a1a',
+    isSitting: true,
+  },
+  {
+    id: 'slot-4',
+    defaultName: 'MIA',
+    gender: 'female',
+    hair: 'bun',
+    role: 'ANALYST',
+    status: 'DATA',
+    roomName: 'BIOMETRICS & CYBERNETICS LAB',
+    roomDestination: 'wellness',
+    position: [-1.0, 0, 2.6],
+    rotationY: -0.6,
+    behavior: 'working',
+    jacketColor: '#384d63',
+    hairColor: '#4a2e1d',
+  },
+  {
+    id: 'slot-5',
+    defaultName: 'JACS',
+    gender: 'male',
+    hair: 'cropped',
+    role: 'SECURITY',
+    status: 'RESEARCH',
+    roomName: 'CATWALK BRIDGE',
+    roomDestination: 'workflows',
+    position: [0.3, 1.4, 0.15],
+    rotationY: 0,
+    behavior: 'transit',
+    jacketColor: '#2b3f54',
+    hairColor: '#222222',
+  },
+  {
+    id: 'slot-6',
+    defaultName: 'ELIAS',
+    gender: 'male',
+    hair: 'cropped',
+    role: 'STRATEGY',
+    status: 'DISCUSSING',
+    roomName: 'CENTRAL CATWALK',
+    roomDestination: 'collaboration_hall',
+    position: [2.7, 1.4, 1.5],
+    rotationY: 1.8,
+    behavior: 'collaborating',
+    jacketColor: '#22384c',
+    hairColor: '#332722',
+  },
+  {
+    id: 'slot-7',
+    defaultName: 'SARA',
+    gender: 'female',
+    hair: 'ponytail',
+    role: 'SCIENCE',
+    status: 'COLLABORATING',
+    roomName: 'CENTRAL CATWALK',
+    roomDestination: 'collaboration_hall',
+    position: [3.7, 1.4, 1.8],
+    rotationY: -1.3,
+    behavior: 'collaborating',
+    jacketColor: '#cfdbe6', // white-silver lab coat
+    hairColor: '#1c1b1a',
+  },
+  {
+    id: 'slot-8',
+    defaultName: 'TARA',
+    gender: 'female',
+    hair: 'ponytail',
+    role: 'DATA BAY',
+    status: 'COLLABORATION',
+    roomName: 'TECH SUITE & DATA BAY',
+    roomDestination: 'data',
+    position: [4.1, 1.4, -2.1],
+    rotationY: -0.5,
+    behavior: 'working',
+    jacketColor: '#33485c',
+    hairColor: '#4f301d',
+  },
+  {
+    id: 'slot-9',
+    defaultName: 'KATE',
+    gender: 'female',
+    hair: 'bun',
+    role: 'COMMAND',
+    status: 'SURVEILLANCE',
+    roomName: 'MISSION CONTROL',
+    roomDestination: 'tasks',
+    position: [0.5, 1.4, -3.1],
+    rotationY: 0,
+    behavior: 'working',
+    jacketColor: '#203244',
+    hairColor: '#2a2220',
+  },
+  {
+    id: 'slot-10',
+    defaultName: 'CHLOE',
+    gender: 'female',
+    hair: 'ponytail',
+    role: 'QUANTUM',
+    status: 'OPTIMIZING',
+    roomName: 'QUANTUM COMPUTE HUB',
+    roomDestination: 'agents',
+    position: [-4.2, 2.8, -2.5],
+    rotationY: 0,
+    behavior: 'working',
+    jacketColor: '#2c4257',
+    hairColor: '#5c3a21',
+  },
+  {
+    id: 'slot-11',
+    defaultName: 'DAN',
+    gender: 'male',
+    hair: 'cropped',
+    role: 'HARDWARE',
+    status: 'COMPUTE',
+    roomName: 'QUANTUM COMPUTE HUB',
+    roomDestination: 'agents',
+    position: [-2.7, 2.8, -2.5],
+    rotationY: 0,
+    behavior: 'working',
+    jacketColor: '#1e3042',
+    hairColor: '#1c1c1c',
+  },
 ];
 
-const ACTIVE = new Set<AgentStatus>(['thinking', 'working', 'meeting', 'waiting_approval']);
-const statusColor = (status: AgentStatus) => status === 'blocked' || status === 'failed' ? '#ff718a' : ACTIVE.has(status) ? '#75eddf' : '#8094ab';
-const ROOM_LINKS = [{ label: 'CENTRAL NEXUS', destination: 'main' }, ...ROOMS.map(room => ({ label: room.title, destination: room.destination }))];
-
 export interface LivingHQSceneProps {
-  agents: TownAgent[];
-  messages?: AgentCommunication[];
-  onSelectAgent: (id: string) => void;
+  agents?: TownAgent[];
+  messages?: any[];
+  customNames?: Record<string, string>;
+  onSelectAgent: (id: string, name: string) => void;
   onOpenRoom: (destination: string) => void;
   selectedAgentId?: string | null;
   height?: number | string;
+  focusTarget?: [number, number, number] | null;
 }
 
-function Box({ at, size, color, emissive, intensity = 0, opacity = 1, metalness = 0.25 }: {
-  at: [number, number, number]; size: [number, number, number]; color: string;
-  emissive?: string; intensity?: number; opacity?: number; metalness?: number;
+// --------------------------------------------------------------------------
+// REUSABLE 3D BOX & GEOMETRY HELPERS
+// --------------------------------------------------------------------------
+function Box({
+  at,
+  size,
+  color,
+  emissive,
+  intensity = 0,
+  opacity = 1,
+  metalness = 0.45,
+  roughness = 0.4,
+}: {
+  at: [number, number, number];
+  size: [number, number, number];
+  color: string;
+  emissive?: string;
+  intensity?: number;
+  opacity?: number;
+  metalness?: number;
+  roughness?: number;
 }) {
-  return <mesh position={at} castShadow receiveShadow>
-    <boxGeometry args={size} />
-    <meshStandardMaterial color={color} emissive={emissive ?? color} emissiveIntensity={intensity} transparent={opacity < 1} opacity={opacity} metalness={metalness} roughness={0.37} depthWrite={opacity === 1} />
-  </mesh>;
+  return (
+    <mesh position={at} castShadow receiveShadow>
+      <boxGeometry args={size} />
+      <meshStandardMaterial
+        color={color}
+        emissive={emissive ?? color}
+        emissiveIntensity={intensity}
+        transparent={opacity < 1}
+        opacity={opacity}
+        metalness={metalness}
+        roughness={roughness}
+        depthWrite={opacity === 1}
+      />
+    </mesh>
+  );
 }
 
-function SceneLabel({ text, color, position, width, height, outline = '#0c182a' }: {
-  text: string; color: string; position: [number, number, number]; width: number; height: number; outline?: string;
+// --------------------------------------------------------------------------
+// CAMERA CONTROLLER WITH SMOOTH LERP
+// --------------------------------------------------------------------------
+function CameraRig({
+  focusPosition,
+  controlsRef,
+}: {
+  focusPosition: [number, number, number] | null;
+  controlsRef: React.RefObject<any>;
 }) {
-  const texture = useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024;
-    canvas.height = 160;
-    const context = canvas.getContext('2d');
-    if (!context) return null;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.font = '600 64px Arial, sans-serif';
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.lineJoin = 'round';
-    context.lineWidth = 8;
-    context.strokeStyle = outline;
-    context.shadowColor = color;
-    context.shadowBlur = 12;
-    context.strokeText(text, canvas.width / 2, canvas.height / 2, canvas.width - 24);
-    context.fillStyle = color;
-    context.fillText(text, canvas.width / 2, canvas.height / 2, canvas.width - 24);
-    const next = new THREE.CanvasTexture(canvas);
-    next.colorSpace = THREE.SRGBColorSpace;
-    next.minFilter = THREE.LinearFilter;
-    next.magFilter = THREE.LinearFilter;
-    next.needsUpdate = true;
-    return next;
-  }, [text, color, outline]);
-  React.useEffect(() => () => texture?.dispose(), [texture]);
-  if (!texture) return null;
-  return <mesh position={position}>
-    <planeGeometry args={[width, height]} />
-    <meshBasicMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
-  </mesh>;
+  const { camera } = useThree();
+  const defaultPos = useMemo(() => new THREE.Vector3(12.5, 11, 14.5), []);
+  const defaultTarget = useMemo(() => new THREE.Vector3(0, 1.8, 0), []);
+
+  useFrame(() => {
+    if (controlsRef.current) {
+      if (focusPosition) {
+        const targetPos = new THREE.Vector3(
+          focusPosition[0] + 2.5,
+          focusPosition[1] + 1.9,
+          focusPosition[2] + 3.2
+        );
+        const targetLookAt = new THREE.Vector3(
+          focusPosition[0],
+          focusPosition[1] + 0.9,
+          focusPosition[2]
+        );
+
+        camera.position.lerp(targetPos, 0.055);
+        controlsRef.current.target.lerp(targetLookAt, 0.055);
+        controlsRef.current.update();
+      }
+    }
+  });
+
+  return null;
 }
 
-function Trim({ width, depth, y, accent }: { width: number; depth: number; y: number; accent: string }) {
-  return <>
-    <Box at={[0, y, depth / 2]} size={[width, 0.035, 0.045]} color={accent} emissive={accent} intensity={1.5} />
-    <Box at={[0, y, -depth / 2]} size={[width, 0.035, 0.045]} color={accent} emissive={accent} intensity={0.9} />
-    {([-1, 1] as const).map(side => <Box key={side} at={[side * width / 2, y, 0]} size={[0.045, 0.035, depth]} color={accent} emissive={accent} intensity={0.9} />)}
-  </>;
-}
-
-function Workstation({ x, z, accent, facing = 0 }: { x: number; z: number; accent: string; facing?: number }) {
-  return <group position={[x, 0, z]} rotation={[0, facing, 0]}>
-    <Box at={[0, 0.31, 0]} size={[0.84, 0.07, 0.46]} color="#4d6177" metalness={0.65} />
-    <Box at={[-0.32, 0.17, 0]} size={[0.045, 0.28, 0.36]} color="#24384f" />
-    <Box at={[0.32, 0.17, 0]} size={[0.045, 0.28, 0.36]} color="#24384f" />
-    <Box at={[0, 0.63, -0.18]} size={[0.57, 0.43, 0.035]} color="#14263d" emissive={accent} intensity={0.27} />
-    <Box at={[0, 0.63, -0.155]} size={[0.46, 0.29, 0.007]} color={accent} emissive={accent} intensity={0.75} opacity={0.72} />
-    <Box at={[0, 0.42, -0.18]} size={[0.035, 0.15, 0.035]} color="#61798d" />
-    <Box at={[0, 0.12, 0.52]} size={[0.43, 0.18, 0.42]} color="#344d68" />
-  </group>;
-}
-
-function RoomFurniture({ room }: { room: Room }) {
-  const isMeeting = room.id === 'meeting_hall';
-  const isOperations = room.id === 'operations';
-  return <>
-    {isMeeting ? <>
-      <Box at={[0, 0.3, 0]} size={[2.35, 0.1, 0.92]} color="#596780" metalness={0.66} />
-      <Box at={[0, 0.57, 0]} size={[1.7, 0.04, 0.52]} color={room.accent} emissive={room.accent} intensity={0.8} opacity={0.62} />
-      {[-1.3, 1.3].map(x => [-0.43, 0.43].map(z => <Box key={`${x}-${z}`} at={[x, 0.16, z]} size={[0.28, 0.3, 0.3]} color="#344a64" />))}
-    </> : <>
-      {[-1.08, 1.08].map(x => [-0.73, 0.78].map(z => <Workstation key={`${x}-${z}`} x={x} z={z} accent={room.accent} facing={z > 0 ? Math.PI : 0} />))}
-      {isOperations && <Box at={[0, 1.18, -room.size[1] / 2 + 0.2]} size={[2.65, 0.66, 0.04]} color="#13283f" emissive={room.accent} intensity={0.5} />}
-      {room.id === 'research_lab' && <mesh position={[0, 0.77, 0]}><icosahedronGeometry args={[0.34, 1]} /><meshStandardMaterial color="#4dbbfc" emissive="#4dbbfc" emissiveIntensity={1.3} wireframe /></mesh>}
-      {room.id === 'creative_studio' && <mesh position={[0, 0.92, 0]} rotation={[0.4, 0.3, 0.5]}><torusKnotGeometry args={[0.25, 0.045, 56, 8]} /><meshStandardMaterial color="#a58cff" emissive="#a58cff" emissiveIntensity={1.2} /></mesh>}
-    </>}
-  </>;
-}
-
-function AgentAvatar({ agent, at, selected, onSelect }: {
-  agent: TownAgent; at: [number, number, number]; selected: boolean; onSelect: (id: string) => void;
+// --------------------------------------------------------------------------
+// ARTICULATED 3D HUMAN AGENT COMPONENT
+// --------------------------------------------------------------------------
+function ArticulatedHuman({
+  config,
+  displayName,
+  selected,
+  onSelect,
+  speechText,
+}: {
+  config: AgentSlotConfig;
+  displayName: string;
+  selected: boolean;
+  onSelect: (id: string, name: string) => void;
+  speechText?: string;
 }) {
-  const working = ACTIVE.has(agent.status);
-  const glow = statusColor(agent.status);
   const root = useRef<THREE.Group>(null);
   const head = useRef<THREE.Group>(null);
   const leftArm = useRef<THREE.Group>(null);
   const rightArm = useRef<THREE.Group>(null);
   const leftLeg = useRef<THREE.Group>(null);
   const rightLeg = useRef<THREE.Group>(null);
-  const [reducedMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const seed = agent.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0) * 0.13;
+  const leftKnee = useRef<THREE.Group>(null);
+  const rightKnee = useRef<THREE.Group>(null);
+
+  const seed = useMemo(
+    () => config.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) * 0.17,
+    [config.id]
+  );
+
   useFrame(({ clock }) => {
     const t = clock.elapsedTime + seed;
-    if (root.current) {
-      const activeMotion = agent.status === 'working' || agent.status === 'thinking' || agent.status === 'meeting';
-      root.current.position.y = at[1] + (activeMotion ? 0.018 : 0.006) * Math.sin(t * (activeMotion ? 2.8 : 1.25));
-      const walking = agent.status === 'working' && Boolean(agent.task_id);
-      const travel = walking && !reducedMotion;
-      root.current.position.x = at[0] + (travel ? Math.sin(t * 0.58) * 0.3 : 0);
-      root.current.position.z = at[2] + (travel ? Math.sin(t * 0.39 + seed) * 0.22 : 0);
-      root.current.rotation.y = travel ? Math.atan2(Math.cos(t * 0.58), Math.cos(t * 0.39 + seed)) : 0;
-      root.current.rotation.z = agent.status === 'blocked' || agent.status === 'failed' ? -0.1 : 0.012 * Math.sin(t * 1.2);
-    }
-    if (head.current) {
-      head.current.rotation.y = agent.status === 'thinking' ? Math.sin(t * 0.72) * 0.3 : agent.status === 'meeting' ? Math.sin(t * 0.55) * 0.18 : Math.sin(t * 0.8) * 0.035;
-      head.current.rotation.x = agent.status === 'thinking' ? -0.1 : 0;
-    }
-    if (leftArm.current && rightArm.current) {
-      const cycle = Math.sin(t * (agent.status === 'working' ? 3.5 : 1.1));
-      leftArm.current.rotation.x = agent.status === 'working' ? cycle * 0.34 : agent.status === 'meeting' ? -0.08 : 0.025 * cycle;
-      rightArm.current.rotation.x = agent.status === 'working' ? -cycle * 0.34 : agent.status === 'meeting' ? 0.08 : 0.025 * cycle;
-      rightArm.current.rotation.z = agent.status === 'thinking' ? -0.82 : 0;
-    }
-    if (leftLeg.current && rightLeg.current) {
-      const stride = agent.status === 'working' && Boolean(agent.task_id) && !reducedMotion ? Math.sin(t * 2.1) * 0.32 : 0.018 * Math.sin(t);
-      leftLeg.current.rotation.x = stride;
-      rightLeg.current.rotation.x = -stride;
+
+    if (!root.current) return;
+
+    if (config.behavior === 'transit') {
+      // Smooth walk cycle across the bridge doorway
+      const walkRange = 2.4;
+      const walkCycle = Math.sin(t * 0.7);
+      const walkX = config.position[0] + walkCycle * (walkRange / 2);
+      root.current.position.x = walkX;
+      root.current.position.y = config.position[1] + Math.abs(Math.sin(t * 3.5)) * 0.035;
+      root.current.position.z = config.position[2];
+
+      const facing = Math.cos(t * 0.7) >= 0 ? 0 : Math.PI;
+      root.current.rotation.y = facing;
+
+      if (leftLeg.current && rightLeg.current) {
+        const stride = Math.sin(t * 3.5) * 0.45;
+        leftLeg.current.rotation.x = stride;
+        rightLeg.current.rotation.x = -stride;
+      }
+      if (leftArm.current && rightArm.current) {
+        const armSwing = Math.sin(t * 3.5) * 0.4;
+        leftArm.current.rotation.x = -armSwing;
+        rightArm.current.rotation.x = armSwing;
+      }
+    } else if (config.behavior === 'collaborating') {
+      // Natural dialogue gestures facing counterpart
+      root.current.position.set(...config.position);
+      root.current.rotation.y = config.rotationY;
+
+      const gestureCycle = Math.sin(t * 1.8);
+      if (rightArm.current) {
+        rightArm.current.rotation.x = -0.7 + gestureCycle * 0.25;
+        rightArm.current.rotation.z = -0.2 + Math.cos(t * 1.5) * 0.15;
+      }
+      if (leftArm.current) {
+        leftArm.current.rotation.x = -0.3 + Math.sin(t * 1.2) * 0.15;
+      }
+      if (head.current) {
+        head.current.rotation.y = Math.sin(t * 0.9) * 0.12;
+        head.current.rotation.x = Math.sin(t * 1.8) * 0.08;
+      }
+    } else {
+      // Working / operating at desk or terminal
+      root.current.position.set(...config.position);
+      root.current.rotation.y = config.rotationY;
+
+      // Breathing bob
+      root.current.position.y = config.position[1] + Math.sin(t * 1.6) * 0.012;
+
+      if (config.isSitting) {
+        if (leftLeg.current && rightLeg.current) {
+          leftLeg.current.rotation.x = -Math.PI / 2 + 0.1;
+          rightLeg.current.rotation.x = -Math.PI / 2 + 0.1;
+        }
+      }
+
+      // Typing or calibrating motions
+      if (rightArm.current) {
+        rightArm.current.rotation.x = -1.1 + Math.sin(t * 4) * 0.12;
+        rightArm.current.rotation.y = Math.sin(t * 2) * 0.08;
+      }
+      if (leftArm.current) {
+        leftArm.current.rotation.x = -0.9 + Math.cos(t * 3.2) * 0.1;
+        leftArm.current.rotation.y = -Math.sin(t * 1.8) * 0.08;
+      }
+      if (head.current) {
+        head.current.rotation.y = Math.sin(t * 0.7) * 0.18;
+        head.current.rotation.x = -0.08 + Math.sin(t * 1.1) * 0.05;
+      }
     }
   });
-  return <group ref={root} position={at} onClick={event => { event.stopPropagation(); onSelect(agent.id); }} onPointerOver={() => { document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = ''; }}>
-    <mesh position={[0, 0.08, 0]}><cylinderGeometry args={[0.19, 0.24, 0.03, 16]} /><meshBasicMaterial color={glow} transparent opacity={selected ? 0.9 : 0.42} /></mesh>
-    <mesh position={[0, 0.16, 0]}><capsuleGeometry args={[0.075, 0.2, 4, 8]} /><meshStandardMaterial color="#465a70" metalness={0.54} roughness={0.42} /></mesh>
-    <mesh position={[0, 0.4, 0]}><capsuleGeometry args={[0.13, 0.3, 5, 12]} /><meshStandardMaterial color={selected ? '#d6faff' : '#7f9fba'} emissive={glow} emissiveIntensity={working ? 0.42 : 0.12} metalness={0.56} roughness={0.34} /></mesh>
-    <group ref={leftArm} position={[-0.16, 0.5, 0]}><mesh position={[0, -0.13, 0]}><capsuleGeometry args={[0.052, 0.19, 3, 8]} /><meshStandardMaterial color="#829bb0" metalness={0.4} roughness={0.4} /></mesh></group>
-    <group ref={rightArm} position={[0.16, 0.5, 0]}><mesh position={[0, -0.13, 0]}><capsuleGeometry args={[0.052, 0.19, 3, 8]} /><meshStandardMaterial color="#829bb0" metalness={0.4} roughness={0.4} /></mesh></group>
-    <group ref={leftLeg} position={[-0.07, 0.27, 0]}><mesh position={[0, -0.1, 0]}><capsuleGeometry args={[0.043, 0.16, 3, 7]} /><meshStandardMaterial color="#71869e" metalness={0.45} /></mesh></group>
-    <group ref={rightLeg} position={[0.07, 0.27, 0]}><mesh position={[0, -0.1, 0]}><capsuleGeometry args={[0.043, 0.16, 3, 7]} /><meshStandardMaterial color="#71869e" metalness={0.45} /></mesh></group>
-    <group ref={head} position={[0, 0.72, 0]}>
-      <mesh><sphereGeometry args={[0.12, 16, 12]} /><meshStandardMaterial color="#b2c7d9" metalness={0.45} /></mesh>
-      <mesh position={[0, 0.12, 0]}><sphereGeometry args={[0.055, 12, 8]} /><meshBasicMaterial color={glow} /></mesh>
-    </group>
-    {selected && <mesh position={[0, 0.065, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.23, 0.32, 24]} /><meshBasicMaterial color="#e3fbff" side={THREE.DoubleSide} /></mesh>}
-  </group>;
-}
 
-function RoomModule({ room, agents, selectedAgentId, onSelectAgent, onOpenRoom }: {
-  room: Room; agents: TownAgent[]; selectedAgentId?: string | null;
-  onSelectAgent: (id: string) => void; onOpenRoom: (destination: string) => void;
-}) {
-  const [width, depth] = room.size;
-  const [x, y, z] = room.position;
-  const visibleAgents = agents.slice(0, 12);
-  return <group position={[x, y, z]}>
-    <group onClick={event => { event.stopPropagation(); onOpenRoom(room.destination); }} onPointerOver={() => { document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = ''; }}>
-      <Box at={[0, -0.16, 0]} size={[width + 0.12, 0.32, depth + 0.12]} color="#1b2941" metalness={0.72} />
-      <Box at={[0, 0.015, 0]} size={[width, 0.045, depth]} color="#30435b" metalness={0.6} />
-      <Trim width={width + 0.14} depth={depth + 0.14} y={-0.28} accent={room.accent} />
-      <Box at={[0, 0.92, -depth / 2]} size={[width, 1.84, 0.075]} color="#324762" opacity={0.68} />
-      <Box at={[-width / 2, 0.89, 0]} size={[0.07, 1.78, depth]} color="#253750" opacity={0.5} />
-      <Box at={[width / 2, 0.89, 0]} size={[0.07, 1.78, depth]} color="#253750" opacity={0.44} />
-      <Box at={[0, 0.42, depth / 2]} size={[width, 0.78, 0.035]} color="#76b2d9" opacity={0.13} />
-      <Box at={[0, 1.77, -depth / 2 + 0.04]} size={[width, 0.035, 0.055]} color={room.accent} emissive={room.accent} intensity={1.3} />
-      {[-1, 1].map(side => <Box key={side} at={[side * (width / 2 - 0.1), 0.9, -depth / 2 + 0.06]} size={[0.04, 1.8, 0.06]} color="#8aa1ba" metalness={0.8} />)}
-      <RoomFurniture room={room} />
-      <SceneLabel position={[0, 2.03, -depth / 2]} width={width * 0.9} height={0.29} text={room.title} color="#e6f5ff" />
-      <SceneLabel position={[0, 1.76, -depth / 2 + 0.075]} width={1.8} height={0.19} text={`${agents.length} DEPLOYED`} color={room.accent} />
-    </group>
-    {visibleAgents.map((agent, index) => {
-      const column = index % 4;
-      const row = Math.floor(index / 4);
-      const ax = (column - 1.5) * 0.88;
-      const az = 0.12 + row * 0.47;
-      return <AgentAvatar key={agent.id} agent={agent} at={[ax, 0, az]} selected={selectedAgentId === agent.id} onSelect={onSelectAgent} />;
-    })}
-    {agents.length > visibleAgents.length && <SceneLabel position={[0, 0.15, depth / 2 - 0.16]} width={1.6} height={0.22} text={`+${agents.length - visibleAgents.length} AGENTS`} color="#d4eaff" />}
-  </group>;
-}
+  const skinColor = '#d9b29c';
+  const pantsColor = '#182433';
+  const bootColor = '#0d1520';
 
-function Nexus({ agents, selectedAgentId, onSelectAgent, onOpenRoom, reducedMotion }: {
-  agents: TownAgent[]; selectedAgentId?: string | null; onSelectAgent: (id: string) => void;
-  onOpenRoom: (destination: string) => void; reducedMotion: boolean;
-}) {
-  const core = useRef<THREE.Group>(null);
-  useFrame((_, delta) => { if (core.current && !reducedMotion) core.current.rotation.y += delta * 0.14; });
-  return <group>
-    <group onClick={event => { event.stopPropagation(); onOpenRoom('main'); }} onPointerOver={() => { document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = ''; }}>
-      <mesh position={[0, 0.05, 0]}><cylinderGeometry args={[1.62, 1.72, 0.16, 40]} /><meshStandardMaterial color="#374b66" metalness={0.82} roughness={0.23} /></mesh>
-      <mesh position={[0, 0.17, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[1.2, 1.53, 48]} /><meshBasicMaterial color="#b06eff" side={THREE.DoubleSide} /></mesh>
-      <mesh position={[0, 2.58, 0]}><cylinderGeometry args={[1.48, 1.48, 0.12, 40]} /><meshStandardMaterial color="#273a56" metalness={0.7} transparent opacity={0.7} /></mesh>
-      <mesh position={[0, 2.68, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[1.11, 1.43, 48]} /><meshBasicMaterial color="#56e3ef" side={THREE.DoubleSide} /></mesh>
-      <mesh position={[0, 3, 0]}><cylinderGeometry args={[0.66, 0.84, 5.86, 24, 1, true]} /><meshStandardMaterial color="#4daee8" emissive="#3d8af5" emissiveIntensity={0.65} metalness={0.55} roughness={0.2} transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} /></mesh>
-      <group ref={core}>
-        {Array.from({ length: 10 }, (_, i) => <mesh key={i} position={[0, 0.62 + i * 0.49, 0]} rotation={[0, i * 0.31, 0]}><torusGeometry args={[0.77 + (i % 3) * 0.08, 0.025, 6, 32]} /><meshBasicMaterial color={i % 2 ? '#72dfff' : '#ad71fb'} transparent opacity={0.78} /></mesh>)}
-        {Array.from({ length: 6 }, (_, i) => <Box key={i} at={[0, 0.8 + i * 0.77, 0]} size={[1.24, 0.05, 1.24]} color="#386788" emissive="#49bbf9" intensity={0.65} opacity={0.34} />)}
+  return (
+    <group
+      ref={root}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(config.id, displayName);
+      }}
+      onPointerOver={() => {
+        document.body.style.cursor = 'pointer';
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = '';
+      }}
+    >
+      {/* 3D BILLBOARD NAME & STATUS TAG */}
+      <Html position={[0, 1.95, 0]} center distanceFactor={14}>
+        <div className={`tj-agent-3d-tag ${selected ? 'is-selected' : ''}`}>
+          <span className="tj-agent-3d-dot" />
+          <span className="tj-agent-3d-name">{displayName}</span>
+          <span className="tj-agent-3d-sep">|</span>
+          <span className="tj-agent-3d-status">{config.status}</span>
+        </div>
+      </Html>
+
+      {/* SPEECH BUBBLE FOR COLLABORATING AGENTS */}
+      {speechText && (
+        <Html position={[0, 2.35, 0]} center distanceFactor={13}>
+          <div className="tj-agent-speech-bubble">{speechText}</div>
+        </Html>
+      )}
+
+      {/* SELECTION AURA RING ON FLOOR */}
+      {selected && (
+        <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.35, 0.48, 32]} />
+          <meshBasicMaterial color="#00f2fe" transparent opacity={0.85} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
+      {/* CHARACTER SKELETON & BODY PARTS */}
+      {/* Pelvis / Hips */}
+      <mesh position={[0, 0.82, 0]} castShadow>
+        <boxGeometry args={[0.3, 0.16, 0.2]} />
+        <meshStandardMaterial color={pantsColor} roughness={0.5} />
+      </mesh>
+
+      {/* Tactical Belt */}
+      <mesh position={[0, 0.91, 0]}>
+        <boxGeometry args={[0.32, 0.04, 0.22]} />
+        <meshStandardMaterial color="#0b1118" metalness={0.6} />
+      </mesh>
+
+      {/* Torso / Tactical Jacket */}
+      <group position={[0, 1.12, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[config.gender === 'female' ? 0.32 : 0.36, 0.38, 0.22]} />
+          <meshStandardMaterial color={config.jacketColor} roughness={0.35} metalness={0.2} />
+        </mesh>
+        {/* Glowing Cyber Chest Emblem */}
+        <mesh position={[0.08, 0.06, 0.115]}>
+          <planeGeometry args={[0.07, 0.04]} />
+          <meshBasicMaterial color="#00f2fe" />
+        </mesh>
+        {/* Tactical Collar */}
+        <mesh position={[0, 0.21, 0]}>
+          <boxGeometry args={[0.22, 0.05, 0.16]} />
+          <meshStandardMaterial color="#1a2736" />
+        </mesh>
       </group>
-      <mesh position={[0, 5.97, 0]}><boxGeometry args={[2.18, 0.14, 2.18]} /><meshStandardMaterial color="#5c83a5" emissive="#63c7f9" emissiveIntensity={0.6} metalness={0.8} /></mesh>
-      <mesh position={[0, 6.05, 0]}><boxGeometry args={[1.85, 0.05, 1.85]} /><meshBasicMaterial color="#67d9ff" transparent opacity={0.52} /></mesh>
-      <SceneLabel position={[0, 6.4, 0]} width={3.1} height={0.36} text="CENTRAL NEXUS" color="#e9fbff" outline="#102239" />
+
+      {/* Head & Hair */}
+      <group ref={head} position={[0, 1.44, 0]}>
+        {/* Neck */}
+        <mesh position={[0, -0.06, 0]}>
+          <cylinderGeometry args={[0.05, 0.06, 0.08, 12]} />
+          <meshStandardMaterial color={skinColor} roughness={0.6} />
+        </mesh>
+        {/* Head */}
+        <mesh castShadow>
+          <sphereGeometry args={[0.115, 16, 16]} />
+          <meshStandardMaterial color={skinColor} roughness={0.55} />
+        </mesh>
+        {/* Face Visor / Cyber Eye Lens */}
+        <mesh position={[0, 0.015, 0.1]}>
+          <boxGeometry args={[0.13, 0.035, 0.04]} />
+          <meshBasicMaterial color="#00f2fe" transparent opacity={0.6} />
+        </mesh>
+
+        {/* Hairstyles */}
+        {config.hair === 'ponytail' ? (
+          <group position={[0, 0.04, -0.06]}>
+            <mesh>
+              <sphereGeometry args={[0.12, 14, 14]} />
+              <meshStandardMaterial color={config.hairColor} roughness={0.8} />
+            </mesh>
+            {/* Ponytail strand */}
+            <mesh position={[0, -0.1, -0.1]} rotation={[0.4, 0, 0]}>
+              <cylinderGeometry args={[0.03, 0.015, 0.22, 8]} />
+              <meshStandardMaterial color={config.hairColor} roughness={0.8} />
+            </mesh>
+          </group>
+        ) : config.hair === 'bun' ? (
+          <group position={[0, 0.08, -0.06]}>
+            <mesh>
+              <sphereGeometry args={[0.12, 14, 14]} />
+              <meshStandardMaterial color={config.hairColor} roughness={0.8} />
+            </mesh>
+            {/* Chic Top Bun */}
+            <mesh position={[0, 0.06, -0.04]}>
+              <sphereGeometry args={[0.065, 12, 12]} />
+              <meshStandardMaterial color={config.hairColor} roughness={0.8} />
+            </mesh>
+          </group>
+        ) : (
+          /* Cropped Tactical Cut */
+          <mesh position={[0, 0.05, -0.01]}>
+            <sphereGeometry args={[0.125, 16, 12]} />
+            <meshStandardMaterial color={config.hairColor} roughness={0.8} />
+          </mesh>
+        )}
+      </group>
+
+      {/* Left Arm */}
+      <group ref={leftArm} position={[-0.22, 1.25, 0]}>
+        {/* Shoulder Pad */}
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[0.09, 0.08, 0.12]} />
+          <meshStandardMaterial color="#1a2736" metalness={0.6} />
+        </mesh>
+        {/* Upper Arm */}
+        <mesh position={[0, -0.14, 0]}>
+          <cylinderGeometry args={[0.045, 0.04, 0.22, 10]} />
+          <meshStandardMaterial color={config.jacketColor} roughness={0.4} />
+        </mesh>
+        {/* Forearm & Hand */}
+        <mesh position={[0, -0.32, 0]}>
+          <cylinderGeometry args={[0.04, 0.035, 0.2, 10]} />
+          <meshStandardMaterial color="#162331" roughness={0.5} />
+        </mesh>
+        <mesh position={[0, -0.44, 0]}>
+          <boxGeometry args={[0.05, 0.07, 0.06]} />
+          <meshStandardMaterial color={skinColor} roughness={0.6} />
+        </mesh>
+      </group>
+
+      {/* Right Arm */}
+      <group ref={rightArm} position={[0.22, 1.25, 0]}>
+        {/* Shoulder Pad */}
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[0.09, 0.08, 0.12]} />
+          <meshStandardMaterial color="#1a2736" metalness={0.6} />
+        </mesh>
+        {/* Upper Arm */}
+        <mesh position={[0, -0.14, 0]}>
+          <cylinderGeometry args={[0.045, 0.04, 0.22, 10]} />
+          <meshStandardMaterial color={config.jacketColor} roughness={0.4} />
+        </mesh>
+        {/* Forearm & Hand */}
+        <mesh position={[0, -0.32, 0]}>
+          <cylinderGeometry args={[0.04, 0.035, 0.2, 10]} />
+          <meshStandardMaterial color="#162331" roughness={0.5} />
+        </mesh>
+        <mesh position={[0, -0.44, 0]}>
+          <boxGeometry args={[0.05, 0.07, 0.06]} />
+          <meshStandardMaterial color={skinColor} roughness={0.6} />
+        </mesh>
+      </group>
+
+      {/* Left Leg */}
+      <group ref={leftLeg} position={[-0.1, 0.74, 0]}>
+        {/* Thigh */}
+        <mesh position={[0, -0.18, 0]}>
+          <cylinderGeometry args={[0.065, 0.055, 0.34, 10]} />
+          <meshStandardMaterial color={pantsColor} roughness={0.5} />
+        </mesh>
+        {/* Knee & Calf */}
+        <group ref={leftKnee} position={[0, -0.36, 0]}>
+          <mesh position={[0, -0.16, 0]}>
+            <cylinderGeometry args={[0.052, 0.045, 0.32, 10]} />
+            <meshStandardMaterial color={pantsColor} roughness={0.5} />
+          </mesh>
+          {/* Tactical Boot */}
+          <mesh position={[0, -0.34, 0.03]}>
+            <boxGeometry args={[0.09, 0.1, 0.17]} />
+            <meshStandardMaterial color={bootColor} roughness={0.4} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* Right Leg */}
+      <group ref={rightLeg} position={[0.1, 0.74, 0]}>
+        {/* Thigh */}
+        <mesh position={[0, -0.18, 0]}>
+          <cylinderGeometry args={[0.065, 0.055, 0.34, 10]} />
+          <meshStandardMaterial color={pantsColor} roughness={0.5} />
+        </mesh>
+        {/* Knee & Calf */}
+        <group ref={rightKnee} position={[0, -0.36, 0]}>
+          <mesh position={[0, -0.16, 0]}>
+            <cylinderGeometry args={[0.052, 0.045, 0.32, 10]} />
+            <meshStandardMaterial color={pantsColor} roughness={0.5} />
+          </mesh>
+          {/* Tactical Boot */}
+          <mesh position={[0, -0.34, 0.03]}>
+            <boxGeometry args={[0.09, 0.1, 0.17]} />
+            <meshStandardMaterial color={bootColor} roughness={0.4} />
+          </mesh>
+        </group>
+      </group>
     </group>
-    {agents.slice(0, 8).map((agent, index) => {
-      const angle = index * Math.PI * 0.25;
-      return <AgentAvatar key={agent.id} agent={agent} at={[Math.sin(angle) * 1.94, 0, Math.cos(angle) * 1.94]} selected={selectedAgentId === agent.id} onSelect={onSelectAgent} />;
-    })}
-    {agents.length > 8 && <SceneLabel position={[0, 0.25, 2.25]} width={1.6} height={0.22} text={`+${agents.length - 8} AGENTS`} color="#e4f6ff" />}
-  </group>;
+  );
 }
 
-function visualPosition(agent: TownAgent, agents: TownAgent[]): THREE.Vector3 {
-  if (agent.area === 'command_center') {
-    const peers = agents.filter((item) => item.area === 'command_center').sort((a, b) => a.id.localeCompare(b.id));
-    const index = peers.findIndex((item) => item.id === agent.id);
-    const angle = index * Math.PI * 0.25;
-    return new THREE.Vector3(Math.sin(angle) * 1.94, 1.05, Math.cos(angle) * 1.94);
-  }
-  const room = ROOMS.find((item) => item.id === agent.area);
-  const peers = agents.filter((item) => item.area === agent.area).sort((a, b) => a.id.localeCompare(b.id));
-  const index = peers.findIndex((item) => item.id === agent.id);
-  const base = room?.position ?? [0, 0, 0];
-  return new THREE.Vector3(base[0] + ((index % 4) - 1.5) * 0.88, base[1] + 1.05, base[2] + 0.12 + Math.floor(index / 4) * 0.47);
-}
+// --------------------------------------------------------------------------
+// 1. ANTIGRAVITY RESEARCH LAB (Floor Emitter, Zero-G Spheres & Drones)
+// --------------------------------------------------------------------------
+function AntigravityLab({ onOpenRoom }: { onOpenRoom: (dest: string) => void }) {
+  const spheresGroup = useRef<THREE.Group>(null);
+  const drone1 = useRef<THREE.Group>(null);
+  const drone2 = useRef<THREE.Group>(null);
 
-function CommunicationPulse({ start, end, reducedMotion }: { start: THREE.Vector3; end: THREE.Vector3; reducedMotion: boolean }) {
-  const group = useRef<THREE.Group>(null);
-  const pulse = useRef<THREE.Mesh>(null);
-  const vector = useMemo(() => end.clone().sub(start), [start, end]);
-  const length = vector.length();
-  const midpoint = useMemo(() => start.clone().add(end).multiplyScalar(0.5), [start, end]);
-  const rotation = useMemo(() => new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), vector.clone().normalize()), [vector]);
   useFrame(({ clock }) => {
-    if (group.current) { group.current.position.copy(midpoint); group.current.quaternion.copy(rotation); }
-    if (pulse.current && length > 0) {
-      const travel = reducedMotion ? 0.5 : (clock.elapsedTime * 0.65) % 1;
-      pulse.current.position.set(0, (travel - 0.5) * length, 0);
+    const t = clock.elapsedTime;
+    if (spheresGroup.current) {
+      spheresGroup.current.rotation.y = t * 0.25;
+    }
+    if (drone1.current) {
+      drone1.current.position.y = 1.35 + Math.sin(t * 1.4) * 0.18;
+      drone1.current.rotation.y = t * 0.6;
+    }
+    if (drone2.current) {
+      drone2.current.position.y = 1.6 + Math.cos(t * 1.2) * 0.16;
+      drone2.current.rotation.y = -t * 0.5;
     }
   });
-  if (length < 0.5) return null;
-  return <group ref={group}>
-    <mesh><cylinderGeometry args={[0.012, 0.012, length, 5]} /><meshBasicMaterial color="#68ddff" transparent opacity={reducedMotion ? 0.35 : 0.18} depthWrite={false} /></mesh>
-    <mesh ref={pulse}><sphereGeometry args={[0.055, 8, 8]} /><meshBasicMaterial color="#dffaff" toneMapped={false} /></mesh>
-  </group>;
-}
 
-function HQWorld({ agents, messages = [], selectedAgentId, onSelectAgent, onOpenRoom, reducedMotion }: Omit<LivingHQSceneProps, 'height'> & { reducedMotion: boolean }) {
-  const byArea = useMemo(() => {
-    const groups = new Map<string, TownAgent[]>();
-    for (const agent of [...agents].sort((a, b) => a.id.localeCompare(b.id))) {
-      const area = ROOMS.some(room => room.id === agent.area) ? agent.area : 'command_center';
-      const group = groups.get(area) ?? [];
-      group.push(agent);
-      groups.set(area, group);
-    }
-    return groups;
-  }, [agents]);
-  const communications = useMemo(() => {
-    const agentsById = new Map(agents.map((agent) => [agent.id, agent]));
-    const cutoff = Date.now() - 30_000;
-    return messages.filter((message) => message.from_agent_id && message.to_agent_id && Date.parse(message.ts) >= cutoff)
-      .slice(0, 20).map((message) => {
-        const from = agentsById.get(message.from_agent_id!);
-        const to = agentsById.get(message.to_agent_id!);
-        return from && to ? { id: message.id, start: visualPosition(from, agents), end: visualPosition(to, agents) } : null;
-      }).filter((message): message is { id: string; start: THREE.Vector3; end: THREE.Vector3 } => Boolean(message));
-  }, [agents, messages]);
-  return <>
-    <color attach="background" args={['#060b17']} />
-    <fog attach="fog" args={['#060b17', 20, 38]} />
-    <ambientLight intensity={1.45} color="#aab9d6" />
-    <directionalLight position={[7, 12, 8]} intensity={2.5} color="#c5e5ff" />
-    <pointLight position={[0, 4.3, 0]} intensity={13} color="#7b9fff" distance={11} />
-    <pointLight position={[0, 0.4, 0]} intensity={8} color="#bc67fb" distance={7} />
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.61, 0]}><planeGeometry args={[90, 90]} /><meshStandardMaterial color="#080e1c" roughness={0.85} /></mesh>
-    <Box at={[0, -0.39, 0]} size={[15.2, 0.52, 11.4]} color="#14233a" metalness={0.78} />
-    <Trim width={15.24} depth={11.44} y={-0.63} accent="#487ddb" />
-    <Box at={[0, -0.095, 0]} size={[14.85, 0.07, 11]} color="#25344d" metalness={0.72} />
-    {([-1, 1] as const).map(side => <group key={side}>
-      <Box at={[side * 7.36, 1.18, 0]} size={[0.035, 2.35, 10.95]} color="#527297" opacity={0.19} />
-      <Box at={[side * 7.4, 0.1, 0]} size={[0.05, 0.04, 10.95]} color="#5b9dff" emissive="#5b9dff" intensity={1.2} />
-      <Box at={[side * 7.35, 2.35, 0]} size={[0.05, 0.04, 10.95]} color="#5b9dff" emissive="#5b9dff" intensity={0.55} />
-    </group>)}
-    {[-1, 1].map(side => <Box key={side} at={[0, 1.17, side * 5.5]} size={[14.8, 2.34, 0.03]} color="#617caa" opacity={side > 0 ? 0.075 : 0.2} />)}
-    {([-1, 1] as const).flatMap(x => ([-1, 1] as const).map(z => <group key={`support-${x}-${z}`} position={[x * 7.05, 0, z * 5.17]}>
-      <Box at={[0, 1.16, 0]} size={[0.22, 2.32, 0.22]} color="#273b54" metalness={0.82} />
-      <Box at={[0, 0.23, 0]} size={[0.3, 0.06, 0.3]} color="#67b8f4" emissive="#4d9ef1" intensity={0.55} />
-      <Box at={[0, 2.22, 0]} size={[0.3, 0.06, 0.3]} color="#74d8e8" emissive="#55c8ed" intensity={0.65} />
-    </group>))}
-    <group name="Stairway connecting the ground and upper levels">
-      {Array.from({ length: 12 }, (_, index) => <group key={`step-${index}`} position={[2.22, 0.12 + index * 0.19, 1.55 - index * 0.2]}>
-        <Box at={[0, 0, 0]} size={[0.9, 0.11, 0.3]} color="#405775" metalness={0.68} />
-        <Box at={[0, 0.065, 0.105]} size={[0.82, 0.018, 0.025]} color="#6bdaf2" emissive="#51c9ef" intensity={0.8} />
-      </group>)}
-      <Box at={[1.72, 1.22, 0.42]} size={[0.045, 2.28, 0.05]} color="#6184a4" metalness={0.82} />
-      <Box at={[2.72, 1.22, 0.42]} size={[0.045, 2.28, 0.05]} color="#6184a4" metalness={0.82} />
+  return (
+    <group
+      position={[-3.8, 0, -0.2]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenRoom('vision');
+      }}
+    >
+      {/* Room Boundary Sign */}
+      <Box at={[-0.2, 2.9, -1.8]} size={[3.4, 0.25, 0.06]} color="#0c1828" metalness={0.8} />
+      <Box at={[-0.2, 2.9, -1.76]} size={[3.2, 0.18, 0.02]} color="#00f2fe" emissive="#00f2fe" intensity={0.5} opacity={0.6} />
+
+      {/* Glowing Circular Floor Emitter */}
+      <mesh position={[0, 0.03, 0]}>
+        <cylinderGeometry args={[2.0, 2.15, 0.07, 48]} />
+        <meshStandardMaterial color="#122033" metalness={0.8} roughness={0.25} />
+      </mesh>
+      {/* Outer Blue Glow Ring */}
+      <mesh position={[0, 0.075, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.65, 1.95, 48]} />
+        <meshBasicMaterial color="#00f2fe" side={THREE.DoubleSide} />
+      </mesh>
+      {/* Inner Pulsing Blue Core */}
+      <mesh position={[0, 0.078, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.5, 1.4, 48]} />
+        <meshBasicMaterial color="#0d507d" transparent opacity={0.7} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, 0.08, 0]}>
+        <cylinderGeometry args={[0.42, 0.42, 0.02, 32]} />
+        <meshBasicMaterial color="#00f2fe" />
+      </mesh>
+
+      {/* Floating Zero-Gravity Metallic Spheres */}
+      <group ref={spheresGroup} position={[0, 1.1, 0]}>
+        <mesh position={[0, 0.35, 0]}>
+          <sphereGeometry args={[0.32, 32, 32]} />
+          <meshStandardMaterial color="#c2dbee" metalness={0.96} roughness={0.06} />
+        </mesh>
+        <mesh position={[0.75, 0.1, 0.4]}>
+          <sphereGeometry args={[0.2, 24, 24]} />
+          <meshStandardMaterial color="#a7cbfa" metalness={0.95} roughness={0.08} />
+        </mesh>
+        <mesh position={[-0.8, 0.45, -0.3]}>
+          <sphereGeometry args={[0.17, 24, 24]} />
+          <meshStandardMaterial color="#bfe4ff" metalness={0.94} roughness={0.08} />
+        </mesh>
+        <mesh position={[0.2, 0.7, -0.75]}>
+          <sphereGeometry args={[0.13, 20, 20]} />
+          <meshStandardMaterial color="#e0f4ff" metalness={0.95} roughness={0.05} />
+        </mesh>
+        <mesh position={[-0.5, -0.15, 0.6]}>
+          <sphereGeometry args={[0.11, 20, 20]} />
+          <meshStandardMaterial color="#99bfe8" metalness={0.93} roughness={0.1} />
+        </mesh>
+      </group>
+
+      {/* Autonomous Zero-G Drones */}
+      <group ref={drone1} position={[-0.9, 1.35, 0.7]}>
+        <mesh>
+          <boxGeometry args={[0.22, 0.06, 0.22]} />
+          <meshStandardMaterial color="#1a2b3d" metalness={0.8} />
+        </mesh>
+        {/* Drone Propeller Rings */}
+        {[-0.12, 0.12].map((dx) =>
+          [-0.12, 0.12].map((dz) => (
+            <mesh key={`p-${dx}-${dz}`} position={[dx, 0.03, dz]}>
+              <torusGeometry args={[0.05, 0.012, 8, 16]} />
+              <meshBasicMaterial color="#00f2fe" />
+            </mesh>
+          ))
+        )}
+      </group>
+
+      <group ref={drone2} position={[0.85, 1.6, -0.8]}>
+        <mesh>
+          <boxGeometry args={[0.24, 0.06, 0.24]} />
+          <meshStandardMaterial color="#1a2b3d" metalness={0.8} />
+        </mesh>
+        {[-0.13, 0.13].map((dx) =>
+          [-0.13, 0.13].map((dz) => (
+            <mesh key={`p2-${dx}-${dz}`} position={[dx, 0.03, dz]}>
+              <torusGeometry args={[0.052, 0.012, 8, 16]} />
+              <meshBasicMaterial color="#00f2fe" />
+            </mesh>
+          ))
+        )}
+      </group>
+
+      {/* Containment Canisters on Wall */}
+      {[-1.4, -1.8].map((cx, i) => (
+        <group key={i} position={[cx, 0.6, -1.5]}>
+          <mesh>
+            <cylinderGeometry args={[0.16, 0.16, 0.9, 16]} />
+            <meshStandardMaterial color="#00f2fe" emissive="#00f2fe" emissiveIntensity={0.6} transparent opacity={0.4} />
+          </mesh>
+          <Box at={[0, 0.48, 0]} size={[0.36, 0.08, 0.36]} color="#233547" metalness={0.8} />
+          <Box at={[0, -0.48, 0]} size={[0.36, 0.08, 0.36]} color="#233547" metalness={0.8} />
+        </group>
+      ))}
     </group>
-    {ROOMS.map(room => <RoomModule key={room.id} room={room} agents={byArea.get(room.id) ?? []} selectedAgentId={selectedAgentId} onSelectAgent={onSelectAgent} onOpenRoom={onOpenRoom} />)}
-    {[-1, 1].map(side => <group key={side}>
-      <Box at={[side * 2.15, 2.43, -0.88]} size={[0.88, 0.12, 2.45]} color="#344a66" metalness={0.7} />
-      <Box at={[side * 2.15, 2.5, -0.88]} size={[0.75, 0.025, 2.32]} color="#83b4e3" emissive="#5293e5" intensity={0.26} opacity={0.52} />
-      <Box at={[side * 2.15, 2.38, 0.4]} size={[0.88, 0.035, 0.04]} color="#63d1f2" emissive="#63d1f2" intensity={1.2} />
-    </group>)}
-    <Nexus agents={byArea.get('command_center') ?? []} selectedAgentId={selectedAgentId} onSelectAgent={onSelectAgent} onOpenRoom={onOpenRoom} reducedMotion={reducedMotion} />
-    {communications.map((message) => <CommunicationPulse key={message.id} start={message.start} end={message.end} reducedMotion={reducedMotion} />)}
-    <OrbitControls makeDefault enablePan={false} enableDamping dampingFactor={0.08} minDistance={10} maxDistance={27} minPolarAngle={0.42} maxPolarAngle={1.28} target={[0, 2.1, 0]} />
-  </>;
+  );
 }
 
-function HQFallback({ agents, onSelectAgent, onOpenRoom }: Pick<LivingHQSceneProps, 'agents' | 'onSelectAgent' | 'onOpenRoom'>) {
-  return <div style={{ height: '100%', minHeight: 320, overflow: 'auto', padding: 22, color: '#d5ebff', background: 'radial-gradient(circle at 50% 28%, #183054, #070d1a 75%)' }}>
-    <p style={{ fontSize: 11, letterSpacing: '.16em', color: '#75dce8' }}>HEADQUARTERS · OPERATIONS</p>
-    <h3 style={{ margin: '8px 0 18px' }}>Living HQ</h3>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-      {[{ title: 'CENTRAL NEXUS', destination: 'main', id: 'command_center' }, ...ROOMS].map(room => <div key={room.id} style={{ padding: 13, border: '1px solid #335278', borderRadius: 10, background: '#102035' }}>
-        <button type="button" onClick={() => onOpenRoom(room.destination)} style={{ color: '#d7f4ff', background: 'none', border: 0, padding: 0, cursor: 'pointer', fontWeight: 700 }}>{room.title} ↗</button>
-        <p style={{ fontSize: 11, color: '#87a8c2' }}>{agents.filter(agent => agent.area === room.id).length} deployed</p>
-        {agents.filter(agent => agent.area === room.id).map(agent => <button key={agent.id} type="button" onClick={() => onSelectAgent(agent.id)} style={{ display: 'block', marginTop: 6, color: statusColor(agent.status), background: 'none', border: 0, cursor: 'pointer', textAlign: 'left' }}>{agent.name} · {agent.status.replaceAll('_', ' ')}</button>)}
-      </div>)}
-    </div>
-  </div>;
+// --------------------------------------------------------------------------
+// 2. MISSION CONTROL / COMMAND OFFICE (Curved Console & Holographic World Map)
+// --------------------------------------------------------------------------
+function MissionControl({ onOpenRoom }: { onOpenRoom: (dest: string) => void }) {
+  const mapTexture = useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.fillStyle = '#05111f';
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Cyan Grid Lines
+    ctx.strokeStyle = 'rgba(0, 242, 254, 0.16)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < 1024; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 512);
+      ctx.stroke();
+    }
+    for (let y = 0; y < 512; y += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(1024, y);
+      ctx.stroke();
+    }
+
+    // World Continents (Stylized vector outlines)
+    ctx.fillStyle = 'rgba(0, 242, 254, 0.32)';
+    ctx.strokeStyle = '#00f2fe';
+    ctx.lineWidth = 2;
+
+    // North America
+    ctx.beginPath();
+    ctx.ellipse(280, 180, 110, 75, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // South America
+    ctx.beginPath();
+    ctx.ellipse(360, 340, 65, 95, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Europe / Africa
+    ctx.beginPath();
+    ctx.ellipse(540, 170, 75, 55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(550, 310, 70, 95, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Asia
+    ctx.beginPath();
+    ctx.ellipse(740, 180, 130, 85, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Australia
+    ctx.beginPath();
+    ctx.ellipse(820, 380, 60, 45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Pulsing Global Telemetry Nodes
+    const nodes = [
+      [240, 170], // SF
+      [310, 160], // NYC
+      [520, 140], // London
+      [630, 240], // Dubai
+      [780, 270], // Singapore
+      [830, 170], // Tokyo
+    ];
+
+    ctx.fillStyle = '#ff476f';
+    nodes.forEach(([nx, ny]) => {
+      ctx.beginPath();
+      ctx.arc(nx, ny, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#00f2fe';
+      ctx.beginPath();
+      ctx.arc(nx, ny, 14, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, []);
+
+  return (
+    <group
+      position={[0.5, 1.4, -3.2]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenRoom('tasks');
+      }}
+    >
+      {/* Holographic Cyan World Map Screen */}
+      <mesh position={[0, 1.6, -0.85]}>
+        <planeGeometry args={[4.4, 2.2]} />
+        {mapTexture ? (
+          <meshBasicMaterial map={mapTexture} transparent opacity={0.88} />
+        ) : (
+          <meshBasicMaterial color="#00f2fe" transparent opacity={0.3} />
+        )}
+      </mesh>
+      {/* Screen Neon Border Frame */}
+      <Box at={[0, 2.72, -0.84]} size={[4.46, 0.05, 0.04]} color="#00f2fe" emissive="#00f2fe" intensity={1} />
+      <Box at={[0, 0.48, -0.84]} size={[4.46, 0.05, 0.04]} color="#00f2fe" emissive="#00f2fe" intensity={1} />
+
+      {/* Curved Command Desk */}
+      <Box at={[0, 0.45, 0]} size={[3.4, 0.08, 0.9]} color="#17283c" metalness={0.7} />
+      <Box at={[0, 0.22, 0]} size={[3.2, 0.42, 0.7]} color="#0d1825" metalness={0.85} />
+
+      {/* Illuminated Desktop Monitors */}
+      {[-1.0, 0, 1.0].map((mx) => (
+        <group key={mx} position={[mx, 0.75, -0.1]}>
+          <Box at={[0, 0, 0]} size={[0.7, 0.42, 0.03]} color="#0a1522" metalness={0.6} />
+          <Box at={[0, 0, 0.02]} size={[0.64, 0.36, 0.005]} color="#00f2fe" emissive="#00f2fe" intensity={0.6} opacity={0.8} />
+          <Box at={[0, -0.25, 0]} size={[0.05, 0.12, 0.05]} color="#42576c" />
+        </group>
+      ))}
+
+      {/* Overhead Room Banner */}
+      <Box at={[0, 3.1, -0.8]} size={[3.6, 0.3, 0.08]} color="#0e1d2f" metalness={0.8} />
+      <Box at={[0, 3.1, -0.75]} size={[3.4, 0.2, 0.02]} color="#00f2fe" emissive="#00f2fe" intensity={0.4} opacity={0.5} />
+    </group>
+  );
 }
 
-export function LivingHQScene({ agents, messages = [], onSelectAgent, onOpenRoom, selectedAgentId, height = '100%' }: LivingHQSceneProps) {
+// --------------------------------------------------------------------------
+// 3. TECH SUITE & DATA BAY (Server Racks & Holographic Data Globe)
+// --------------------------------------------------------------------------
+function TechSuite({ onOpenRoom }: { onOpenRoom: (dest: string) => void }) {
+  const globe = useRef<THREE.Group>(null);
+
+  useFrame(({ clock }) => {
+    if (globe.current) {
+      globe.current.rotation.y = clock.elapsedTime * 0.4;
+      globe.current.rotation.x = Math.sin(clock.elapsedTime * 0.2) * 0.15;
+    }
+  });
+
+  return (
+    <group
+      position={[4.2, 1.4, -2.2]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenRoom('data');
+      }}
+    >
+      {/* 3 Heavy Cyber Server Racks */}
+      {[-1.2, -0.3, 0.6].map((sx, idx) => (
+        <group key={idx} position={[sx, 1.1, -1.0]}>
+          <Box at={[0, 0, 0]} size={[0.72, 2.2, 0.65]} color="#111d2b" metalness={0.85} roughness={0.3} />
+          {/* LED Status Strips */}
+          {Array.from({ length: 6 }).map((_, li) => (
+            <mesh key={li} position={[0.24, -0.7 + li * 0.26, 0.33]}>
+              <boxGeometry args={[0.04, 0.04, 0.01]} />
+              <meshBasicMaterial color={li % 2 === 0 ? '#00f2fe' : '#4cd997'} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* Central Holographic Data Globe */}
+      <group ref={globe} position={[0.4, 1.25, 0.5]}>
+        <mesh>
+          <sphereGeometry args={[0.55, 20, 20]} />
+          <meshBasicMaterial color="#00f2fe" wireframe transparent opacity={0.65} />
+        </mesh>
+        <mesh rotation={[Math.PI / 4, 0, 0]}>
+          <torusGeometry args={[0.72, 0.02, 8, 36]} />
+          <meshBasicMaterial color="#00f2fe" transparent opacity={0.8} />
+        </mesh>
+        <mesh rotation={[-Math.PI / 4, 0, 0]}>
+          <torusGeometry args={[0.82, 0.02, 8, 36]} />
+          <meshBasicMaterial color="#4facfe" transparent opacity={0.6} />
+        </mesh>
+      </group>
+
+      {/* Operator Console Desk */}
+      <Box at={[0.4, 0.45, 0.5]} size={[1.4, 0.08, 0.8]} color="#17283c" metalness={0.7} />
+      <Box at={[0.4, 0.22, 0.5]} size={[1.2, 0.42, 0.6]} color="#0c1825" metalness={0.85} />
+    </group>
+  );
+}
+
+// --------------------------------------------------------------------------
+// 4. INTELLIGENCE CORE BAY (Right Wall Giant Quantum Reactor & Atomic Rings)
+// --------------------------------------------------------------------------
+function QuantumReactor({ onOpenRoom }: { onOpenRoom: (dest: string) => void }) {
+  const ring1 = useRef<THREE.Group>(null);
+  const ring2 = useRef<THREE.Group>(null);
+  const ring3 = useRef<THREE.Group>(null);
+  const corePlasma = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (ring1.current) ring1.current.rotation.x = t * 0.8;
+    if (ring2.current) ring2.current.rotation.y = t * 1.1;
+    if (ring3.current) ring3.current.rotation.z = -t * 0.9;
+    if (corePlasma.current) {
+      const pulse = 1 + Math.sin(t * 3.5) * 0.12;
+      corePlasma.current.scale.set(pulse, pulse, pulse);
+    }
+  });
+
+  return (
+    <group
+      position={[7.1, 2.2, 0]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenRoom('main');
+      }}
+    >
+      {/* Heavy Industrial Steel Backplate & Wall Mount */}
+      <Box at={[0.2, 0, 0]} size={[0.4, 4.4, 4.4]} color="#0a1524" metalness={0.9} roughness={0.2} />
+
+      {/* Giant Outer Reactor Collar Ring */}
+      <mesh position={[0, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[1.75, 0.24, 18, 48]} />
+        <meshStandardMaterial color="#21354c" metalness={0.85} roughness={0.25} />
+      </mesh>
+
+      {/* Glowing Neon Cyan Aperture Ring */}
+      <mesh position={[-0.05, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[1.5, 0.08, 16, 48]} />
+        <meshBasicMaterial color="#00f2fe" />
+      </mesh>
+
+      {/* Inner Chamber */}
+      <mesh position={[0.1, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <cylinderGeometry args={[1.4, 1.4, 0.2, 32]} />
+        <meshStandardMaterial color="#040b15" metalness={0.95} />
+      </mesh>
+
+      {/* Concentric 3D Spinning Atomic Rings */}
+      <group ref={ring1} position={[-0.08, 0, 0]}>
+        <mesh>
+          <torusGeometry args={[1.15, 0.045, 12, 40]} />
+          <meshStandardMaterial color="#00f2fe" emissive="#00f2fe" emissiveIntensity={1.2} />
+        </mesh>
+      </group>
+      <group ref={ring2} position={[-0.08, 0, 0]}>
+        <mesh>
+          <torusGeometry args={[0.88, 0.04, 12, 40]} />
+          <meshStandardMaterial color="#7f5af0" emissive="#7f5af0" emissiveIntensity={1.1} />
+        </mesh>
+      </group>
+      <group ref={ring3} position={[-0.08, 0, 0]}>
+        <mesh>
+          <torusGeometry args={[0.62, 0.035, 12, 40]} />
+          <meshStandardMaterial color="#00f2fe" emissive="#00f2fe" emissiveIntensity={1.3} />
+        </mesh>
+      </group>
+
+      {/* Central Pulsating Plasma Core Sphere */}
+      <mesh ref={corePlasma} position={[-0.08, 0, 0]}>
+        <sphereGeometry args={[0.3, 24, 24]} />
+        <meshStandardMaterial color="#e0f8ff" emissive="#00f2fe" emissiveIntensity={2.8} />
+      </mesh>
+
+      {/* Heavy High-Voltage Conduits & Pipes from Reactor Base */}
+      {[-0.6, 0, 0.6].map((cz, ci) => (
+        <group key={ci} position={[-0.3, -1.8, cz]}>
+          <mesh rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.1, 0.1, 1.4, 16]} />
+            <meshStandardMaterial color="#b35924" metalness={0.7} roughness={0.3} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Label above Reactor */}
+      <Box at={[-0.1, 2.5, 0]} size={[0.08, 0.3, 2.4]} color="#0c1828" metalness={0.8} />
+      <Box at={[-0.15, 2.5, 0]} size={[0.02, 0.22, 2.2]} color="#00f2fe" emissive="#00f2fe" intensity={0.4} opacity={0.6} />
+    </group>
+  );
+}
+
+// --------------------------------------------------------------------------
+// 5. QUANTUM COMPUTE HUB (Upper-Left Mezzanine & RGB Cooling Pipes)
+// --------------------------------------------------------------------------
+function QuantumComputeHub({ onOpenRoom }: { onOpenRoom: (dest: string) => void }) {
+  const rgbColors = ['#ff3b56', '#f5a623', '#2bd47d', '#2c7be5', '#00f2fe'];
+
+  return (
+    <group
+      position={[-3.8, 2.8, -2.4]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenRoom('agents');
+      }}
+    >
+      {/* 2nd Tier Platform Floor */}
+      <Box at={[0, -0.06, 0]} size={[4.4, 0.12, 3.2]} color="#142337" metalness={0.8} />
+      {/* Safety Railing with Glowing Cyan Strip */}
+      <Box at={[0, 0.45, 1.55]} size={[4.4, 0.04, 0.04]} color="#00f2fe" emissive="#00f2fe" intensity={0.8} />
+      <Box at={[2.15, 0.45, 0]} size={[0.04, 0.04, 3.1]} color="#00f2fe" emissive="#00f2fe" intensity={0.8} />
+
+      {/* Overhead RGB Glowing Cooling Pipes */}
+      {rgbColors.map((pipeColor, pi) => (
+        <group key={pi} position={[-1.6 + pi * 0.35, 1.9, -1.2]}>
+          {/* Horizontal Section */}
+          <mesh rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.055, 0.055, 0.8, 16]} />
+            <meshStandardMaterial color={pipeColor} emissive={pipeColor} emissiveIntensity={1.8} />
+          </mesh>
+          {/* Vertical Drop Section */}
+          <mesh position={[-0.4, -0.65, 0]}>
+            <cylinderGeometry args={[0.055, 0.055, 1.3, 16]} />
+            <meshStandardMaterial color={pipeColor} emissive={pipeColor} emissiveIntensity={1.8} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Quantum Mainframe Server Towers */}
+      {[-1.2, 0.4].map((qx, qi) => (
+        <group key={qi} position={[qx, 0.9, -0.9]}>
+          <Box at={[0, 0, 0]} size={[1.1, 1.8, 0.7]} color="#101c2b" metalness={0.85} />
+          <Box at={[0, 0, 0.36]} size={[0.95, 1.5, 0.01]} color="#00f2fe" emissive="#00f2fe" intensity={0.5} opacity={0.65} />
+        </group>
+      ))}
+
+      {/* Operator Terminal Console */}
+      <Box at={[-0.2, 0.45, 0.6]} size={[1.8, 0.08, 0.7]} color="#1a2d42" metalness={0.7} />
+    </group>
+  );
+}
+
+// --------------------------------------------------------------------------
+// 6. BIOMETRICS & CYBERNETICS LAB (Robotic Rig & Dual-Screen Workstation)
+// --------------------------------------------------------------------------
+function BiometricsLab({ onOpenRoom }: { onOpenRoom: (dest: string) => void }) {
+  const robotArm = useRef<THREE.Group>(null);
+  const laserBeam = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (robotArm.current) {
+      robotArm.current.rotation.y = Math.sin(t * 1.5) * 0.35;
+      robotArm.current.rotation.z = Math.cos(t * 1.2) * 0.12;
+    }
+    if (laserBeam.current) {
+      laserBeam.current.visible = Math.sin(t * 6) > -0.2;
+    }
+  });
+
+  return (
+    <group
+      position={[-2.6, 0, 2.6]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenRoom('wellness');
+      }}
+    >
+      {/* Heavy Workstation Desk */}
+      <Box at={[0.6, 0.38, 0]} size={[1.6, 0.08, 0.8]} color="#182c40" metalness={0.7} />
+      <Box at={[0.6, 0.18, 0]} size={[1.4, 0.36, 0.6]} color="#0f1c2b" metalness={0.85} />
+
+      {/* Operator Chair */}
+      <Box at={[0.6, 0.22, 0.6]} size={[0.42, 0.38, 0.42]} color="#21374d" metalness={0.6} />
+      <Box at={[0.6, 0.52, 0.8]} size={[0.42, 0.4, 0.08]} color="#182b3d" metalness={0.6} />
+
+      {/* Dual Curved Widescreen Monitors */}
+      {[-0.3, 0.3].map((cx, i) => (
+        <group key={i} position={[0.6 + cx, 0.68, -0.15]} rotation={[0, -cx * 0.4, 0]}>
+          <Box at={[0, 0, 0]} size={[0.55, 0.32, 0.03]} color="#0b1624" />
+          <Box at={[0, 0, 0.02]} size={[0.5, 0.27, 0.005]} color="#00f2fe" emissive="#00f2fe" intensity={0.7} opacity={0.75} />
+          <Box at={[0, -0.18, 0]} size={[0.04, 0.1, 0.04]} color="#3e5368" />
+        </group>
+      ))}
+
+      {/* Robotic Calibration Rig */}
+      <group position={[-1.1, 0, 0]}>
+        {/* Base Pedestal with Hazard Stripes */}
+        <Box at={[0, 0.25, 0]} size={[0.9, 0.5, 0.9]} color="#162537" metalness={0.8} />
+        {/* Diagnostic Pod / Specimen Bed */}
+        <mesh position={[0, 0.52, 0]}>
+          <cylinderGeometry args={[0.35, 0.35, 0.06, 24]} />
+          <meshStandardMaterial color="#00f2fe" emissive="#00f2fe" emissiveIntensity={0.8} />
+        </mesh>
+
+        {/* Articulated Robotic Calibration Arm */}
+        <group ref={robotArm} position={[0, 0.55, -0.25]}>
+          {/* Base joint */}
+          <mesh>
+            <sphereGeometry args={[0.09, 14, 14]} />
+            <meshStandardMaterial color="#364e66" metalness={0.85} />
+          </mesh>
+          {/* Lower Arm */}
+          <mesh position={[0, 0.2, 0]}>
+            <cylinderGeometry args={[0.04, 0.04, 0.4, 12]} />
+            <meshStandardMaterial color="#7f9db8" metalness={0.8} />
+          </mesh>
+          {/* Elbow Joint */}
+          <mesh position={[0, 0.4, 0]}>
+            <sphereGeometry args={[0.07, 12, 12]} />
+            <meshStandardMaterial color="#364e66" metalness={0.85} />
+          </mesh>
+          {/* Upper Arm projecting forward */}
+          <mesh position={[0, 0.4, 0.2]} rotation={[Math.PI / 3, 0, 0]}>
+            <cylinderGeometry args={[0.035, 0.035, 0.35, 12]} />
+            <meshStandardMaterial color="#7f9db8" metalness={0.8} />
+          </mesh>
+          {/* Tool head & Laser beam */}
+          <mesh position={[0, 0.25, 0.35]}>
+            <coneGeometry args={[0.04, 0.08, 12]} />
+            <meshBasicMaterial color="#00f2fe" />
+          </mesh>
+          <mesh ref={laserBeam} position={[0, 0.12, 0.35]}>
+            <cylinderGeometry args={[0.008, 0.008, 0.22, 6]} />
+            <meshBasicMaterial color="#00f2fe" />
+          </mesh>
+        </group>
+      </group>
+    </group>
+  );
+}
+
+// --------------------------------------------------------------------------
+// INDUSTRIAL ATRIUM ARCHITECTURE (Catwalks, Stairs, Gantries & Edge Trims)
+// --------------------------------------------------------------------------
+function IndustrialAtrium() {
+  return (
+    <group>
+      {/* Ground Floor Base Slabs with Cyber Grid */}
+      <mesh position={[0, -0.06, 0]} receiveShadow>
+        <boxGeometry args={[17.5, 0.12, 13.5]} />
+        <meshStandardMaterial color="#08101a" metalness={0.85} roughness={0.3} />
+      </mesh>
+
+      {/* Cyber Grid Subfloor Lines */}
+      {[-6, -4, -2, 0, 2, 4, 6].map((gx) => (
+        <mesh key={`grid-x-${gx}`} position={[gx, 0.002, 0]}>
+          <planeGeometry args={[0.025, 13.2]} />
+          <meshBasicMaterial color="#00f2fe" transparent opacity={0.12} />
+        </mesh>
+      ))}
+
+      {/* Structural Perimeter Steel Columns */}
+      {[-7.8, 7.8].map((px) =>
+        [-5.8, 0, 5.8].map((pz) => (
+          <group key={`col-${px}-${pz}`} position={[px, 2.8, pz]}>
+            <Box at={[0, 0, 0]} size={[0.35, 5.8, 0.35]} color="#172738" metalness={0.85} />
+            <Box at={[0, -2.7, 0]} size={[0.5, 0.2, 0.5]} color="#0f1924" metalness={0.9} />
+          </group>
+        ))
+      )}
+
+      {/* Elevated Catwalk Mezzanine (Tier 2, connecting Left to Center) */}
+      <group position={[0, 1.4, 0.8]}>
+        {/* Catwalk Bridge Slab */}
+        <Box at={[1.2, -0.06, 0]} size={[9.5, 0.12, 1.6]} color="#132336" metalness={0.8} />
+        {/* Glowing Edge Runners */}
+        <Box at={[1.2, 0, 0.8]} size={[9.5, 0.03, 0.05]} color="#00f2fe" emissive="#00f2fe" intensity={1} />
+        <Box at={[1.2, 0, -0.8]} size={[9.5, 0.03, 0.05]} color="#00f2fe" emissive="#00f2fe" intensity={1} />
+        {/* Safety Railings */}
+        <Box at={[1.2, 0.42, 0.8]} size={[9.5, 0.035, 0.035]} color="#46627d" metalness={0.8} />
+      </group>
+
+      {/* Left Industrial Stairs (Leading from ground to upper tier) */}
+      <group position={[-5.8, 0, 0.8]}>
+        {Array.from({ length: 12 }).map((_, stepIdx) => {
+          const sy = 0.12 + stepIdx * 0.12;
+          const sz = 1.6 - stepIdx * 0.22;
+          return (
+            <group key={`st-${stepIdx}`} position={[0, sy, sz]}>
+              <Box at={[0, 0, 0]} size={[1.1, 0.08, 0.28]} color="#182c40" metalness={0.7} />
+              {/* Yellow Hazard Line on Step Lip */}
+              <Box at={[0, 0.042, 0.12]} size={[1.05, 0.015, 0.03]} color="#f5a623" emissive="#f5a623" intensity={0.7} />
+            </group>
+          );
+        })}
+      </group>
+
+      {/* Overhead Gantry Steel Truss */}
+      <group position={[0, 5.4, 0]}>
+        <Box at={[0, 0, 0]} size={[16.2, 0.35, 0.4]} color="#1a2d42" metalness={0.85} />
+        {/* Hazard Yellow Warning Plates */}
+        {[-4, 0, 4].map((hx) => (
+          <Box key={hx} at={[hx, -0.22, 0]} size={[0.8, 0.14, 0.04]} color="#f5a623" emissive="#f5a623" intensity={0.6} />
+        ))}
+      </group>
+    </group>
+  );
+}
+
+// --------------------------------------------------------------------------
+// HQ WORLD SCENE COMPONENT
+// --------------------------------------------------------------------------
+function HQWorld({
+  agentSlots,
+  customNames = {},
+  selectedAgentId,
+  onSelectAgent,
+  onOpenRoom,
+  focusTarget,
+  controlsRef,
+}: {
+  agentSlots: AgentSlotConfig[];
+  customNames: Record<string, string>;
+  selectedAgentId?: string | null;
+  onSelectAgent: (id: string, name: string) => void;
+  onOpenRoom: (dest: string) => void;
+  focusTarget: [number, number, number] | null;
+  controlsRef: React.RefObject<any>;
+}) {
+  const [speechIndex, setSpeechIndex] = useState(0);
+
+  const dialoguePhrases = [
+    'Neural weights synchronized across active nodes.',
+    'Anti-gravity field stable within 0.02G tolerance.',
+    'Quantum reactor harmonic spin state verified.',
+    'Mission Control telemetry uplink operational.',
+    'Cybernetic calibration passing diagnostic phase.',
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSpeechIndex((prev) => (prev + 1) % dialoguePhrases.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [dialoguePhrases.length]);
+
+  return (
+    <>
+      <color attach="background" args={['#050b14']} />
+      <fog attach="fog" args={['#050b14', 18, 42]} />
+
+      {/* Cyber Lighting Atmosphere */}
+      <ambientLight intensity={1.2} color="#8cb0d4" />
+      <directionalLight position={[9, 14, 10]} intensity={2.2} color="#cde5ff" castShadow />
+      <pointLight position={[-3.8, 2.2, 0]} intensity={12} color="#00f2fe" distance={10} />
+      <pointLight position={[6.8, 2.5, 0]} intensity={18} color="#00f2fe" distance={12} />
+      <pointLight position={[0, 4.5, -2]} intensity={8} color="#4facfe" distance={14} />
+
+      {/* Camera Rig with Smooth Lerping */}
+      <CameraRig focusPosition={focusTarget} controlsRef={controlsRef} />
+
+      {/* Industrial Architecture */}
+      <IndustrialAtrium />
+
+      {/* The 6 Core Cyber Rooms */}
+      <AntigravityLab onOpenRoom={onOpenRoom} />
+      <MissionControl onOpenRoom={onOpenRoom} />
+      <TechSuite onOpenRoom={onOpenRoom} />
+      <QuantumReactor onOpenRoom={onOpenRoom} />
+      <QuantumComputeHub onOpenRoom={onOpenRoom} />
+      <BiometricsLab onOpenRoom={onOpenRoom} />
+
+      {/* Deploy all 11 Articulated Human Characters */}
+      {agentSlots.map((config) => {
+        const name = customNames[config.id] || config.defaultName;
+        const isSelected = selectedAgentId === config.id;
+        const speech = config.id === 'slot-7' ? dialoguePhrases[speechIndex] : undefined;
+
+        return (
+          <ArticulatedHuman
+            key={config.id}
+            config={config}
+            displayName={name}
+            selected={isSelected}
+            onSelect={onSelectAgent}
+            speechText={speech}
+          />
+        );
+      })}
+
+      <OrbitControls
+        ref={controlsRef}
+        makeDefault
+        enablePan
+        enableDamping
+        dampingFactor={0.08}
+        minDistance={6}
+        maxDistance={28}
+        minPolarAngle={0.3}
+        maxPolarAngle={1.38}
+        target={[0, 1.8, 0]}
+      />
+    </>
+  );
+}
+
+// --------------------------------------------------------------------------
+// EXPORTED LIVING HQ SCENE
+// --------------------------------------------------------------------------
+export function LivingHQScene({
+  customNames = {},
+  onSelectAgent,
+  onOpenRoom,
+  selectedAgentId,
+  height = '100%',
+  focusTarget = null,
+}: LivingHQSceneProps) {
   const [webgl] = useState(canRenderWebGL);
-  const [reducedMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const fallback = <HQFallback agents={agents} onSelectAgent={onSelectAgent} onOpenRoom={onOpenRoom} />;
-  return <div style={{ height, width: '100%', minHeight: 320, position: 'relative', overflow: 'hidden', background: '#060b17' }} aria-label="Interactive 3D headquarters">
-    {webgl ? <WebGLBoundary fallback={fallback}><Canvas camera={{ position: [13, 10.2, 15], fov: 43, near: 0.1, far: 70 }} dpr={[1, 1.6]} gl={{ antialias: true, powerPreference: 'high-performance' }} shadows={false} frameloop={reducedMotion ? 'demand' : 'always'}>
-      <HQWorld agents={agents} messages={messages} selectedAgentId={selectedAgentId} onSelectAgent={onSelectAgent} onOpenRoom={onOpenRoom} reducedMotion={reducedMotion} />
-    </Canvas></WebGLBoundary> : fallback}
-    {webgl && <nav className="tj-hq-room-rail" aria-label="Open a headquarters area">{ROOM_LINKS.map(room => <button key={room.destination} type="button" onClick={() => onOpenRoom(room.destination)}>{room.label}</button>)}</nav>}
-  </div>;
+  const controlsRef = useRef<any>(null);
+
+  if (!webgl) {
+    return (
+      <div style={{ height: '100%', padding: 24, color: '#00f2fe' }}>
+        WebGL is not available on this browser session.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: '100%', height, position: 'relative', overflow: 'hidden' }}>
+      <Canvas
+        camera={{ position: [12.5, 11, 14.5], fov: 42, near: 0.1, far: 80 }}
+        dpr={[1, 1.6]}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+      >
+        <HQWorld
+          agentSlots={DEFAULT_AGENT_SLOTS}
+          customNames={customNames}
+          selectedAgentId={selectedAgentId}
+          onSelectAgent={onSelectAgent}
+          onOpenRoom={onOpenRoom}
+          focusTarget={focusTarget}
+          controlsRef={controlsRef}
+        />
+      </Canvas>
+    </div>
+  );
 }

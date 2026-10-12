@@ -244,6 +244,34 @@ export const App: React.FC = () => {
     { id: 'themes', label: 'Change atmosphere', detail: 'Choose from ten TJ interface themes', keywords: 'theme color appearance design', run: () => setActiveTab('settings') },
   ];
 
+  if (activeTab === 'command') {
+    return (
+      <div className="tj-app-shell" style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#050b14', position: 'relative' }}>
+        <Suspense fallback={<div role="status" style={{ padding: 24, color: '#00f2fe' }}>Opening Living World…</div>}>
+          <CommandCenter
+            status={status}
+            persona={persona}
+            voiceSpeaking={voiceSpeaking}
+            voicePulse={voicePulse}
+            onNavigate={openTab}
+            onOpenBuilding={openBuilding}
+            onSelectAgent={(id) => { setSelectedAgentId(id || null); openTab('agents'); }}
+            onSendChat={handleSendChat}
+            onOpenPulse={() => setContextOpen((open) => !open)}
+            loading={chatLoading}
+            stopping={stopping}
+            onStopAll={handleStopAll}
+          />
+        </Suspense>
+        <div className={`tj-pulse-drawer ${contextOpen ? 'is-open' : ''}`} aria-hidden={!contextOpen}>
+          <InteractionPanel persona={persona} status={status} messages={messages} loading={chatLoading} error={chatError} onSend={(txt) => handleSendChat(txt, 'chat')} />
+        </div>
+        {paletteOpen && <CommandPalette actions={paletteActions} onClose={() => setPaletteOpen(false)} />}
+        {eventNotice && <button type="button" onClick={() => { setActiveTab(eventNotice.name === 'approval.requested' ? 'approvals' : 'activity'); setEventNotice(null); }} style={{ position: 'fixed', left: 24, bottom: 24, zIndex: 111, maxWidth: 390, padding: '12px 16px', border: '1px solid var(--accent-cyan)', borderRadius: 10, background: 'var(--bg-secondary)', color: '#fff', textAlign: 'left', cursor: 'pointer' }} role="alert">{eventNotice.summary} · Open {eventNotice.name === 'approval.requested' ? 'Approvals' : 'Activity'}</button>}
+      </div>
+    );
+  }
+
   return (
     <div className="tj-app-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', background: 'var(--bg-primary)' }}>
       <TopBar
@@ -282,23 +310,6 @@ export const App: React.FC = () => {
 
         {activeTab === 'main' ? (
           <MainInterface status={status} onNavigate={openTab} />
-        ) : activeTab === 'command' ? (
-          <div className="tj-world-shell" style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden', position: 'relative' }}>
-            <Suspense fallback={<div role="status" style={{ padding: 24, color: 'var(--text-muted)' }}>Opening Living World…</div>}>
-            <CommandCenter
-              status={status}
-              persona={persona}
-              voiceSpeaking={voiceSpeaking}
-              voicePulse={voicePulse}
-              onNavigate={openTab}
-              onOpenBuilding={openBuilding}
-              onSelectAgent={(id) => { setSelectedAgentId(id || null); openTab('agents'); }}
-              onSendChat={handleSendChat}
-              onOpenPulse={() => setContextOpen((open) => !open)}
-              loading={chatLoading}
-            />
-            </Suspense>
-          </div>
         ) : activeTab === 'focus' ? (
           <div style={{ flex: 1, height: '100%', minWidth: 0, overflow: 'hidden', padding: 16 }}>
             <Suspense fallback={<div role="status" style={{ padding: 24, color: 'var(--text-muted)' }}>Opening Focus workspace…</div>}><FocusWorkspace personaName={persona.name} /></Suspense>

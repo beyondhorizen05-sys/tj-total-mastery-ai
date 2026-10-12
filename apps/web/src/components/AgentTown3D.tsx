@@ -61,7 +61,7 @@ export const AgentTown3D: React.FC<{ onSelectAgent: (id: string) => void; onOpen
       </div>
     </header>
     {mode === 'hq' ? <div className="tj-agent-town-canvas" style={{ flex: 1, minHeight: expanded ? 0 : 300, position: 'relative' }}>
-      <LivingHQScene agents={agents} messages={messages} selectedAgentId={selected} onSelectAgent={setSelected} onOpenRoom={onOpenBuilding} height="100%" />
+      <LivingHQScene agents={agents} messages={messages} selectedAgentId={selected} onSelectAgent={(id) => setSelected(id)} onOpenRoom={onOpenBuilding} height="100%" />
       {loadFailed && <div role="status" style={{ position: 'absolute', top: 12, left: 12, padding: '7px 10px', borderRadius: 6, background: 'rgba(50,20,31,.9)', color: '#ffc2ca', fontSize: 10 }}>{syncLabel}</div>}
       {!hasLoaded && !loadFailed && <div role="status" style={{ position: 'absolute', top: 12, left: 12, padding: '7px 10px', borderRadius: 6, background: 'rgba(7,16,29,.86)', color: '#b7d4e8', fontSize: 10 }}>{syncLabel}</div>}
     </div> : <div style={{ minHeight: expanded ? 0 : 300, flex: 1, overflowY: 'auto', padding: 14 }}>
