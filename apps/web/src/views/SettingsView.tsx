@@ -166,7 +166,7 @@ export const SettingsView: React.FC = () => {
               { val: 2, label: 'Draft', detail: 'Can prepare sandbox drafts; outside or higher-risk changes ask first.' },
               { val: 3, label: 'Supervised', detail: 'Routine low-risk operations can run automatically.' },
               { val: 4, label: 'Workflow', detail: 'Pre-authorized low/medium-risk workflow actions can run.' },
-              { val: 5, label: 'Privileged', detail: 'Broader routine actions; high-impact actions still require approval.' },
+              { val: 5, label: 'Privileged', detail: 'Broader routine actions; optionally allow high-risk actions below. Critical actions still require approval.' },
             ].map((lvl) => (
               <button
                 key={lvl.val}
@@ -196,9 +196,34 @@ export const SettingsView: React.FC = () => {
               { val: 2, detail: 'Draft mode permits low-risk work and sandbox drafts; other writes ask first.' },
               { val: 3, detail: 'Supervised mode auto-runs eligible low-risk work; higher-risk actions ask first.' },
               { val: 4, detail: 'Workflow mode allows eligible medium-risk operations; high-risk actions still ask first.' },
-              { val: 5, detail: 'Privileged mode allows routine work; high and critical risk always require approval.' },
+              { val: 5, detail: 'Privileged mode allows routine work. You may separately enable automatic high-risk approval below; critical actions stay gated.' },
             ].find((level) => level.val === settings.autonomy_level)?.detail ?? 'Unknown autonomy level; tools should remain gated.'}
           </p>
+          <div style={{ marginTop: 16, padding: 12, background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: settings.autonomy_level === 5 ? 'pointer' : 'not-allowed' }}>
+              <input
+                type="checkbox"
+                checked={settings.auto_approve_high_risk === true}
+                disabled={saving || settings.autonomy_level !== 5}
+                onChange={(event) => void updateSetting('auto_approve_high_risk', event.target.checked)}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                <strong>Full Autonomy — auto-approve high-risk actions</strong>
+                <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 5 }}>
+                  Opt in to authorized high-risk tool use and project-scoped shell commands without repeated approval popups.
+                  Critical actions, explicit denials, and access outside trusted folders still require approval or remain blocked.
+                  STOP ALL and audit logging remain active.
+                </span>
+              </span>
+            </label>
+            {settings.autonomy_level !== 5 && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: 9, marginBottom: 0 }}>Select Privileged above to configure Full Autonomy. It is off by default.</p>
+            )}
+            {settings.autonomy_level === 5 && settings.auto_approve_high_risk === true && (
+              <p role="status" style={{ color: '#fbbf24', fontSize: '0.78rem', marginTop: 9, marginBottom: 0 }}>High-risk auto-approval is ON. Actions such as authorized file deletion, external publishing, or sending messages may execute without prompting. Disable this switch to restore the normal approval gate.</p>
+            )}
+          </div>
         </div>
 
         {/* Privacy Mode */}

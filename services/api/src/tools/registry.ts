@@ -40,13 +40,38 @@ export class ToolRegistry {
 
     const decisions = [...new Set([tool.permission, ...(tool.permissions ?? [])])].map((permission) => this.permissions.evaluate({ agent_id: ctx.agent_id, agent_permissions: ctx.agent_permissions ?? undefined, permission, resource, workflow_run_id: ctx.workflow_run_id, actor: ctx.agent_id ? `agent:${ctx.agent_id}` : 'user' }));
     const decision = decisions.find((entry) => entry.decision === 'deny') ?? decisions.find((entry) => entry.decision === 'require_approval') ?? decisions[0]!;
-    const needsApproval = decisions.some((entry) => entry.decision === 'require_approval') || tool.risk === 'high' || tool.risk === 'critical' || approvalRequired;
+    const fullAutonomy = this.permissions.isHighRiskAutoApprovalEnabled();
+    // Only project-scoped shell commands may skip the extra command-review gate.
+    // Filesystem access outside trusted roots keeps its independent approval requirement.
+    const autoApproveProjectShell = fullAutonomy && toolId === 'shell_exec' && Boolean(ctx.project_root);
+    const needsApproval = decisions.some((entry) => entry.decision === 'require_approval')
+      || tool.risk === 'critical'
+      || (tool.risk === 'high' && !fullAutonomy)
+      || (approvalRequired && !autoApproveProjectShell);
+    const autoApproved = fullAutonomy && !needsApproval && (
+      tool.risk === 'high'
+      || decisions.some((entry) => entry.risk === 'high')
+      || (approvalRequired && autoApproveProjectShell)
+    );
 
     this.bus.emit({ name: 'tool.called', severity: 'debug', summary: `${tool.name}${resource ? ' → ' + resource : ''}`, agent_id: ctx.agent_id, task_id: ctx.task_id, workflow_run_id: ctx.workflow_run_id, project_id: ctx.project_id, data: { tool: toolId, args: redactArgs(args, toolId), decision: decision.decision } });
 
     if (decisions.some((entry) => entry.decision === 'deny')) {
       this.bus.emit({ name: 'permission.denied', severity: 'warning', summary: `Denied ${tool.name}: ${decision.reason}`, agent_id: ctx.agent_id, task_id: ctx.task_id, workflow_run_id: ctx.workflow_run_id, project_id: ctx.project_id, data: { tool: toolId, resource } });
       throw new ToolDenied(`Permission denied for ${tool.id}: ${decision.reason}`);
+    }
+
+    if (autoApproved) {
+      const d = tool.describe?.(args) ?? { action: tool.name, target: resource ?? '(none)', why: 'Authorized agent operation', risks: [] };
+      this.approvals.recordAutoApproval({
+        workspace_id: ctx.workspace_id, project_id: ctx.project_id, agent_id: ctx.agent_id,
+        task_id: ctx.task_id, workflow_run_id: ctx.workflow_run_id, action: d.action, target: d.target,
+        why: d.why, tools: [tool.id], resources_affected: resource ? [resource] : [],
+        risks: [...d.risks, 'Automatically approved by explicit Full Autonomy setting'],
+        rollback_available: tool.reversible, permission: tool.permission, risk: 'high',
+        payload: { tool: toolId, args: redactArgs(args, toolId) },
+      });
+      ctx.progress?.(`Automatically approved: ${d.action}`);
     }
 
     if (needsApproval) {
@@ -66,7 +91,7 @@ export class ToolRegistry {
     }
 
     try {
-      const executionContext = needsApproval ? { ...ctx, approval_granted: true } : ctx;
+      const executionContext = needsApproval || autoApproved ? { ...ctx, approval_granted: true } : ctx;
       const r = await tool.execute(args ?? {}, executionContext);
       r.duration_ms = Math.round(performance.now() - t);
       this.bus.emit({ name: r.ok ? 'tool.completed' : 'tool.failed', severity: r.ok ? 'debug' : 'warning', summary: `${tool.name} ${r.ok ? 'completed' : 'failed'} in ${r.duration_ms}ms`, agent_id: ctx.agent_id, task_id: ctx.task_id, workflow_run_id: ctx.workflow_run_id, project_id: ctx.project_id, data: { tool: toolId, ok: r.ok, error: r.error } });

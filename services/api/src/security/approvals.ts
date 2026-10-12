@@ -37,20 +37,43 @@ export class ApprovalService {
   constructor(private db: Database, private bus: EventBus, private audit: Audit, private permissions: PermissionEngine) {}
 
   request(req: ApprovalRequest): Approval {
+    return this.persist(req, false);
+  }
+
+  /** Persist automatically authorized high-risk operations without creating a pending approval. */
+  recordAutoApproval(req: ApprovalRequest): Approval {
+    return this.persist(req, true);
+  }
+
+  private persist(req: ApprovalRequest, automatic: boolean): Approval {
+    const timestamp = now();
     const a: Approval = {
       id: uuid(), workspace_id: req.workspace_id, project_id: req.project_id ?? null, agent_id: req.agent_id ?? null,
       task_id: req.task_id ?? null, workflow_run_id: req.workflow_run_id ?? null, action: req.action, target: req.target,
       why: req.why, tools: req.tools, resources_affected: req.resources_affected, estimated_cost: req.estimated_cost ?? null,
       risks: req.risks, rollback_available: req.rollback_available, permission: req.permission, risk: req.risk,
-      status: 'pending', decided_at: null, decided_by: null, payload: req.payload ?? {}, created_at: now(),
+      status: automatic ? 'approved' : 'pending', decided_at: automatic ? timestamp : null,
+      decided_by: automatic ? 'full_autonomy_policy' : null, payload: req.payload ?? {}, created_at: timestamp,
     };
     this.db.run(
-      `INSERT INTO approvals (id, workspace_id, project_id, agent_id, task_id, workflow_run_id, action, target, why, tools, resources_affected, estimated_cost, risks, rollback_available, permission, risk, status, payload, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [a.id, a.workspace_id, a.project_id, a.agent_id, a.task_id, a.workflow_run_id, a.action, a.target, a.why, J.str(a.tools), J.str(a.resources_affected), a.estimated_cost, J.str(a.risks), a.rollback_available ? 1 : 0, a.permission, a.risk, a.status, J.str(a.payload), a.created_at],
+      `INSERT INTO approvals (id, workspace_id, project_id, agent_id, task_id, workflow_run_id, action, target, why, tools, resources_affected, estimated_cost, risks, rollback_available, permission, risk, status, decided_at, decided_by, payload, created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [a.id, a.workspace_id, a.project_id, a.agent_id, a.task_id, a.workflow_run_id, a.action, a.target, a.why, J.str(a.tools), J.str(a.resources_affected), a.estimated_cost, J.str(a.risks), a.rollback_available ? 1 : 0, a.permission, a.risk, a.status, a.decided_at, a.decided_by, J.str(a.payload), a.created_at],
     );
-    this.bus.emit({ name: 'approval.requested', severity: 'warning', summary: `Approval requested: ${a.action} → ${a.target}`, agent_id: a.agent_id, task_id: a.task_id, workflow_run_id: a.workflow_run_id, project_id: a.project_id, data: { approval_id: a.id, permission: a.permission, risk: a.risk } });
-    this.audit.log({ actor: a.agent_id ? `agent:${a.agent_id}` : 'tj', agent_id: a.agent_id, action: `approval.requested:${a.action}`, permission: a.permission, resource: a.target, decision: 'pending', details: { approval_id: a.id } });
+    this.bus.emit({
+      name: automatic ? 'approval.granted' : 'approval.requested',
+      severity: automatic ? 'info' : 'warning',
+      summary: `${automatic ? 'Automatically approved' : 'Approval requested'}: ${a.action} → ${a.target}`,
+      agent_id: a.agent_id, task_id: a.task_id, workflow_run_id: a.workflow_run_id, project_id: a.project_id,
+      data: { approval_id: a.id, permission: a.permission, risk: a.risk, automatic },
+    });
+    this.audit.log({
+      actor: automatic ? 'full_autonomy_policy' : a.agent_id ? `agent:${a.agent_id}` : 'tj',
+      agent_id: a.agent_id,
+      action: `${automatic ? 'approval.auto_granted' : 'approval.requested'}:${a.action}`,
+      permission: a.permission, resource: a.target, decision: automatic ? 'approved' : 'pending',
+      details: { approval_id: a.id, automatic },
+    });
     return a;
   }
 
