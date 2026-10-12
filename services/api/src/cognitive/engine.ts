@@ -55,7 +55,7 @@ export class CognitiveEngine {
   staticFileAuditPlan(goal: string): Plan | null {
     const sourceFiles = goal.match(/\b(?:docs|apps|services|packages|scripts|tests|src)\/[a-z0-9._/-]+\.(?:html|md|json|tsx?|jsx?|mjs|cjs|css|py)\b/gi) ?? [];
     const auditRequest = /\b(?:audit|review|inspect)\b/i.test(goal);
-    const prohibitsCommands = /\b(?:do not|don't|without)\b[^.\n]{0,120}\b(?:execute|run|invoke)\b[^.\n]{0,45}\b(?:shell|commands?|tests?)\b/i.test(goal);
+    const prohibitsCommands = (/\b(?:do not|don't|without)\b[^.\n]{0,120}\b(?:execute|run|invoke)\b[^.\n]{0,45}\b(?:shell|commands?|tests?)\b/i.test(goal) || /\b(?:without|no)\s+(?:running\s+)?(?:shell\s+)?commands?\b/i.test(goal));
     if (!auditRequest || !prohibitsCommands || sourceFiles.length === 0) return null;
 
     const sourceFile = sourceFiles[0]!;
