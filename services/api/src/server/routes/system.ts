@@ -46,7 +46,7 @@ export function registerSystemRoutes(
   // Fixed diagnostic command only. No user-supplied shell arguments.
   app.post('/api/v1/system/verify-full-autonomy', async (req, reply) => {
     const origin = req.headers.origin;
-    if (origin && !/^https?:\\/\\/(?:localhost|127\\.0\\.0\\.1)(?::\\d+)?$/.test(origin)
+    if (origin && !/^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin)
       && !['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost'].includes(origin)) {
       return reply.status(403).send({ error: 'Runtime verification is available only from the local TJ interface.' });
     }
