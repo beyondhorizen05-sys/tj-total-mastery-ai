@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../api';
+import { initialConversationId, canApplyConversationMessages, canAttachConversationReply } from './chat-selection';
 import { Send, Sparkles, AlertCircle } from 'lucide-react';
 
 interface Message {
@@ -31,6 +32,10 @@ interface CapabilityWorkflow {
 export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string) => void }> = ({ personaName, onNavigate }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  // Synchronous selection prevents stale requests from opening another thread.
+  const activeConvRef = useRef<string | null>(null);
+  const explicitSelection = useRef(false);
+  const messageRequestId = useRef(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [mode, setMode] = useState<'auto' | 'chat' | 'build' | 'improve'>(() => {
@@ -53,8 +58,11 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
     try {
       const res = await apiFetch<{ conversations: any[] }>('/api/v1/conversations');
       setConversations(res.conversations);
-      if (res.conversations.length > 0 && !activeConvId) {
-        setActiveConvId(res.conversations[0].id);
+      // A slow initial list must never override New Chat or a chosen thread.
+      const first = initialConversationId(res.conversations, explicitSelection.current, activeConvRef.current);
+      if (first) {
+        activeConvRef.current = first;
+        setActiveConvId(first);
       }
     } catch (e: any) {
       console.error(e);
@@ -62,12 +70,24 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
   };
 
   const loadMessages = async (id: string) => {
+    const requestId = ++messageRequestId.current;
     try {
       const res = await apiFetch<{ messages: Message[] }>(`/api/v1/conversations/${id}/messages`);
-      setMessages(res.messages);
+      // Replies may return out of order when switching between conversations.
+      if (canApplyConversationMessages(requestId, messageRequestId.current, id, activeConvRef.current)) {
+        setMessages(res.messages);
+      }
     } catch (e: any) {
       console.error(e);
     }
+  };
+
+  const chooseConversation = (id: string | null) => {
+    explicitSelection.current = true;
+    ++messageRequestId.current;
+    activeConvRef.current = id;
+    setActiveConvId(id);
+    setMessages([]);
   };
 
   useEffect(() => { loadConversations(); }, []);
@@ -75,7 +95,10 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
     const id = localStorage.getItem('tj-capability-workflow');
     if (id) void apiFetch<CapabilityWorkflow>(`/api/v1/chat/capability-workflows/${id}`).then(setCapabilityFlow).catch(() => {});
   }, []);
-  useEffect(() => { if (activeConvId) loadMessages(activeConvId); }, [activeConvId]);
+  useEffect(() => {
+    if (activeConvId) void loadMessages(activeConvId);
+    return () => { ++messageRequestId.current; };
+  }, [activeConvId]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
   useEffect(() => {
     if (!improvement || ['completed', 'failed', 'rolled_back'].includes(improvement.state)) return;
@@ -118,6 +141,7 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
     e.preventDefault();
     if (!input.trim() || loading) return;
     const userText = input;
+    const submittedConversation = activeConvRef.current;
     setInput('');
     setError(null);
     setLoading(true);
@@ -134,11 +158,16 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
         method: 'POST',
         body: JSON.stringify({ conversation_id: activeConvId ?? undefined, content: userText, mode }),
       });
-      if (!activeConvId && res.conversation_id) {
+      if (!submittedConversation && res.conversation_id && activeConvRef.current === submittedConversation) {
+        explicitSelection.current = true;
+        activeConvRef.current = res.conversation_id;
         setActiveConvId(res.conversation_id);
-        loadConversations();
+        void loadConversations();
       }
-      setMessages((prev) => [...prev, { id: res.message?.id ?? 'bot-' + Date.now(), role: 'assistant', content: res.content }]);
+      // Do not put a late assistant reply into a different conversation.
+      if (canAttachConversationReply(submittedConversation, res.conversation_id, activeConvRef.current)) {
+        setMessages((prev) => [...prev, { id: res.message?.id ?? 'bot-' + Date.now(), role: 'assistant', content: res.content }]);
+      }
       if (res.status === 'approval_required' && res.approval_id) {
         localStorage.setItem('tj-capability-workflow', res.approval_id);
         setCapabilityFlow({ approval_id: res.approval_id, status: 'pending_approval', capability_name: res.capability_id ?? 'New ability', reason: res.content, message: res.content });
@@ -156,7 +185,7 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
       {/* Threads Sidebar */}
       <div style={{ width: 220, background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', padding: 12 }}>
         <button
-          onClick={() => { setActiveConvId(null); setMessages([]); }}
+          onClick={() => chooseConversation(null)}
           style={{ padding: '8px 12px', background: 'var(--accent-blue)', border: 'none', borderRadius: 6, color: '#fff', fontWeight: 600, cursor: 'pointer', marginBottom: 12 }}
         >
           + New Chat
@@ -165,7 +194,7 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
           {conversations.map((c) => (
             <div
               key={c.id}
-              onClick={() => setActiveConvId(c.id)}
+              onClick={() => chooseConversation(c.id)}
               style={{
                 padding: '8px 12px', borderRadius: 6,
                 background: c.id === activeConvId ? 'var(--bg-card-hover)' : 'transparent',
