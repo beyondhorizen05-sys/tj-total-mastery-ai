@@ -11,7 +11,7 @@ const MARKER = 'TJ_FULL_AUTONOMY_RUNTIME_OK';
 
 /** Explicit opt-in to a fixed, harmless diagnostic; ordinary prompts use the normal planner. */
 export function isFullAutonomyProbeRequest(text: string): boolean {
-  return /\\bRUNTIME\\s+VERIFICATION\\s+TEST\\s*1\\b[^\\n]{0,100}\\bFULL\\s+AUTONOMY\\b/i.test(text);
+  return /\bRUNTIME\s+VERIFICATION\s+TEST\s*1\b[^\n]{0,100}\bFULL\s+AUTONOMY\b/i.test(text);
 }
 
 export interface FullAutonomyProbeResult {
@@ -147,5 +147,5 @@ export function formatFullAutonomyProbe(result: FullAutonomyProbeResult): string
     'Approval decided by: ' + (result.approval_decided_by ?? '(none)'),
     'Scope: fixed harmless command only. AI model planning and arbitrary medium-risk actions were not tested.',
   ];
-  return fields.join('\\n');
+  return fields.join('\n');
 }
