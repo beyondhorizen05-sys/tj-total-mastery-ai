@@ -72,4 +72,33 @@ describe('Sandbox Path Traversal Prevention', () => {
       expect(sandbox.isForbidden('/bin/bash')).toBe(true);
     }
   });
+
+  it('correctly resolves and deduplicates project-relative paths', () => {
+    const projectDir = path.join(tmpDir, 'runtime-verification-test-proj');
+    fs.mkdirSync(projectDir, { recursive: true });
+
+    // 1. Resolving project basename itself returns project root
+    expect(sandbox.resolve('runtime-verification-test-proj', projectDir)).toBe(projectDir);
+
+    // 2. Resolving project basename + subfile resolves inside project root without duplication
+    const fileWithBasename = sandbox.resolve('runtime-verification-test-proj/notes.md', projectDir);
+    expect(fileWithBasename).toBe(path.join(projectDir, 'notes.md'));
+
+    // 3. Accidental duplicated project basename segment is collapsed
+    const duplicatePath = sandbox.resolve('runtime-verification-test-proj/runtime-verification-test-proj/notes.md', projectDir);
+    expect(duplicatePath).toBe(path.join(projectDir, 'notes.md'));
+
+    // 4. Ordinary file name resolves directly inside project root
+    const directFile = sandbox.resolve('notes.md', projectDir);
+    expect(directFile).toBe(path.join(projectDir, 'notes.md'));
+  });
+
+  it('handles paths with spaces and Windows separators safely', () => {
+    const spacedProject = path.join(tmpDir, 'project with spaces in name');
+    fs.mkdirSync(spacedProject, { recursive: true });
+
+    const file = sandbox.resolve('sub folder\\file with spaces.txt', spacedProject);
+    expect(file).toBe(path.join(spacedProject, 'sub folder', 'file with spaces.txt'));
+    expect(sandbox.isInside(file, spacedProject)).toBe(true);
+  });
 });

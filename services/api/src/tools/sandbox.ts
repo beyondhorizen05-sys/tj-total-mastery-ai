@@ -27,8 +27,64 @@ export class Sandbox {
     if (!input || typeof input !== 'string') throw new Error('path is required');
     if (input.includes('\0')) throw new Error('invalid path');
     const base = projectRoot ?? this.roots()[0] ?? process.cwd();
-    const abs = path.isAbsolute(input) ? path.resolve(input) : path.resolve(base, input);
+
+    if (path.isAbsolute(input)) {
+      return path.resolve(input);
+    }
+
+    const cleanInput = input.replace(/^[.][\\/]/, '');
+    if (projectRoot) {
+      const normProjectRoot = this.normalize(projectRoot);
+      const projectBasename = path.basename(normProjectRoot);
+
+      // 1. If input resolved from process.cwd() lands inside or is equal to projectRoot,
+      // the caller specified a path relative to the repo root rather than project root.
+      const candidateFromCwd = path.resolve(process.cwd(), cleanInput);
+      const normFromCwd = this.normalize(candidateFromCwd);
+      if (normFromCwd === normProjectRoot || normFromCwd.startsWith(normProjectRoot + '/')) {
+        return this.collapseProjectDuplicates(candidateFromCwd, projectBasename);
+      }
+
+      // 2. If input begins with the project folder name (single or repeated)
+      const normInput = cleanInput.replace(/\\/g, '/');
+      let subPath = normInput;
+      while (subPath.startsWith(projectBasename + '/')) {
+        subPath = subPath.slice(projectBasename.length + 1);
+      }
+      if (subPath === projectBasename) {
+        return projectRoot;
+      }
+      if (subPath !== normInput) {
+        return path.resolve(projectRoot, subPath);
+      }
+
+      // 3. If input resolved from project parent directory lands inside or is equal to projectRoot,
+      // the caller passed a path starting with the project folder name.
+      const candidateFromParent = path.resolve(path.dirname(projectRoot), cleanInput);
+      const normFromParent = this.normalize(candidateFromParent);
+      if (normFromParent === normProjectRoot || normFromParent.startsWith(normProjectRoot + '/')) {
+        return this.collapseProjectDuplicates(candidateFromParent, projectBasename);
+      }
+    }
+
+    const abs = path.resolve(base, input);
+
+    if (projectRoot) {
+      const normProjectRoot = this.normalize(projectRoot);
+      const projectBasename = path.basename(normProjectRoot);
+      return this.collapseProjectDuplicates(abs, projectBasename);
+    }
+
     return abs;
+  }
+
+  private collapseProjectDuplicates(p: string, projectBasename: string): string {
+    const doubleSep = `/${projectBasename}/${projectBasename}`;
+    let norm = p.replace(/\\/g, '/');
+    while (norm.includes(doubleSep)) {
+      norm = norm.replace(doubleSep, `/${projectBasename}`);
+    }
+    return path.resolve(norm);
   }
 
   isInside(abs: string, projectRoot?: string | null): boolean {

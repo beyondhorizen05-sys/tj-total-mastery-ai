@@ -32,25 +32,36 @@ interface CapabilityWorkflow {
 
 type ChatMode = 'auto' | 'chat' | 'build' | 'improve';
 const CHAT_MODE_STORAGE_PREFIX = 'tj-chat-mode:';
+const GLOBAL_CHAT_MODE_STORAGE_KEY = 'tj-global-chat-mode';
 const ACTIVE_CONVERSATION_STORAGE_KEY = 'tj-active-conversation';
 const DRAFT_CONVERSATION_ID = 'draft';
 const CHAT_MODE_STORAGE_KEY = (conversationId: string | null) => `${CHAT_MODE_STORAGE_PREFIX}${conversationId ?? 'draft'}`;
 const readChatMode = (conversationId: string | null): ChatMode => {
   try {
     const stored = localStorage.getItem(CHAT_MODE_STORAGE_KEY(conversationId));
-    return stored === 'chat' || stored === 'build' || stored === 'improve' ? stored : 'auto';
+    if (stored === 'chat' || stored === 'build' || stored === 'improve' || stored === 'auto') return stored;
+    const globalMode = localStorage.getItem(GLOBAL_CHAT_MODE_STORAGE_KEY);
+    if (globalMode === 'chat' || globalMode === 'build' || globalMode === 'improve' || globalMode === 'auto') return globalMode;
+    return 'auto';
   } catch { return 'auto'; }
+};
+const readRememberedConversationId = (): string | null => {
+  try {
+    const remembered = localStorage.getItem(ACTIVE_CONVERSATION_STORAGE_KEY);
+    return remembered && remembered !== DRAFT_CONVERSATION_ID ? remembered : null;
+  } catch { return null; }
 };
 
 export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string) => void }> = ({ personaName, onNavigate }) => {
   const [conversations, setConversations] = useState<any[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const activeConvIdRef = useRef<string | null>(null);
+  const initialConvId = readRememberedConversationId();
+  const [activeConvId, setActiveConvId] = useState<string | null>(initialConvId);
+  const activeConvIdRef = useRef<string | null>(initialConvId);
   const hasSelectedConversation = useRef(false);
   const [historyVisible, setHistoryVisible] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [mode, setMode] = useState<ChatMode>(() => readChatMode(null));
+  const [mode, setMode] = useState<ChatMode>(() => readChatMode(initialConvId));
   const [improvement, setImprovement] = useState<ImprovementRun | null>(null);
   const [capabilityFlow, setCapabilityFlow] = useState<CapabilityWorkflow | null>(null);
   const reportedFlows = useRef<Set<string>>(new Set());
@@ -59,7 +70,10 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const storeMode = (conversationId: string | null, nextMode: ChatMode) => {
-    try { localStorage.setItem(CHAT_MODE_STORAGE_KEY(conversationId), nextMode); } catch { /* Keep the in-memory mode if storage is unavailable. */ }
+    try {
+      localStorage.setItem(CHAT_MODE_STORAGE_KEY(conversationId), nextMode);
+      localStorage.setItem(GLOBAL_CHAT_MODE_STORAGE_KEY, nextMode);
+    } catch { /* Keep the in-memory mode if storage is unavailable. */ }
   };
 
   const selectConversation = (conversationId: string | null, draftMode?: ChatMode) => {

@@ -67,7 +67,11 @@ try {
     }
     'observe' {
       $lines = New-Object 'System.Collections.ArrayList'
-      $root = [System.Windows.Automation.AutomationElement]::FromHandle([TJWinInput]::GetForegroundWindow())
+      $hwnd = [TJWinInput]::GetForegroundWindow()
+      $root = $null
+      if ($hwnd -ne [IntPtr]::Zero) {
+        try { $root = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd) } catch { $root = $null }
+      }
       if ($null -eq $root) { $root = [System.Windows.Automation.AutomationElement]::RootElement }
       ObserveElement $root 0 6 $lines
       $result.elements = @($lines)

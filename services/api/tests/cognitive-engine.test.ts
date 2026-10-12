@@ -37,4 +37,25 @@ describe('cognitive intent fallback', () => {
     expect(engine.staticFileAuditPlan('Build and test a new calculator prototype')).toBeNull();
     expect(engine.staticFileAuditPlan('Inspect a GitHub repo with shell commands allowed')).toBeNull();
   });
+
+  it('preserves explicitly requested Developer -> QA Engineer -> Verifier role assignments and dependencies', async () => {
+    const goal = 'Run runtime verification test. Assign Developer -> QA Engineer -> Verifier in dependency order.';
+    const planned = await engine.plan(goal);
+    expect(planned.plan.tasks.map((task) => task.role)).toEqual(['Developer', 'QA Engineer', 'Verifier']);
+    expect(planned.plan.tasks[0]?.depends_on).toEqual([]);
+    expect(planned.plan.tasks[1]?.depends_on).toEqual(['t1']);
+    expect(planned.plan.tasks[2]?.depends_on).toEqual(['t2']);
+    expect(planned.plan.tasks[0]?.tools).toContain('shell_exec');
+    expect(planned.plan.tasks[2]?.tools).not.toContain('shell_exec');
+  });
+
+  it('routes straightforward shell diagnostics directly without web search or research specialists', async () => {
+    const goal = 'Run shell diagnostic node -e "console.log(1)" and verify output';
+    const planned = await engine.plan(goal);
+    expect(planned.plan.tasks.map((task) => task.role)).toEqual(['Developer', 'Verifier']);
+    const allTools = planned.plan.tasks.flatMap((t) => t.tools ?? []);
+    expect(allTools).not.toContain('web_search');
+    expect(allTools).not.toContain('github_inspect_repository');
+    expect(allTools).toContain('shell_exec');
+  });
 });
