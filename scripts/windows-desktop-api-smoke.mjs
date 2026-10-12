@@ -49,6 +49,21 @@ try {
           if (good.status === 200) {
             const unauthorized = await fetch('http://127.0.0.1:' + port + '/api/v1/system/status');
             if (unauthorized.status !== 401) throw new Error('Local API allowed an unauthenticated request');
+            // WebView2 has an app-specific origin and preflights the desktop token header.
+            // A successful Node fetch without Origin cannot catch a browser-only CORS failure.
+            const preflight = await fetch('http://127.0.0.1:' + port + '/api/v1/system/status', {
+              method: 'OPTIONS',
+              headers: {
+                Origin: 'http://tauri.localhost',
+                'Access-Control-Request-Method': 'GET',
+                'Access-Control-Request-Headers': 'x-tj-desktop-token',
+              },
+              signal: AbortSignal.timeout(3000),
+            });
+            if (preflight.status !== 204 || preflight.headers.get('access-control-allow-origin') !== 'http://tauri.localhost' ||
+                !preflight.headers.get('access-control-allow-headers')?.toLowerCase().includes('x-tj-desktop-token')) {
+              throw new Error('Packaged API rejected desktop WebView CORS preflight');
+            }
             const invalid = await fetch('http://127.0.0.1:' + port + '/api/v1/system/status', {
               headers: { 'X-TJ-Desktop-Token': '0'.repeat(64) } });
             if (invalid.status !== 401) throw new Error('Local API accepted the wrong desktop token');

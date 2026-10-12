@@ -105,7 +105,12 @@ export const App: React.FC = () => {
       setStartupError(null);
     } catch (e) {
       console.error(e);
-      if (showWizard === null) setStartupError(e instanceof Error ? e.message : 'API connection failed');
+      if (showWizard === null) {
+        // Tauri IPC rejects with a plain string, not necessarily an Error.
+        // Preserve the Rust supervisor's specific startup failure and log path.
+        const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : 'API connection failed';
+        setStartupError(detail || 'API connection failed');
+      }
     }
   };
   const loadPersona = async () => {
