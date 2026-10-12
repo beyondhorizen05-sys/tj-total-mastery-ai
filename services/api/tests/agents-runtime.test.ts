@@ -9,6 +9,41 @@ import type { ModelRouter } from '../src/models/router.js';
 import type { ToolRegistry } from '../src/tools/registry.js';
 
 describe('AgentRuntime budget', () => {
+  it('stops repeatedly guessing invalid fs_read paths before exhausting the agent loop', async () => {
+    const db = new Database(':memory:'); db.migrate();
+    try {
+      const agent = {
+        id: 'reader', name: 'Researcher', role: 'Researcher', description: '',
+        personality: '', system_instructions: '', tools: ['fs_read', 'fs_list'],
+        permissions: ['filesystem.read'], model_id: 'test/model', budget_usd: 1, spent_usd: 0,
+      } as unknown as Agent;
+      let attempts = 0;
+      const router = {
+        chat: async () => {
+          attempts++;
+          return {
+            text: '', tool_calls: [{ id: String(attempts), name: 'fs_read', arguments: { path: 'missing-' + attempts + '.txt' } }],
+            usage: { tokens_in: 1, tokens_out: 1 }, cost_usd: 0, model_id: 'test/model',
+          };
+        },
+      } as unknown as ModelRouter;
+      let toolExecutions = 0;
+      const tools = {
+        specs: () => [{ name: 'fs_read', description: 'Read a file', parameters: { type: 'object' } }],
+        execute: async () => { toolExecutions++; return { ok: false, output: 'File not found: /sandbox/missing-' + toolExecutions + '.txt', duration_ms: 1 }; },
+      } as unknown as ToolRegistry;
+      const agents = { get: () => agent, setStatus: () => {}, addMetrics: () => {} } as unknown as AgentService;
+      const result = await new AgentRuntime(router, tools, agents, new EventBus(db), new SettingsRepo(db)).run({
+        agent, instruction: 'Read project files', workspace_id: 'default', project_id: null, project_root: '/sandbox', task_id: null,
+      });
+      expect(toolExecutions).toBe(3);
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('Three invalid file reads');
+      expect(result.error).toContain('fs_list');
+      expect(attempts).toBe(3);
+    } finally { db.close(); }
+  });
+
   it('refuses model-requested tools prohibited by task-specific policy, even with native tool calls', async () => {
     const db = new Database(':memory:'); db.migrate();
     try {
