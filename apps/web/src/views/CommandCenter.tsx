@@ -1,16 +1,22 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import {
   Activity, ArrowUpRight, CheckSquare, Clapperboard, Compass, Cpu,
-  Globe2, Headphones, Lock, MessageSquare, Power, Radio,
-  Send, ShieldAlert, ShieldCheck, Sliders, Sparkles, UserCheck, Users, Workflow,
+  Headphones, MessageSquare, Power, Radio,
+  Send, ShieldAlert, Sliders, Sparkles, UserCheck, Users, Workflow,
   Edit3, X, Maximize2, Minimize2, Minus, Eye, BarChart3, GraduationCap,
-  Briefcase, HeartPulse, Wallet, LineChart, Wrench, HardDrive, Network
+  Briefcase, HeartPulse, Wallet, LineChart, Wrench, HardDrive, Network,
+  Plus, Trash2, Zap, Brain, Terminal
 } from 'lucide-react';
-import type { SystemStatus, TJPersona } from '@tj/schemas';
-import { LivingHQScene, DEFAULT_AGENT_SLOTS } from '../components/LivingHQScene';
+import type { SystemStatus, TJPersona, TownAgent } from '@tj/schemas';
+import { apiFetch } from '../api';
+import {
+  LivingHQScene,
+  type AgentSoul,
+  type CustomRoom,
+} from '../components/LivingHQScene';
 import './living-world.css';
 
-// Lazy-loaded Views for Floating Windows
+// Lazy-loaded Subsystem Views for Floating Windows
 const TasksView = lazy(() => import('./TasksView').then((m) => ({ default: m.TasksView })));
 const AgentsView = lazy(() => import('./AgentsView').then((m) => ({ default: m.AgentsView })));
 const ChatView = lazy(() => import('./ChatView').then((m) => ({ default: m.ChatView })));
@@ -33,6 +39,185 @@ const FinanceView = lazy(() => import('./FinanceView').then((m) => ({ default: m
 const PaperTradingView = lazy(() => import('./PaperTradingView').then((m) => ({ default: m.PaperTradingView })));
 const FocusWorkspace = lazy(() => import('./FocusWorkspace').then((m) => ({ default: m.FocusWorkspace })));
 
+const INITIAL_SOULS: AgentSoul[] = [
+  {
+    id: 'soul-1',
+    name: 'LEO',
+    role: 'Zero-G Researcher',
+    gender: 'male',
+    personality: 'Deep mathematical focus, relentless experimentalist.',
+    energy: 94,
+    status: 'working',
+    currentThought: 'Calibrating anti-gravity drift parameters to 0.02G tolerance.',
+    workstationPos: [-4.6, 0.44, 0.4],
+    restPos: [-5.4, 0, 1.2],
+    assignedRoom: 'ANTIGRAVITY RESEARCH LAB',
+    jacketColor: '#253d56',
+    hairColor: '#2b231f',
+    skinColor: '#d69e80',
+  },
+  {
+    id: 'soul-2',
+    name: 'BEN',
+    role: 'Cybernetics Engineer',
+    gender: 'male',
+    personality: 'Methodical precision, robotics specialist.',
+    energy: 88,
+    status: 'working',
+    currentThought: 'Robotic calibration rig servo latency measured at 0.8ms.',
+    workstationPos: [-3.8, 0.44, 2.7],
+    restPos: [-4.5, 0, 3.2],
+    assignedRoom: 'BIOMETRICS & CYBERNETICS LAB',
+    jacketColor: '#24374a',
+    hairColor: '#1e1c1b',
+    skinColor: '#cf997c',
+  },
+  {
+    id: 'soul-3',
+    name: 'SAM',
+    role: 'Operations Lead',
+    gender: 'male',
+    personality: 'Vigilant system monitor, rapid responder.',
+    energy: 92,
+    status: 'working',
+    currentThought: 'Monitoring dual telemetry monitors for node stability.',
+    workstationPos: [-2.1, 0.44, 2.8],
+    restPos: [-1.4, 0, 3.2],
+    assignedRoom: 'BIOMETRICS & CYBERNETICS LAB',
+    jacketColor: '#1c2e42',
+    hairColor: '#181818',
+    skinColor: '#e0af94',
+  },
+  {
+    id: 'soul-4',
+    name: 'MIA',
+    role: 'Neural Data Analyst',
+    gender: 'female',
+    personality: 'Intuitive pattern recognition, high aesthetic sense.',
+    energy: 85,
+    status: 'working',
+    currentThought: 'Synthesizing biometrics trend feeds across local workspace.',
+    workstationPos: [-1.0, 0.44, 2.6],
+    restPos: [-0.6, 0, 3.2],
+    assignedRoom: 'BIOMETRICS & CYBERNETICS LAB',
+    jacketColor: '#384d63',
+    hairColor: '#4a2e1d',
+    skinColor: '#d9a285',
+  },
+  {
+    id: 'soul-5',
+    name: 'JACS',
+    role: 'Catwalk Patrol & Security',
+    gender: 'male',
+    personality: 'Observant, tactical, alert to anomaly vectors.',
+    energy: 96,
+    status: 'transit',
+    currentThought: 'Patrolling central bulkhead corridor; physical security nominal.',
+    workstationPos: [0.3, 1.4, 0.15],
+    restPos: [0.3, 1.4, 0.15],
+    assignedRoom: 'CATWALK BRIDGE',
+    jacketColor: '#2b3f54',
+    hairColor: '#222222',
+    skinColor: '#ca9478',
+  },
+  {
+    id: 'soul-6',
+    name: 'ELIAS',
+    role: 'Strategy Synthesizer',
+    gender: 'male',
+    personality: 'Strategic debater, high level multi-agent coordinator.',
+    energy: 90,
+    status: 'collaborating',
+    currentThought: 'Discussing quantum reactor harmonics synchronization with Sara.',
+    workstationPos: [2.7, 1.4, 1.5],
+    restPos: [2.7, 1.4, 1.5],
+    assignedRoom: 'CENTRAL CATWALK',
+    jacketColor: '#22384c',
+    hairColor: '#332722',
+    skinColor: '#d8a186',
+  },
+  {
+    id: 'soul-7',
+    name: 'SARA',
+    role: 'Principal Scientist',
+    gender: 'female',
+    personality: 'Insightful, visionary, leads cross-node synchronization.',
+    energy: 91,
+    status: 'collaborating',
+    currentThought: 'Validating zero-g telemetry models against live cluster stats.',
+    workstationPos: [3.7, 1.4, 1.8],
+    restPos: [3.7, 1.4, 1.8],
+    assignedRoom: 'CENTRAL CATWALK',
+    jacketColor: '#d8e4ef',
+    hairColor: '#1c1b1a',
+    skinColor: '#dba98f',
+  },
+  {
+    id: 'soul-8',
+    name: 'TARA',
+    role: 'Data Bay Architect',
+    gender: 'female',
+    personality: 'Database optimization guru, holographic interface specialist.',
+    energy: 87,
+    status: 'working',
+    currentThought: 'Optimizing holographic data globe cluster indexes.',
+    workstationPos: [4.1, 1.4, -2.1],
+    restPos: [3.2, 1.4, -1.8],
+    assignedRoom: 'TECH SUITE & DATA BAY',
+    jacketColor: '#33485c',
+    hairColor: '#4f301d',
+    skinColor: '#d1997d',
+  },
+  {
+    id: 'soul-9',
+    name: 'KATE',
+    role: 'Mission Surveillance Commander',
+    gender: 'female',
+    personality: 'Cool under pressure, global telemetry coordinator.',
+    energy: 95,
+    status: 'working',
+    currentThought: 'Tracking world map geopolitical relays and active approval queues.',
+    workstationPos: [0.5, 1.4, -3.1],
+    restPos: [-0.6, 1.4, -3.1],
+    assignedRoom: 'MISSION CONTROL',
+    jacketColor: '#203244',
+    hairColor: '#2a2220',
+    skinColor: '#dca48a',
+  },
+  {
+    id: 'soul-10',
+    name: 'CHLOE',
+    role: 'Quantum Optimizer',
+    gender: 'female',
+    personality: 'Algorithmic perfectionist, cooling circuit engineer.',
+    energy: 89,
+    status: 'working',
+    currentThought: 'Monitoring RGB cryogenic cooling conduits at 3.4 Kelvin.',
+    workstationPos: [-4.2, 2.8, -2.5],
+    restPos: [-4.8, 2.8, -1.8],
+    assignedRoom: 'QUANTUM COMPUTE HUB',
+    jacketColor: '#2c4257',
+    hairColor: '#5c3a21',
+    skinColor: '#caa085',
+  },
+  {
+    id: 'soul-11',
+    name: 'DAN',
+    role: 'Mainframe Compute Specialist',
+    gender: 'male',
+    personality: 'Hardware hacker, high-throughput compute architect.',
+    energy: 93,
+    status: 'working',
+    currentThought: 'Load testing second-tier quantum server blades under peak flow.',
+    workstationPos: [-2.7, 2.8, -2.5],
+    restPos: [-2.0, 2.8, -1.8],
+    assignedRoom: 'QUANTUM COMPUTE HUB',
+    jacketColor: '#1e3042',
+    hairColor: '#1c1c1c',
+    skinColor: '#d89e82',
+  },
+];
+
 interface Props {
   status: SystemStatus | null;
   persona: TJPersona;
@@ -51,10 +236,7 @@ interface Props {
 export const CommandCenter: React.FC<Props> = ({
   status,
   persona,
-  voiceSpeaking,
   onNavigate,
-  onOpenBuilding,
-  onSelectAgent,
   onOpenPulse,
   onSendChat,
   loading,
@@ -63,7 +245,6 @@ export const CommandCenter: React.FC<Props> = ({
 }) => {
   const [input, setInput] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
-  const [selectedAgentName, setSelectedAgentName] = useState<string | null>(null);
   const [focusTarget, setFocusTarget] = useState<[number, number, number] | null>(null);
 
   // Floating Window Management
@@ -75,18 +256,35 @@ export const CommandCenter: React.FC<Props> = ({
   const [showBottomRight, setShowBottomRight] = useState(true);
   const [showBottomPulse, setShowBottomPulse] = useState(true);
 
-  // Custom Agent Names management (persists to localStorage)
-  const [customNames, setCustomNames] = useState<Record<string, string>>(() => {
+  // Live Agent Souls (Realistic human behavior & state machine)
+  const [agentSouls, setAgentSouls] = useState<AgentSoul[]>(() => {
     try {
-      const saved = localStorage.getItem('tj_agent_custom_names');
-      return saved ? JSON.parse(saved) : {};
+      const saved = localStorage.getItem('tj_agent_souls');
+      return saved ? JSON.parse(saved) : INITIAL_SOULS;
     } catch {
-      return {};
+      return INITIAL_SOULS;
     }
   });
 
-  // Modal for editing names
-  const [tempNames, setTempNames] = useState<Record<string, string>>({});
+  // Selected Agent Soul Dossier
+  const [inspectingSoul, setInspectingSoul] = useState<AgentSoul | null>(null);
+  const [assignedDirective, setAssignedDirective] = useState('');
+
+  // Custom User Rooms Management (Room Expansion System)
+  const [customRooms, setCustomRooms] = useState<CustomRoom[]>(() => {
+    try {
+      const saved = localStorage.getItem('tj_custom_rooms');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Form state for creating a new room
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomTheme, setNewRoomTheme] = useState<CustomRoom['theme']>('quantum');
+  const [newRoomBay, setNewRoomBay] = useState<CustomRoom['bay']>('ground_right');
+  const [newRoomColor, setNewRoomColor] = useState('#00f2fe');
 
   // Category switch toggles
   const [switches, setSwitches] = useState({
@@ -97,16 +295,96 @@ export const CommandCenter: React.FC<Props> = ({
   });
   const [activeCategoryDrawer, setActiveCategoryDrawer] = useState<string | null>(null);
 
+  // --------------------------------------------------------------------------
+  // LIVE BACKEND INTEGRATION & REAL-TIME EVENT STREAM
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    // Fetch live backend agents and map them to souls
+    const fetchLiveAgents = async () => {
+      try {
+        const res = await apiFetch<{ agents: TownAgent[] }>('/api/v1/town/state');
+        if (res.agents && res.agents.length > 0) {
+          setAgentSouls((prevSouls) =>
+            prevSouls.map((soul, idx) => {
+              const liveAgent = res.agents[idx % res.agents.length];
+              if (liveAgent) {
+                const isWorking = liveAgent.status === 'working' || liveAgent.status === 'thinking';
+                return {
+                  ...soul,
+                  name: liveAgent.name || soul.name,
+                  status: isWorking ? 'working' : soul.status === 'working' ? 'resting' : soul.status,
+                  taskId: liveAgent.task_id,
+                  currentThought: isWorking
+                    ? `Executing live task ${liveAgent.task_id?.slice(0, 8)}: processing neural weights.`
+                    : soul.currentThought,
+                  energy: isWorking ? Math.max(30, soul.energy - 0.5) : Math.min(100, soul.energy + 0.2),
+                };
+              }
+              return soul;
+            })
+          );
+        }
+      } catch (e) {
+        // Fallback to internal simulation loop
+      }
+    };
+
+    void fetchLiveAgents();
+    const interval = setInterval(fetchLiveAgents, 10000);
+
+    // Live EventSource for real-time reactivity
+    const stream = new EventSource('/api/v1/system/events');
+    stream.addEventListener('task.started', (event: any) => {
+      const data = JSON.parse(event.data || '{}');
+      setAgentSouls((prev) =>
+        prev.map((soul, i) =>
+          i === 0 || soul.id === data.agent_id
+            ? {
+                ...soul,
+                status: 'working',
+                taskId: data.task_id,
+                currentThought: `Received live task: ${data.name || 'Running model synthesis'}. Moving to workstation.`,
+                energy: Math.max(20, soul.energy - 5),
+              }
+            : soul
+        )
+      );
+    });
+
+    stream.addEventListener('task.completed', (event: any) => {
+      const data = JSON.parse(event.data || '{}');
+      setAgentSouls((prev) =>
+        prev.map((soul) =>
+          soul.taskId === data.task_id
+            ? {
+                ...soul,
+                status: 'resting',
+                taskId: null,
+                currentThought: 'Task completed successfully! Taking a rest on the catwalk.',
+                energy: Math.min(100, soul.energy + 15),
+              }
+            : soul
+        )
+      );
+    });
+
+    return () => {
+      clearInterval(interval);
+      stream.close();
+    };
+  }, []);
+
   // Keyboard shortcut: Escape closes floating window
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && activeFloatingWindow) {
-        setActiveFloatingWindow(null);
+      if (e.key === 'Escape') {
+        if (inspectingSoul) setInspectingSoul(null);
+        else if (activeFloatingWindow) setActiveFloatingWindow(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeFloatingWindow]);
+  }, [activeFloatingWindow, inspectingSoul]);
 
   const toggleSwitch = (key: keyof typeof switches) => {
     setSwitches((prev) => {
@@ -119,44 +397,102 @@ export const CommandCenter: React.FC<Props> = ({
 
   const openFloating = (windowId: string) => {
     setActiveCategoryDrawer(null);
-    if (windowId === 'roster') {
-      const current: Record<string, string> = {};
-      DEFAULT_AGENT_SLOTS.forEach((slot) => {
-        current[slot.id] = customNames[slot.id] || slot.defaultName;
-      });
-      setTempNames(current);
-    }
+    setInspectingSoul(null);
     setActiveFloatingWindow(windowId);
   };
 
   const closeFloating = () => {
     setActiveFloatingWindow(null);
+    setInspectingSoul(null);
     setIsWindowMaximized(false);
   };
 
-  const handleSaveRoster = () => {
-    setCustomNames(tempNames);
+  // Add Custom Room Handler
+  const handleCreateRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoomName.trim()) return;
+
+    const bayPositions: Record<CustomRoom['bay'], [number, number, number]> = {
+      ground_right: [3.4, 0, 2.6],
+      mezzanine_right: [3.8, 2.8, 1.8],
+      observation_high: [0, 4.2, 0],
+      extended_left: [-7.2, 0, 0],
+    };
+
+    const newRoom: CustomRoom = {
+      id: `custom-room-${Date.now()}`,
+      name: newRoomName.trim().toUpperCase(),
+      theme: newRoomTheme,
+      bay: newRoomBay,
+      position: bayPositions[newRoomBay] || [0, 0, 0],
+      accentColor: newRoomColor,
+      assignedAgentIds: [],
+    };
+
+    const updated = [...customRooms, newRoom];
+    setCustomRooms(updated);
     try {
-      localStorage.setItem('tj_agent_custom_names', JSON.stringify(tempNames));
-    } catch (e) {
-      console.error('Failed to save custom agent names', e);
+      localStorage.setItem('tj_custom_rooms', JSON.stringify(updated));
+    } catch (err) {
+      console.error(err);
     }
+
+    setNewRoomName('');
     closeFloating();
   };
 
-  const handleSelect3DAgent = (slotId: string, name: string) => {
-    setSelectedSlotId(slotId);
-    setSelectedAgentName(name);
-
-    const slot = DEFAULT_AGENT_SLOTS.find((s) => s.id === slotId);
-    if (slot) {
-      setFocusTarget(slot.position);
+  const handleDeleteRoom = (roomId: string) => {
+    const updated = customRooms.filter((r) => r.id !== roomId);
+    setCustomRooms(updated);
+    try {
+      localStorage.setItem('tj_custom_rooms', JSON.stringify(updated));
+    } catch (err) {
+      console.error(err);
     }
+  };
+
+  const handleSelect3DAgent = (slotId: string) => {
+    setSelectedSlotId(slotId);
+    const soul = agentSouls.find((s) => s.id === slotId);
+    if (soul) {
+      setFocusTarget(soul.status === 'working' ? soul.workstationPos : soul.restPos);
+    }
+  };
+
+  const handleInspectSoul = (soul: AgentSoul) => {
+    setInspectingSoul(soul);
+    setSelectedSlotId(soul.id);
+    setFocusTarget(soul.status === 'working' ? soul.workstationPos : soul.restPos);
+  };
+
+  const handleAssignDirectiveToSoul = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignedDirective.trim() || !inspectingSoul) return;
+
+    const taskText = assignedDirective.trim();
+    setAssignedDirective('');
+
+    // Update agent soul to working state
+    setAgentSouls((prev) =>
+      prev.map((s) =>
+        s.id === inspectingSoul.id
+          ? {
+              ...s,
+              status: 'working',
+              currentThought: `Direct user instruction received: "${taskText}". Transitioning to workstation.`,
+              energy: Math.max(10, s.energy - 8),
+            }
+          : s
+      )
+    );
+
+    // Dispatch chat/task
+    void onSendChat(`[@${inspectingSoul.name}] ${taskText}`, 'auto');
+    setInspectingSoul(null);
   };
 
   const handleResetCamera = () => {
     setSelectedSlotId(null);
-    setSelectedAgentName(null);
     setFocusTarget(null);
     closeFloating();
   };
@@ -167,8 +503,9 @@ export const CommandCenter: React.FC<Props> = ({
     if (!text || loading) return;
     setInput('');
 
-    const messageContent = selectedAgentName
-      ? `[@${selectedAgentName}] ${text}`
+    const activeSoul = agentSouls.find((s) => s.id === selectedSlotId);
+    const messageContent = activeSoul
+      ? `[@${activeSoul.name}] ${text}`
       : text;
     void onSendChat(messageContent, 'auto');
   };
@@ -177,10 +514,9 @@ export const CommandCenter: React.FC<Props> = ({
   const runningTasks = status?.running_tasks ?? 0;
   const pendingApprovals = status?.pending_approvals ?? 0;
 
-  // 9 Primary Cyber Navigation Tabs
+  // PRIMARY TOP NAVIGATION TABS (WITHOUT DUMMY "MAIN INTERFACE")
   const topTabs = [
-    { id: 'main', label: 'MAIN INTERFACE', icon: Globe2 },
-    { id: 'command', label: 'LIVING WORLD', icon: Compass, isActive: !activeFloatingWindow },
+    { id: 'command', label: 'LIVING WORLD', icon: Compass, isActive: !activeFloatingWindow && !inspectingSoul },
     { id: 'tasks', label: 'MISSION CONTROL', icon: CheckSquare, badge: runningTasks, isWindow: true },
     { id: 'agents', label: 'AGENTS', icon: Users, isWindow: true },
     { id: 'chat', label: 'CONVERSATIONS', icon: MessageSquare, isWindow: true },
@@ -193,133 +529,178 @@ export const CommandCenter: React.FC<Props> = ({
   // Helper to render component inside floating window
   const renderFloatingContent = (windowId: string) => {
     switch (windowId) {
-      case 'tasks':
-        return <TasksView />;
-      case 'agents':
-        return <AgentsView selectedAgentId={selectedSlotId} />;
-      case 'chat':
-        return <ChatView personaName={persona.name} onNavigate={openFloating} />;
-      case 'workflows':
-        return <WorkflowsView initialMode="studio" />;
-      case 'media':
-        return <MediaView />;
-      case 'activity':
-        return <ActivityView />;
-      case 'approvals':
-        return <ApprovalsView />;
-      case 'settings':
-        return <SettingsView />;
-      case 'skills':
-        return <SkillsView />;
-      case 'connectors':
-        return <ConnectorsView />;
-      case 'models':
-        return <ModelsView />;
-      case 'memory':
-        return <MemoryView />;
-      case 'graph':
-        return <GraphView />;
-      case 'vision':
-        return <VisionView />;
-      case 'data':
-        return <DataIntelligenceView />;
-      case 'education':
-        return <EducationView />;
-      case 'business':
-        return <BusinessView />;
-      case 'wellness':
-        return <WellnessView />;
-      case 'finance':
-        return <FinanceView />;
-      case 'paper':
-        return <PaperTradingView />;
-      case 'focus':
-        return <FocusWorkspace personaName={persona.name} />;
-      case 'roster':
+      case 'tasks': return <TasksView />;
+      case 'agents': return <AgentsView selectedAgentId={selectedSlotId} />;
+      case 'chat': return <ChatView personaName={persona.name} onNavigate={openFloating} />;
+      case 'workflows': return <WorkflowsView initialMode="studio" />;
+      case 'media': return <MediaView />;
+      case 'activity': return <ActivityView />;
+      case 'approvals': return <ApprovalsView />;
+      case 'settings': return <SettingsView />;
+      case 'skills': return <SkillsView />;
+      case 'connectors': return <ConnectorsView />;
+      case 'models': return <ModelsView />;
+      case 'memory': return <MemoryView />;
+      case 'graph': return <GraphView />;
+      case 'vision': return <VisionView />;
+      case 'data': return <DataIntelligenceView />;
+      case 'education': return <EducationView />;
+      case 'business': return <BusinessView />;
+      case 'wellness': return <WellnessView />;
+      case 'finance': return <FinanceView />;
+      case 'paper': return <PaperTradingView />;
+      case 'focus': return <FocusWorkspace personaName={persona.name} />;
+      case 'add_room':
         return (
           <div style={{ padding: 12 }}>
-            <p style={{ margin: '0 0 16px', fontSize: 12, color: '#8da6bd' }}>
-              Assign your custom names for each 3D agent stationed across the rooms:
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <Plus size={18} color="#00f2fe" />
+              <h3 style={{ margin: 0, fontSize: 16, color: '#ffffff', fontFamily: 'JetBrains Mono' }}>
+                EXPAND BUILDING · ADD NEW CYBER ROOM
+              </h3>
+            </div>
+            <p style={{ margin: '0 0 16px', fontSize: 11, color: '#8da6bd' }}>
+              Design and construct a new interactive room inside your 3D Command Headquarters.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-              {DEFAULT_AGENT_SLOTS.map((slot, index) => (
-                <div
-                  key={slot.id}
+
+            <form onSubmit={handleCreateRoom} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, color: '#00f2fe', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                  ROOM NAME / TITLE
+                </label>
+                <input
+                  className="tj-room-builder-input"
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  placeholder="e.g. WAR ROOM, NEURAL SYNAPSE LAB, CODE FOUNDRY"
+                  required
+                />
+              </div>
+
+              <div className="tj-room-builder-grid">
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8da6bd', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                    EQUIPMENT & THEME
+                  </label>
+                  <select
+                    className="tj-room-builder-select"
+                    value={newRoomTheme}
+                    onChange={(e) => setNewRoomTheme(e.target.value as any)}
+                  >
+                    <option value="quantum">Quantum Mainframe & Servers</option>
+                    <option value="cybernetics">Cybernetics & Robotics Rig</option>
+                    <option value="research">Research Lab & Zero-G Pod</option>
+                    <option value="command">Command & Tactical Console</option>
+                    <option value="data">Data Bay & Hologram Terminal</option>
+                    <option value="lounge">Executive Cyber Lounge & Rest</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8da6bd', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                    BUILDING TIER & LOCATION
+                  </label>
+                  <select
+                    className="tj-room-builder-select"
+                    value={newRoomBay}
+                    onChange={(e) => setNewRoomBay(e.target.value as any)}
+                  >
+                    <option value="ground_right">Ground Floor · East Wing</option>
+                    <option value="mezzanine_right">Mezzanine 2nd Tier · East Deck</option>
+                    <option value="observation_high">Central High Observation Tier</option>
+                    <option value="extended_left">Ground Floor · West Expansion</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8da6bd', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                    ACCENT NEON COLOR
+                  </label>
+                  <select
+                    className="tj-room-builder-select"
+                    value={newRoomColor}
+                    onChange={(e) => setNewRoomColor(e.target.value)}
+                  >
+                    <option value="#00f2fe">Cyan Glow (#00f2fe)</option>
+                    <option value="#4cd997">Emerald Glow (#4cd997)</option>
+                    <option value="#f5a623">Amber Alert (#f5a623)</option>
+                    <option value="#a855f7">Quantum Violet (#a855f7)</option>
+                    <option value="#ff476f">Crimson Core (#ff476f)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 14 }}>
+                <button
+                  type="button"
+                  onClick={closeFloating}
                   style={{
-                    background: 'rgba(14, 28, 45, 0.75)',
-                    border: '1px solid rgba(0, 242, 254, 0.2)',
-                    borderRadius: 10,
-                    padding: '12px 14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 6,
+                    background: 'transparent',
+                    border: '1px solid rgba(141, 166, 189, 0.25)',
+                    borderRadius: 6,
+                    color: '#8da6bd',
+                    fontSize: 11,
+                    padding: '8px 16px',
+                    cursor: 'pointer',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: '#00f2fe', fontWeight: 800 }}>
-                      AGENT #{index + 1} · {slot.roomName}
-                    </span>
-                    <span style={{ fontSize: 9, color: '#8da6bd', textTransform: 'uppercase' }}>
-                      {slot.gender} · {slot.status}
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    value={tempNames[slot.id] || ''}
-                    onChange={(e) =>
-                      setTempNames((prev) => ({ ...prev, [slot.id]: e.target.value.toUpperCase() }))
-                    }
-                    placeholder={slot.defaultName}
-                    style={{
-                      background: 'rgba(6, 15, 26, 0.85)',
-                      border: '1px solid rgba(0, 242, 254, 0.3)',
-                      borderRadius: 6,
-                      color: '#ffffff',
-                      fontFamily: 'JetBrains Mono',
-                      fontWeight: 800,
-                      fontSize: 13,
-                      padding: '8px 12px',
-                      outline: 'none',
-                    }}
-                  />
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+                    border: 0,
+                    borderRadius: 6,
+                    color: '#050b14',
+                    fontFamily: 'JetBrains Mono',
+                    fontWeight: 900,
+                    fontSize: 11,
+                    padding: '8px 22px',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 16px rgba(0, 242, 254, 0.4)',
+                  }}
+                >
+                  Construct Room in 3D
+                </button>
+              </div>
+            </form>
+
+            {customRooms.length > 0 && (
+              <div style={{ marginTop: 24, borderTop: '1px solid rgba(0, 242, 254, 0.15)', paddingTop: 14 }}>
+                <b style={{ fontSize: 11, color: '#00f2fe', fontFamily: 'JetBrains Mono' }}>
+                  ACTIVE CUSTOM EXPANSIONS ({customRooms.length})
+                </b>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                  {customRooms.map((r) => (
+                    <div
+                      key={r.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: 'rgba(8, 18, 30, 0.7)',
+                        border: '1px solid rgba(141, 166, 189, 0.15)',
+                        borderRadius: 6,
+                      }}
+                    >
+                      <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#ffffff' }}>
+                        {r.name} · <small style={{ color: r.accentColor }}>{r.theme}</small>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRoom(r.id)}
+                        style={{ background: 'transparent', border: 0, color: '#ff476f', cursor: 'pointer' }}
+                        title="Delete Room"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
-              <button
-                type="button"
-                onClick={closeFloating}
-                style={{
-                  background: 'transparent',
-                  border: '1px solid rgba(141, 166, 189, 0.25)',
-                  borderRadius: 8,
-                  color: '#8da6bd',
-                  fontSize: 12,
-                  padding: '8px 18px',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveRoster}
-                style={{
-                  background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
-                  border: 0,
-                  borderRadius: 8,
-                  color: '#050b14',
-                  fontFamily: 'JetBrains Mono',
-                  fontWeight: 900,
-                  fontSize: 12,
-                  padding: '8px 24px',
-                  cursor: 'pointer',
-                  boxShadow: '0 0 16px rgba(0, 242, 254, 0.4)',
-                }}
-              >
-                Save & Apply Names
-              </button>
-            </div>
+              </div>
+            )}
           </div>
         );
       default:
@@ -350,10 +731,12 @@ export const CommandCenter: React.FC<Props> = ({
       case 'finance': return { title: 'PERSONAL FINANCE & BUDGETS', icon: Wallet };
       case 'paper': return { title: 'PAPER TRADING SIMULATION', icon: LineChart };
       case 'focus': return { title: 'FOCUS WORKSPACE', icon: Compass };
-      case 'roster': return { title: 'AGENT ROSTER & CUSTOM NAMES', icon: Edit3 };
-      default: return { title: 'SUBSYSTEM WINDOW', icon: Globe2 };
+      case 'add_room': return { title: 'BUILDING ARCHITECT · ADD ROOM', icon: Plus };
+      default: return { title: 'SUBSYSTEM WINDOW', icon: Compass };
     }
   };
+
+  const selectedSoul = agentSouls.find((s) => s.id === selectedSlotId);
 
   return (
     <div className="tj-command-center-fullscreen" aria-label="100% Full-Screen 3D Interactive Command Center">
@@ -377,7 +760,7 @@ export const CommandCenter: React.FC<Props> = ({
           <nav className="tj-cmd-mode-switcher" aria-label="Command Mode Switcher">
             <button
               type="button"
-              className={`tj-cmd-mode-btn ${!activeFloatingWindow ? 'is-active' : ''}`}
+              className={`tj-cmd-mode-btn ${!activeFloatingWindow && !inspectingSoul ? 'is-active' : ''}`}
               onClick={handleResetCamera}
             >
               <Compass size={13} />
@@ -405,11 +788,11 @@ export const CommandCenter: React.FC<Props> = ({
             <button
               type="button"
               className="tj-cmd-icon-btn"
-              onClick={() => openFloating('roster')}
-              title="Customize Agent Names"
-              aria-label="Customize Agent Names"
+              onClick={() => openFloating('add_room')}
+              title="Add Custom Room"
+              aria-label="Add Custom Room"
             >
-              <Edit3 size={14} />
+              <Plus size={15} />
             </button>
             <button
               type="button"
@@ -435,11 +818,13 @@ export const CommandCenter: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Row 2: 9 Cyber Navigation Tabs */}
+        {/* Row 2: Clean Tabs Row (Dummy MAIN INTERFACE removed!) */}
         <div className="tj-cmd-tabs-row" role="tablist">
           {topTabs.map((tab) => {
             const Icon = tab.icon;
-            const isTabActive = tab.isWindow ? activeFloatingWindow === tab.id : (!activeFloatingWindow && tab.isActive);
+            const isTabActive = tab.isWindow
+              ? activeFloatingWindow === tab.id
+              : (!activeFloatingWindow && !inspectingSoul && tab.isActive);
 
             return (
               <button
@@ -468,22 +853,24 @@ export const CommandCenter: React.FC<Props> = ({
           <button
             type="button"
             className="tj-cmd-tab"
-            onClick={() => openFloating('roster')}
+            onClick={() => openFloating('add_room')}
             style={{ marginLeft: 'auto', borderColor: 'rgba(0, 242, 254, 0.4)', color: '#00f2fe' }}
           >
-            <UserCheck size={13} />
-            <span>EDIT AGENT NAMES</span>
+            <Plus size={13} />
+            <span>+ ADD ROOM</span>
           </button>
         </div>
       </header>
 
       {/* ====================================================================
-          100% FULL-SCREEN 3D THREE.JS CANVAS (ALWAYS RUNNING IN BACKGROUND)
+          100% FULL-SCREEN 3D THREE.JS CANVAS
           ==================================================================== */}
       <div className="tj-command-center-canvas">
         <LivingHQScene
-          customNames={customNames}
+          agentSouls={agentSouls}
+          customRooms={customRooms}
           onSelectAgent={handleSelect3DAgent}
+          onOpenAgentSoul={handleInspectSoul}
           onOpenRoom={(dest) => openFloating(dest)}
           selectedAgentId={selectedSlotId}
           focusTarget={focusTarget}
@@ -492,13 +879,11 @@ export const CommandCenter: React.FC<Props> = ({
       </div>
 
       {/* ====================================================================
-          BOTTOM-LEFT OVERLAYS: HYBRID CARD & GLASSMORPHIC SWITCHES
-          (WITH CLOSE / MINIMIZE BUTTON)
+          BOTTOM-LEFT OVERLAYS: HYBRID CARD & SWITCHES (CLOSABLE)
           ==================================================================== */}
       <div className="tj-cmd-bottom-left">
         {showBottomLeft ? (
           <>
-            {/* Local Nexus: HYBRID Card */}
             <div className="tj-cmd-hybrid-card">
               <div className="tj-cmd-hybrid-info">
                 <span className="tj-cmd-hybrid-title">Local Nexus</span>
@@ -524,16 +909,13 @@ export const CommandCenter: React.FC<Props> = ({
               </button>
             </div>
 
-            {/* 4 Glassmorphic Switches */}
             <div className="tj-cmd-switches-group">
               <div
                 className={`tj-cmd-switch-item ${switches.aiSystems ? 'is-on' : ''}`}
                 onClick={() => toggleSwitch('aiSystems')}
               >
                 <span className="tj-cmd-switch-label">AI SYSTEMS</span>
-                <div className="tj-cmd-switch-track">
-                  <div className="tj-cmd-switch-thumb" />
-                </div>
+                <div className="tj-cmd-switch-track"><div className="tj-cmd-switch-thumb" /></div>
               </div>
 
               <div
@@ -541,9 +923,7 @@ export const CommandCenter: React.FC<Props> = ({
                 onClick={() => toggleSwitch('studios')}
               >
                 <span className="tj-cmd-switch-label">STUDIOS</span>
-                <div className="tj-cmd-switch-track">
-                  <div className="tj-cmd-switch-thumb" />
-                </div>
+                <div className="tj-cmd-switch-track"><div className="tj-cmd-switch-thumb" /></div>
               </div>
 
               <div
@@ -551,9 +931,7 @@ export const CommandCenter: React.FC<Props> = ({
                 onClick={() => toggleSwitch('finance')}
               >
                 <span className="tj-cmd-switch-label">FINANCE</span>
-                <div className="tj-cmd-switch-track">
-                  <div className="tj-cmd-switch-thumb" />
-                </div>
+                <div className="tj-cmd-switch-track"><div className="tj-cmd-switch-thumb" /></div>
               </div>
 
               <div
@@ -561,9 +939,7 @@ export const CommandCenter: React.FC<Props> = ({
                 onClick={() => toggleSwitch('system')}
               >
                 <span className="tj-cmd-switch-label">SYSTEM</span>
-                <div className="tj-cmd-switch-track">
-                  <div className="tj-cmd-switch-thumb" />
-                </div>
+                <div className="tj-cmd-switch-track"><div className="tj-cmd-switch-thumb" /></div>
               </div>
             </div>
 
@@ -631,22 +1007,22 @@ export const CommandCenter: React.FC<Props> = ({
       </div>
 
       {/* ====================================================================
-          BOTTOM-CENTER: LIVE ACTIVITY & THE LIVING PULSE
-          (WITH CLOSE / MINIMIZE BUTTON)
+          BOTTOM-CENTER: LIVE ACTIVITY & THE LIVING PULSE (CLOSABLE)
           ==================================================================== */}
       <div className="tj-cmd-bottom-center">
         {showBottomPulse ? (
           <>
-            {/* Live Activity Pill */}
             <div className="tj-cmd-live-activity-pill">
               <span>LIVE ACTIVITY:</span>
               <b>{runningTasks} running</b>
               <span>|</span>
               <b>{pendingApprovals} queued</b>
-              {selectedAgentName && (
+              {selectedSoul && (
                 <>
                   <span>|</span>
-                  <span style={{ color: '#00f2fe' }}>LINKED: {selectedAgentName.toUpperCase()}</span>
+                  <span style={{ color: '#00f2fe' }}>
+                    LINKED: {selectedSoul.name.toUpperCase()} (⚡{Math.round(selectedSoul.energy)}%)
+                  </span>
                 </>
               )}
               <button
@@ -660,7 +1036,6 @@ export const CommandCenter: React.FC<Props> = ({
               </button>
             </div>
 
-            {/* The Living Pulse Floating Chat Bar */}
             <div className="tj-cmd-living-pulse-bar">
               <div
                 className="tj-cmd-pulse-orb"
@@ -672,7 +1047,7 @@ export const CommandCenter: React.FC<Props> = ({
 
               <div className="tj-cmd-pulse-copy">
                 <span className="tj-cmd-pulse-meta">
-                  {selectedAgentName ? selectedAgentName.toUpperCase() : persona.name.toUpperCase()} · READY
+                  {selectedSoul ? selectedSoul.name.toUpperCase() : persona.name.toUpperCase()} · READY
                 </span>
                 <span className="tj-cmd-pulse-title">The Living Pulse</span>
               </div>
@@ -685,8 +1060,8 @@ export const CommandCenter: React.FC<Props> = ({
                   onChange={(e) => setInput(e.target.value)}
                   disabled={loading}
                   placeholder={
-                    selectedAgentName
-                      ? `Direct link: ${selectedAgentName} · Speak or type a thought...`
+                    selectedSoul
+                      ? `Direct link: ${selectedSoul.name} (${selectedSoul.role}) · Speak or type...`
                       : 'Speak or type a thought to begin'
                   }
                 />
@@ -724,8 +1099,7 @@ export const CommandCenter: React.FC<Props> = ({
       </div>
 
       {/* ====================================================================
-          BOTTOM-RIGHT: TELEMETRY GRAPHS & METRICS
-          (WITH CLOSE / MINIMIZE BUTTON)
+          BOTTOM-RIGHT: TELEMETRY GRAPHS & METRICS (CLOSABLE)
           ==================================================================== */}
       <div className="tj-cmd-bottom-right">
         {showBottomRight ? (
@@ -747,11 +1121,10 @@ export const CommandCenter: React.FC<Props> = ({
 
             <div className="tj-cmd-telemetry-metrics">
               <div className="tj-cmd-metric-row">
-                <span className="tj-cmd-metric-name">Active Agents</span>
-                <span className="tj-cmd-metric-val">11 / 11 Deployed</span>
+                <span className="tj-cmd-metric-name">Active Human Agents</span>
+                <span className="tj-cmd-metric-val">{agentSouls.length} Deployed</span>
               </div>
 
-              {/* SVG Animated Sparkline */}
               <svg className="tj-cmd-sparkline" viewBox="0 0 280 28" fill="none">
                 <path
                   d="M0 16 Q20 4, 40 16 T80 16 T120 16 T160 8 T200 22 T240 14 T280 16"
@@ -762,8 +1135,8 @@ export const CommandCenter: React.FC<Props> = ({
               </svg>
 
               <div className="tj-cmd-metric-row">
-                <span className="tj-cmd-metric-name">System Latency</span>
-                <span className="tj-cmd-metric-val">1.2ms · 100% Verified</span>
+                <span className="tj-cmd-metric-name">Neural Mesh Latency</span>
+                <span className="tj-cmd-metric-val">1.2ms · 100% Operational</span>
               </div>
             </div>
 
@@ -789,7 +1162,145 @@ export const CommandCenter: React.FC<Props> = ({
       </div>
 
       {/* ====================================================================
-          FLOATING WINDOW OVERLAY (CAN BE CLOSED ANYTIME!)
+          NEURAL AGENT SOUL DOSSIER FLOATING WINDOW (CLICK ON ANY AGENT)
+          ==================================================================== */}
+      {inspectingSoul && (
+        <div
+          className="tj-floating-window-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setInspectingSoul(null);
+          }}
+        >
+          <div className="tj-floating-window" style={{ maxWidth: 720, height: 'auto', maxHeight: '88vh' }}>
+            {/* Window Header */}
+            <div className="tj-floating-window-header">
+              <div className="tj-floating-window-title">
+                <Brain size={16} />
+                <span>NEURAL AGENT SOUL DOSSIER · {inspectingSoul.name}</span>
+                <span className="tj-floating-window-badge" style={{ textTransform: 'uppercase' }}>
+                  {inspectingSoul.status}
+                </span>
+              </div>
+              <div className="tj-floating-window-actions">
+                <button
+                  type="button"
+                  className="tj-floating-win-btn close"
+                  onClick={() => setInspectingSoul(null)}
+                  title="Close Dossier"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+
+            <div className="tj-hud-subsystem-bar">
+              <span>FACTION: <b>TJ INTELLIGENCE CORE</b></span>
+              <span>ROOM: <b>{inspectingSoul.assignedRoom}</b></span>
+              <span>STATE: <b>{inspectingSoul.status.toUpperCase()}</b></span>
+            </div>
+
+            <div className="tj-floating-window-body">
+              <div className="tj-soul-dossier">
+                {/* Header Card */}
+                <div className="tj-soul-header-card">
+                  <div className="tj-soul-name-block">
+                    <h3>{inspectingSoul.name}</h3>
+                    <p>{inspectingSoul.role}</p>
+                  </div>
+
+                  <div className="tj-soul-energy-meter">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: 10, fontFamily: 'JetBrains Mono' }}>
+                      <span style={{ color: '#8da6bd' }}>SOUL ENERGY</span>
+                      <b style={{ color: '#00f2fe' }}>{Math.round(inspectingSoul.energy)}%</b>
+                    </div>
+                    <div className="tj-soul-energy-bar">
+                      <div className="tj-soul-energy-fill" style={{ width: `${inspectingSoul.energy}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tj-soul-grid">
+                  {/* Inner Thought Monologue */}
+                  <div className="tj-soul-panel">
+                    <span className="tj-soul-panel-title">💭 LIVE INNER THOUGHT STREAM</span>
+                    <p style={{ margin: 0, fontSize: 11, color: '#d8e5ed', fontStyle: 'italic', lineHeight: 1.45 }}>
+                      "{inspectingSoul.currentThought}"
+                    </p>
+                  </div>
+
+                  {/* Soul Personality & Behavior */}
+                  <div className="tj-soul-panel">
+                    <span className="tj-soul-panel-title">🧬 BEHAVIORAL PROFILE</span>
+                    <p style={{ margin: 0, fontSize: 11, color: '#8da6bd', lineHeight: 1.45 }}>
+                      {inspectingSoul.personality}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Direct Directive Assignment */}
+                <form
+                  onSubmit={handleAssignDirectiveToSoul}
+                  style={{
+                    background: 'rgba(8, 18, 32, 0.85)',
+                    border: '1px solid rgba(0, 242, 254, 0.3)',
+                    borderRadius: 10,
+                    padding: 14,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Terminal size={14} color="#00f2fe" />
+                    <span style={{ fontFamily: 'JetBrains Mono', fontSize: 11, color: '#ffffff', fontWeight: 800 }}>
+                      DISPATCH REAL-TIME DIRECTIVE TO {inspectingSoul.name}
+                    </span>
+                  </div>
+
+                  <input
+                    value={assignedDirective}
+                    onChange={(e) => setAssignedDirective(e.target.value)}
+                    placeholder={`e.g. Analyze AST parse tree, calibrate zero-g flux, execute task...`}
+                    style={{
+                      background: 'rgba(5, 12, 20, 0.85)',
+                      border: '1px solid rgba(0, 242, 254, 0.25)',
+                      borderRadius: 6,
+                      color: '#ffffff',
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: 11,
+                      padding: '8px 12px',
+                      outline: 'none',
+                    }}
+                  />
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                    <button
+                      type="submit"
+                      disabled={!assignedDirective.trim()}
+                      style={{
+                        background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+                        border: 0,
+                        borderRadius: 6,
+                        color: '#050b14',
+                        fontFamily: 'JetBrains Mono',
+                        fontWeight: 900,
+                        fontSize: 11,
+                        padding: '6px 16px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Assign Task
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          STANDARD FLOATING WINDOWS (CAN BE CLOSED ANYTIME!)
           ==================================================================== */}
       {activeFloatingWindow && (
         <div
@@ -809,7 +1320,7 @@ export const CommandCenter: React.FC<Props> = ({
                     <>
                       <Icon size={16} />
                       <span>{info.title}</span>
-                      <span className="tj-floating-window-badge">LIVE MODULE</span>
+                      <span className="tj-floating-window-badge">FUTURISTIC SUBSYSTEM</span>
                     </>
                   );
                 })()}
@@ -835,7 +1346,14 @@ export const CommandCenter: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* Window Body with Full Live Interactive View */}
+            {/* Subsystem Telemetry Bar */}
+            <div className="tj-hud-subsystem-bar">
+              <span>TJ CORE: <b>ONLINE</b></span>
+              <span>ENCRYPTION: <b>QUANTUM LOCAL</b></span>
+              <span>MESH LATENCY: <b>1.2ms</b></span>
+            </div>
+
+            {/* Window Content */}
             <div className="tj-floating-window-body">
               <Suspense
                 fallback={
