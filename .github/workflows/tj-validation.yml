@@ -1,0 +1,30 @@
+name: TJ Source Validation
+
+on:
+  pull_request:
+    branches: [tj-latest-local]
+  push:
+    branches: [feature/full-autonomy-high-risk-approval]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run typecheck
+      - run: pnpm run lint
+      - run: pnpm run test
+      - run: pnpm run test:e2e
+      - run: pnpm run build

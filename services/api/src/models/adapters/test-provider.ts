@@ -114,7 +114,9 @@ export class TestProviderAdapter implements ProviderAdapter {
             { id: 'tracker', title: 'Implement persistent task operations', role: 'Developer', description: tool('fs_write', { path: 'tracker.mjs', content: trackerModule }), depends_on: ['package'], tools: ['fs_write'], risk: 'medium' },
             { id: 'cli', title: 'Build the project tracker command line', role: 'Developer', description: tool('fs_write', { path: 'index.mjs', content: cli }), depends_on: ['tracker'], tools: ['fs_write'], risk: 'medium' },
             { id: 'test-file', title: 'Write task tracker tests', role: 'QA Engineer', description: tool('fs_write', { path: 'tracker.test.mjs', content: testFile }), depends_on: ['cli'], tools: ['fs_write'], risk: 'medium' },
-            { id: 'test', title: 'Test the tracker and smoke-check its commands', role: 'QA Engineer', description: tool('shell_exec', { command: 'npm test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node index.mjs add "Release prototype"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node index.mjs list', timeout_s: 30 }), depends_on: ['test-file'], tools: ['shell_exec'], risk: 'medium' },
+            { id: 'test', title: 'Test the tracker and smoke-check its commands', role: 'QA Engineer', description: tool('shell_exec', { command: process.platform === 'win32'
+              ? 'npm test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node index.mjs add "Release prototype"; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; node index.mjs list'
+              : 'npm test && node index.mjs add "Release prototype" && node index.mjs list', timeout_s: 30 }), depends_on: ['test-file'], tools: ['shell_exec'], risk: 'medium' },
           ],
         });
       }

@@ -35,6 +35,12 @@ export class PermissionEngine {
     return (PERMISSIONS as readonly string[]).includes(p);
   }
 
+  /** Explicit owner opt-in, effective only at Privileged autonomy. Never grants missing agent permissions. */
+  isHighRiskAutoApprovalEnabled(): boolean {
+    return this.settings.get<number>('autonomy_level', 2) === 5
+      && this.settings.get<boolean>('auto_approve_high_risk', false) === true;
+  }
+
   evaluate(ctx: PermissionContext): PermissionResult {
     const risk = PERMISSION_RISK[ctx.permission] ?? 'high';
     const autonomy = ctx.autonomy_override ?? this.settings.get<number>('autonomy_level', 2);
@@ -65,7 +71,13 @@ export class PermissionEngine {
       return this.record(ctx, { decision: readOnly ? 'allow' : 'deny', risk, reason: readOnly ? `Read-only access at autonomy ${autonomy}` : `Autonomy level ${autonomy} permits no actions` });
     }
 
-    if (risk === 'high' || risk === 'critical') return this.record(ctx, { decision: 'require_approval', risk, reason: `${risk} risk always requires just-in-time approval` });
+    if (risk === 'critical') return this.record(ctx, { decision: 'require_approval', risk, reason: 'Critical risk always requires just-in-time approval' });
+    if (risk === 'high') {
+      if (autonomy === 5 && this.isHighRiskAutoApprovalEnabled()) {
+        return this.record(ctx, { decision: 'allow', risk, reason: 'High-risk action auto-approved by Privileged owner opt-in' });
+      }
+      return this.record(ctx, { decision: 'require_approval', risk, reason: 'High risk requires just-in-time approval unless Full Autonomy is enabled' });
+    }
     const allow = policies.find((p) => p.decision === 'allow');
     if (allow) {
       this.consumeOnce(allow);

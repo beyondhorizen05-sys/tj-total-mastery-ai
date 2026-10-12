@@ -154,6 +154,7 @@ export function registerSystemRoutes(
     if ('tj_persona' in body || 'first_run_completed' in body) return reply.status(400).send({ error: 'Use the identity or first-run endpoint for this setting' });
     const validation = z.object({
       autonomy_level: z.number().int().min(0).max(5).optional(),
+      auto_approve_high_risk: z.boolean().optional(),
       privacy_mode: z.enum(['balanced', 'local-only']).optional(),
       default_model_id: z.string().nullable().optional(),
       routing_mode: z.enum(['auto', 'manual']).optional(),
@@ -170,6 +171,10 @@ export function registerSystemRoutes(
       voice_use_default_model: z.boolean().optional(),
     }).strict().safeParse(body);
     if (!validation.success) return reply.status(400).send({ error: 'Invalid settings value', details: validation.error.issues });
+    const effectiveAutonomy = validation.data.autonomy_level ?? deps.settings.get<number>('autonomy_level', 2);
+    if (validation.data.auto_approve_high_risk === true && effectiveAutonomy !== 5) {
+      return reply.status(400).send({ error: 'Full Autonomy requires Privileged (level 5) mode.' });
+    }
     for (const [k, v] of Object.entries(body)) {
       deps.settings.set(k, v);
     }
