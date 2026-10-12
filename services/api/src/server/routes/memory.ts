@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { MemoryCreateRequest } from '@tj/schemas';
 import type { MemoryService } from '../../memory/memory.js';
+import type { KnowledgeIndexer } from '../../memory/knowledge-indexer.js';
 
 export function registerMemoryRoutes(
   app: FastifyInstance,
   deps: {
     memory: MemoryService;
+    indexer?: KnowledgeIndexer;
   }
 ) {
   const pageNumber = (raw: string | undefined, fallback: number, min: number, max: number): number | null => {
@@ -61,5 +63,43 @@ export function registerMemoryRoutes(
     if (!deps.memory.delete(p.id)) return reply.status(404).send({ error: 'Memory not found.' });
     return { ok: true };
   });
-}
 
+  // POST /api/v1/memory/ingest
+  app.post('/api/v1/memory/ingest', async (req, reply) => {
+    const b = req.body as {
+      file_path?: string;
+      content?: string;
+      format?: string;
+      category?: string;
+      project_id?: string;
+      agent_id?: string;
+    };
+    if (!b || typeof b.file_path !== 'string' || !b.file_path.trim()) {
+      return reply.status(400).send({ error: 'file_path is required.' });
+    }
+    if (typeof b.content !== 'string' || !b.content.trim()) {
+      return reply.status(400).send({ error: 'content is required.' });
+    }
+    if (!deps.indexer) {
+      return reply.status(501).send({ error: 'KnowledgeIndexer not initialized on this server.' });
+    }
+    const result = await deps.indexer.ingestDocument({
+      file_path: b.file_path.trim(),
+      content: b.content,
+      format: b.format as any,
+      category: b.category,
+      project_id: b.project_id,
+      agent_id: b.agent_id,
+    });
+    return { ok: true, result };
+  });
+
+  // GET /api/v1/memory/status
+  app.get('/api/v1/memory/status', async () => {
+    const status = await deps.memory.semanticStatus();
+    return {
+      status,
+      indexer_available: !!deps.indexer,
+    };
+  });
+}

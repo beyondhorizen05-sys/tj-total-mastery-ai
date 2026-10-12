@@ -27,6 +27,7 @@ import { webTools } from '../tools/builtin/web.js';
 import { githubRepositoryTool } from '../tools/builtin/github.js';
 import { memoryTools } from '../tools/builtin/memory-tools.js';
 import { MemoryService } from '../memory/memory.js';
+import { KnowledgeIndexer } from '../memory/knowledge-indexer.js';
 import { AgentService } from '../agents/service.js';
 import { AgentRuntime } from '../agents/runtime.js';
 import { TaskService } from '../tasks/service.js';
@@ -127,6 +128,7 @@ export async function createServer(config: TJConfig) {
   const router = new ModelRouter(modelRegistry, settings, bus, approvals);
   const improvements = new SelfImprovementService(REPO_ROOT, router, config.dataDir, approvals);
   const memory = new MemoryService(db, bus, router);
+  const indexer = new KnowledgeIndexer(db, bus, memory, router);
 
   const sandbox = new Sandbox(() => {
     const allowedRoots = settings.get<unknown>('allowed_roots', []);
@@ -136,7 +138,7 @@ export async function createServer(config: TJConfig) {
   for (const t of fsTools(sandbox, db, config.backupsDir)) tools.register(t);
   for (const t of shellTools()) tools.register(t);
   for (const t of computerTools(settings, config.artifactsDir, router)) tools.register(t);
-  for (const t of memoryTools(memory)) tools.register(t);
+  for (const t of memoryTools(memory, indexer)) tools.register(t);
 
   const connectors = new ConnectorService({ db, vault });
   for (const connector of await connectors.list()) {
@@ -231,7 +233,7 @@ export async function createServer(config: TJConfig) {
     const roots = settings.get<unknown>('allowed_roots', []);
     return Array.isArray(roots) ? roots.filter((root): root is string => typeof root === 'string') : [];
   } });
-  registerMemoryRoutes(app, { memory });
+  registerMemoryRoutes(app, { memory, indexer });
   registerVoiceRoutes(app, { settings, bus, health, orchestrator, tools, runtime: agentRuntime, agents: agentService, approvals, vault, router, dataDir: config.dataDir, capabilityWorkflow, workflowEngine, scheduler });
   registerVisionRoutes(app, { router, settings });
   registerSkillRoutes(app, { skills });
