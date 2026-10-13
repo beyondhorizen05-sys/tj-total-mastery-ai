@@ -19,7 +19,11 @@
     "test": "pnpm -r run test",
     "test:e2e": "pnpm --filter @tj/api run test:e2e",
     "build": "pnpm --filter @tj/schemas run build && pnpm --filter @tj/web run build && pnpm --filter @tj/api run build",
-    "build:desktop": "pnpm --filter @tj/desktop run build",
+    "build:desktop": "cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --release",
+    "build:android": "pnpm --filter @tj/web run build && pnpm --filter @tj/web exec cap sync && cd apps/web/android && .\\gradlew.bat assembleDebug",
+    "cap:sync": "pnpm --filter @tj/web exec cap sync",
+    "cap:open:android": "pnpm --filter @tj/web exec cap open android",
+    "cap:open:ios": "pnpm --filter @tj/web exec cap open ios",
     "start": "pnpm --filter @tj/api run start",
     "package": "pnpm --filter @tj/desktop run package",
     "desktop:dev": "pnpm --filter @tj/desktop run dev"

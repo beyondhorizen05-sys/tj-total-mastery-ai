@@ -15,3 +15,24 @@
 .tj-voice-panel .tj-voice-line { padding-top: 8px; border-top: 1px solid rgba(255,255,255,.12); overflow-wrap: anywhere; }
 .tj-voice-panel .tj-voice-error { color: #ff9fac; }
 @keyframes tjVoicePulse { 50% { opacity: .3; transform: scale(.7); } }
+
+/* Positioning when placed in HUD bottom-right stack */
+.tj-cmd-bottom-right-stack .tj-voice-control {
+  width: auto;
+}
+.tj-cmd-bottom-right-stack .tj-voice-pill {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 20px;
+  font-size: 10.5px;
+}
+.tj-cmd-bottom-right-stack .tj-voice-panel {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  max-height: 480px;
+  overflow-y: auto;
+  z-index: 100;
+}
+

@@ -1,11 +1,107 @@
+import { Capacitor } from '@capacitor/core';
+
+export const STORAGE_KEY_API_BASE = 'tj_api_base_url';
+
+export const isNativePlatform = (): boolean => {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+};
+
+export const isDesktopApp = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.location.hostname === 'tauri.localhost' ||
+    window.location.protocol === 'tauri:' ||
+    '__TAURI_INTERNALS__' in window ||
+    '__TAURI__' in window ||
+    navigator.userAgent.includes('Tauri')
+  );
+};
+
+export function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const stored = localStorage.getItem(STORAGE_KEY_API_BASE)?.trim().replace(/\/+$/, '');
+  if (stored) {
+    if (!stored.includes('tauri.localhost') && !stored.startsWith('tauri:') && !stored.includes(':5173')) {
+      return stored;
+    }
+    localStorage.removeItem(STORAGE_KEY_API_BASE);
+  }
+
+  // In native mobile app, default to PC LAN Wi-Fi host
+  if (isNativePlatform()) {
+    return 'http://192.168.13.167:4780';
+  }
+
+  // In desktop Tauri app or when served on any port other than 4780, default to local API backend
+  if (isDesktopApp() || window.location.port !== '4780' || window.location.protocol.startsWith('tauri')) {
+    return 'http://127.0.0.1:4780';
+  }
+
+  return '';
+}
+
+export function setApiBaseUrl(url: string): void {
+  if (typeof window === 'undefined') return;
+  const clean = url.trim().replace(/\/+$/, '');
+  if (!clean) {
+    localStorage.removeItem(STORAGE_KEY_API_BASE);
+  } else {
+    localStorage.setItem(STORAGE_KEY_API_BASE, clean);
+  }
+}
+
+export function apiUrl(endpoint: string): string {
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    return endpoint;
+  }
+  const base = getApiBaseUrl();
+  const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  return base ? `${base}${path}` : path;
+}
+
+// Automatically resolve relative EventSource URLs to the configured API server host
+if (typeof window !== 'undefined' && window.EventSource) {
+  const NativeEventSource = window.EventSource;
+  // Override EventSource for dynamic API host routing
+  (window as any).EventSource = class extends NativeEventSource {
+    constructor(url: string | URL, eventSourceInitDict?: EventSourceInit) {
+      const resolved = typeof url === 'string' ? apiUrl(url) : url;
+      super(resolved, eventSourceInitDict);
+    }
+  };
+}
+
 export async function apiFetch<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : endpoint;
+  const primaryUrl = apiUrl(endpoint);
   const headers = new Headers(options.headers);
   if (options.body != null && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-  const res = await fetch(url, {
-    ...options,
-    headers,
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(primaryUrl, {
+      ...options,
+      headers,
+    });
+  } catch (primaryErr) {
+    // If the primary URL failed and was not already pointing at 127.0.0.1:4780, retry explicitly on local backend
+    if (!primaryUrl.startsWith('http://127.0.0.1:4780')) {
+      const fallbackUrl = `http://127.0.0.1:4780${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+      try {
+        res = await fetch(fallbackUrl, {
+          ...options,
+          headers,
+        });
+      } catch {
+        throw primaryErr;
+      }
+    } else {
+      throw primaryErr;
+    }
+  }
 
   if (!res.ok) {
     const body = await res.text();
@@ -18,11 +114,11 @@ export async function apiFetch<T = any>(endpoint: string, options: RequestInit =
     throw new Error(errText || `Request failed with status ${res.status}`);
   }
 
-  return res.status === 204 ? undefined as T : res.json();
+  return res.status === 204 ? (undefined as T) : res.json();
 }
 
 export async function apiChatStream<T = any>(body: Record<string, unknown>, onDelta: (delta: string) => void): Promise<T> {
-  const response = await fetch('/api/v1/chat', {
+  const response = await fetch(apiUrl('/api/v1/chat'), {
     method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
     body: JSON.stringify(body),

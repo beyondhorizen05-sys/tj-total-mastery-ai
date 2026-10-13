@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { apiFetch } from '../api';
+import { apiFetch, getApiBaseUrl, setApiBaseUrl } from '../api';
 import { PersonaSettings } from '../components/PersonaSettings';
 import { THEMES, loadTheme, setTheme, type ThemeId } from '../themes';
 
@@ -7,8 +7,6 @@ export const SettingsView: React.FC = () => {
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fishKey, setFishKey] = useState('');
-  const [fishStatus, setFishStatus] = useState('');
   const [allowedRoots, setAllowedRoots] = useState<string[]>([]);
   const [rootDraft, setRootDraft] = useState('');
   const [rootStatus, setRootStatus] = useState('');
@@ -16,6 +14,8 @@ export const SettingsView: React.FC = () => {
   const [rootLoadError, setRootLoadError] = useState('');
   const [profile, setProfile] = useState<{ display_name: string; locale: string; time_zone: string } | null>(null);
   const [theme, chooseTheme] = useState<ThemeId>(loadTheme);
+  const [serverUrl, setServerUrl] = useState(() => getApiBaseUrl());
+  const [serverSaveNotice, setServerSaveNotice] = useState('');
 
   const load = () => {
     apiFetch<{ settings: Record<string, any> }>('/api/v1/settings').then((r) => setSettings(r.settings)).catch((reason) => setError(reason.message ?? 'Could not load settings'));
@@ -61,16 +61,6 @@ export const SettingsView: React.FC = () => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const connectFish = async () => {
-    setSaving(true); setError(null); setFishStatus('');
-    try {
-      const result = await apiFetch<{ voices: Array<{ name: string }> }>('/api/v1/voice/fish/config', { method: 'PUT', body: JSON.stringify({ api_key: fishKey.trim() }) });
-      setFishKey(''); setFishStatus(`Connected. ${result.voices.length} personal voices loaded. Select one in TJ Identity above.`);
-      load();
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Fish Audio connection failed'); }
-    finally { setSaving(false); }
   };
 
   const addAllowedRoot = async (event: React.FormEvent) => {
@@ -135,19 +125,6 @@ export const SettingsView: React.FC = () => {
           {rootStatus && <p role={rootStatus.includes('Folder added') || rootStatus.includes('removed') ? 'status' : 'alert'} style={{ color: rootStatus.includes('Folder added') || rootStatus.includes('removed') ? 'var(--accent-cyan)' : '#fb7185', fontSize: 12, marginTop: 8 }}>{rootStatus}</p>}
           {rootLoading ? <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Loading trusted folders…</p> : rootLoadError ? null : allowedRoots.length ? <ul aria-label="Trusted folders" style={{ listStyle: 'none', padding: 0, margin: '12px 0 0', display: 'grid', gap: 8 }}>{allowedRoots.map((root) => <li key={root} style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', padding: 9, border: '1px solid var(--border-subtle)', borderRadius: 6 }}><code style={{ overflowWrap: 'anywhere', fontSize: 12 }}>{root}</code><button type="button" disabled={saving} aria-label={`Remove trusted folder ${root}`} onClick={() => void removeAllowedRoot(root)} style={{ flex: 'none', background: 'transparent', color: '#fb7185', border: '1px solid var(--border-subtle)', borderRadius: 5, padding: '6px 9px', cursor: 'pointer' }}>Remove</button></li>)}</ul> : <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 0 }}>No extra folders added.</p>}
         </section>
-        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 16 }}>
-          <h3 style={{ fontSize: '1rem', marginBottom: 6 }}>Fish Audio voice and multilingual listening</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>Your API key is kept in TJ’s encrypted local vault. TJ fetches only voices owned by your Fish Audio workspace. On this computer, transcription runs locally; Fish Audio generates the selected cloned voice.</p>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>Local speech recognition
-            <select value={settings.voice_recognition_mode ?? 'fast'} disabled={saving} onChange={(event) => void updateSetting('voice_recognition_mode', event.target.value)} style={{ background: 'var(--bg-card)', color: '#fff', border: '1px solid var(--border-subtle)', borderRadius: 5, padding: 9 }}>
-              <option value="fast">Fast conversation (tiny multilingual model)</option>
-              <option value="accurate">Higher accuracy (base multilingual model)</option>
-            </select>
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, color: 'var(--text-muted)' }}>Replace API key<input type="password" autoComplete="off" value={fishKey} onChange={(event) => setFishKey(event.target.value)} placeholder="Leave blank to keep your saved key" style={{ background: 'var(--bg-card)', color: '#fff', border: '1px solid var(--border-subtle)', borderRadius: 5, padding: 9 }} /></label>
-          <button type="button" disabled={saving || !fishKey.trim()} onClick={() => void connectFish()} style={{ marginTop: 10, background: 'rgba(0,242,254,.16)', color: 'var(--accent-cyan)', border: '1px solid var(--accent-cyan)', borderRadius: 5, padding: '8px 12px', cursor: 'pointer' }}>Connect Fish Audio</button>
-          {fishStatus && <p role="status" style={{ color: 'var(--accent-cyan)', fontSize: 12, marginTop: 8 }}>{fishStatus}</p>}
-        </div>
         <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 16 }}>
           <h3 style={{ fontSize: '1rem', marginBottom: 6 }}>Notifications</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>Show approvals and failed work in TJ. Browser alerts also need browser permission.</p>
@@ -255,6 +232,58 @@ export const SettingsView: React.FC = () => {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Server Connection (Mobile & Remote) */}
+        <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 8, padding: 16 }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: 6 }}>TJ Server Connection</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+            Configure the TJ API backend address. On mobile devices, point this to your computer's local Wi-Fi IP (e.g. <code>http://192.168.13.167:4780</code>).
+          </p>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={serverUrl}
+              onChange={(e) => setServerUrl(e.target.value)}
+              placeholder="http://192.168.13.167:4780 (leave blank for local origin)"
+              style={{
+                flex: 1,
+                minWidth: 260,
+                padding: '8px 12px',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 6,
+                color: 'var(--text-main)',
+                fontSize: '0.85rem',
+                fontFamily: 'monospace',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={() => {
+                setApiBaseUrl(serverUrl);
+                setServerSaveNotice('Server address saved. Reloading...');
+                setTimeout(() => window.location.reload(), 600);
+              }}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 6,
+                border: 'none',
+                background: 'var(--accent-cyan)',
+                color: '#000',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+              }}
+            >
+              Save & Reload
+            </button>
+          </div>
+          {serverSaveNotice && (
+            <p style={{ color: 'var(--accent-cyan)', fontSize: '0.8rem', marginTop: 8, marginBottom: 0 }}>
+              {serverSaveNotice}
+            </p>
+          )}
         </div>
       </div>
     </div>

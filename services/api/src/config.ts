@@ -40,7 +40,7 @@ export interface TJConfig {
 export function loadConfig(overrides: Partial<TJConfig> = {}): TJConfig {
   const dataDir = overrides.dataDir ?? (process.env.TJ_DATA_DIR?.trim() || path.join(REPO_ROOT, '.tj-data'));
   const cfg: TJConfig = {
-    host: process.env.TJ_HOST ?? '127.0.0.1',
+    host: process.env.TJ_HOST ?? '0.0.0.0',
     port: Number(process.env.TJ_PORT ?? 4780),
     dataDir,
     dbPath: path.join(dataDir, 'tj.sqlite'),
@@ -57,6 +57,9 @@ export function loadConfig(overrides: Partial<TJConfig> = {}): TJConfig {
       'tauri://localhost',
       'http://tauri.localhost',
       'https://tauri.localhost',
+      'capacitor://localhost',
+      'http://localhost',
+      'https://localhost',
     ],
     enableTestProvider: process.env.TJ_ENABLE_TEST_PROVIDER === '1',
     enableChatGPTPlanSignIn: process.env.TJ_CHATGPT_PLAN_SIGNIN_ENABLED === '1',

@@ -291,4 +291,15 @@ export function registerChatRoutes(
     const status = await deps.capabilityWorkflow.progress((req.params as { id: string }).id);
     return status ?? reply.status(404).send({ error: 'Capability workflow not found' });
   });
+
+  app.delete('/api/v1/chat/capability-workflows/:id', async (req) => {
+    const { id } = req.params as { id: string };
+    deps.capabilityWorkflow.delete(id);
+    return { ok: true, deleted_id: id };
+  });
+
+  app.delete('/api/v1/chat/capability-workflows', async () => {
+    deps.capabilityWorkflow.clear();
+    return { ok: true, cleared: true };
+  });
 }

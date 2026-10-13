@@ -1,9 +1,10 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { apiChatStream, apiFetch } from './api';
+import { apiChatStream, apiFetch, getApiBaseUrl, setApiBaseUrl, isNativePlatform, isDesktopApp } from './api';
 import { TopBar } from './components/TopBar';
 import { InteractionPanel } from './components/InteractionPanel';
 import { WelcomeExperience } from './components/WelcomeExperience';
 import { CommandPalette, type PaletteAction } from './components/CommandPalette';
+import { LiveVoiceModal } from './components/LiveVoiceModal';
 import { MainInterface } from './views/MainInterface';
 import './views/reference-scenes.css';
 const ChatView = lazy(() => import('./views/ChatView').then((m) => ({ default: m.ChatView })));
@@ -47,8 +48,17 @@ export const App: React.FC = () => {
   const [stopping, setStopping] = useState(false);
   const [showWizard, setShowWizard] = useState<boolean | null>(() => new URLSearchParams(window.location.search).has('welcome') ? true : null);
   const [startupError, setStartupError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [bootDone, setBootDone] = useState(false);
+  const [serverUrlDraft, setServerUrlDraft] = useState(() => getApiBaseUrl() || (isDesktopApp() ? 'http://127.0.0.1:4780' : isNativePlatform() ? 'http://192.168.13.167:4780' : ''));
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenLive = () => setLiveVoiceOpen(true);
+    window.addEventListener('tj:open-live-voice', handleOpenLive);
+    return () => window.removeEventListener('tj:open-live-voice', handleOpenLive);
+  }, []);
   const [navCollapsed, setNavCollapsed] = useState(false);
   const [openNavGroups, setOpenNavGroups] = useState<string[]>(['nexus', 'work']);
   const [contextOpen, setContextOpen] = useState(false);
@@ -123,7 +133,16 @@ export const App: React.FC = () => {
       setStartupError(null);
     } catch (e) {
       console.error(e);
-      if (showWizard === null) setStartupError(e instanceof Error ? e.message : 'API connection failed');
+      if (showWizard === null) {
+        setRetryCount((prev) => {
+          const next = prev + 1;
+          const maxRetries = isDesktopApp() ? 15 : isNativePlatform() ? 6 : 4;
+          if (next >= maxRetries) {
+            setStartupError(e instanceof Error ? e.message : 'API connection failed');
+          }
+          return next;
+        });
+      }
     }
   };
   const loadPersona = async () => {
@@ -136,12 +155,13 @@ export const App: React.FC = () => {
     const refreshLocale = () => { void apiFetch<{ profile: { locale: string } | null }>('/api/v1/system/setup').then((result) => { if (result.profile?.locale) setLocale(result.profile.locale); }).catch(() => {}); };
     refreshLocale();
     window.addEventListener('tj:locale-changed', refreshLocale);
-    const timer = setInterval(loadStatus, 4000);
+    const intervalTime = status ? 4000 : 1200;
+    const timer = setInterval(loadStatus, intervalTime);
     const stream = new EventSource('/api/v1/system/events');
     for (const name of ['agent.updated', 'agent.started', 'agent.completed', 'agent.failed', 'task.started', 'task.completed', 'task.failed', 'approval.requested', 'approval.granted', 'approval.denied', 'system.health_changed']) stream.addEventListener(name, loadStatus);
     stream.addEventListener('system.persona_changed', loadPersona);
     return () => { clearInterval(timer); stream.close(); window.removeEventListener('tj:locale-changed', refreshLocale); };
-  }, []);
+  }, [status]);
 
   const handleStopAll = async () => {
     setStopping(true);
@@ -183,7 +203,107 @@ export const App: React.FC = () => {
     }
   };
 
-  if (showWizard === null || (showWizard === false && !bootDone)) return <div className="tj-boot-screen"><div className="tj-boot-gate"><div className="tj-brand-mark">T<span>J</span></div></div><p>{startupError ? 'CONNECTION NEEDS ATTENTION' : status ? `SYSTEM CONNECTED · ${status.tj_state.toUpperCase()}` : 'CONNECTING TO YOUR SYSTEM…'}</p>{startupError && <><p role="alert" style={{ maxWidth: 420, textAlign: 'center', letterSpacing: 0 }}>{startupError}</p><button onClick={loadStatus} style={{ padding: '10px 18px', border: '1px solid var(--accent-cyan)', color: 'var(--accent-cyan)', background: 'transparent', borderRadius: 6, cursor: 'pointer' }}>Retry connection</button></>}</div>;
+  if (showWizard === null || (showWizard === false && !bootDone)) {
+    const isNative = isNativePlatform();
+    const isDesktop = isDesktopApp();
+    const hasError = !!startupError;
+    return (
+      <div className="tj-boot-screen" style={{ padding: 20 }}>
+        <div className="tj-boot-gate"><div className="tj-brand-mark">T<span>J</span></div></div>
+        <p style={{ letterSpacing: '0.18em', margin: '4px 0', textAlign: 'center' }}>
+          {hasError
+            ? 'CONNECTION NEEDS ATTENTION'
+            : status
+            ? `SYSTEM CONNECTED · ${status.tj_state.toUpperCase()}`
+            : isDesktop
+            ? 'STARTING EMBEDDED TJ ENGINE…'
+            : 'CONNECTING TO YOUR SYSTEM…'}
+        </p>
+
+        {hasError && (
+          <div style={{ maxWidth: 440, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, background: 'rgba(8, 20, 36, 0.88)', padding: '22px 24px', borderRadius: 14, border: '1px solid rgba(81, 190, 251, 0.35)', backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)' }}>
+            <p role="alert" style={{ fontSize: 13, color: '#fca5a5', textAlign: 'center', lineHeight: 1.5, letterSpacing: 0, margin: 0 }}>
+              {startupError.includes('<!doctype') || startupError.includes('Unexpected token')
+                ? (isNative ? 'Mobile app needs to connect to your TJ Server.' : 'Server returned invalid response. Reconnect below.')
+                : startupError}
+            </p>
+
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+              <label style={{ fontSize: 11, color: '#94a3b8', letterSpacing: '0.05em', textTransform: 'uppercase', fontWeight: 600 }}>
+                {isDesktop ? 'Embedded TJ Engine Port / URL:' : isNative ? 'TJ Host Server Address (PC / Cloud IP):' : 'TJ Server URL:'}
+              </label>
+              <input
+                type="text"
+                value={serverUrlDraft}
+                onChange={(e) => setServerUrlDraft(e.target.value)}
+                placeholder={isDesktop ? 'http://127.0.0.1:4780' : 'http://192.168.13.167:4780'}
+                style={{
+                  width: '100%',
+                  padding: '11px 14px',
+                  background: 'rgba(3, 7, 17, 0.85)',
+                  border: '1px solid rgba(81, 190, 251, 0.45)',
+                  borderRadius: 8,
+                  color: '#e2f4fe',
+                  fontSize: 14,
+                  fontFamily: 'monospace',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <span style={{ fontSize: 11, color: '#64748b', lineHeight: 1.4 }}>
+                {isDesktop
+                  ? 'Desktop runs the backend automatically at http://127.0.0.1:4780.'
+                  : "Enter your computer's local Wi-Fi IP and port (default: http://192.168.13.167:4780). Ensure both devices are on the same Wi-Fi."}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, width: '100%', marginTop: 6 }}>
+              <button
+                onClick={() => {
+                  setApiBaseUrl(serverUrlDraft);
+                  setStartupError(null);
+                  setRetryCount(0);
+                  loadStatus();
+                }}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  background: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+                  border: 'none',
+                  borderRadius: 8,
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  letterSpacing: '0.05em'
+                }}
+              >
+                Save & Connect
+              </button>
+              <button
+                onClick={() => {
+                  setStartupError(null);
+                  setRetryCount(0);
+                  loadStatus();
+                }}
+                style={{
+                  padding: '11px 18px',
+                  background: 'transparent',
+                  border: '1px solid rgba(81, 190, 251, 0.4)',
+                  borderRadius: 8,
+                  color: '#7dd3fc',
+                  fontSize: 13,
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
   if (showWizard) return <WelcomeExperience onComplete={() => { window.history.replaceState(null, '', window.location.pathname); loadPersona(); setShowWizard(false); }} />;
 
   const navItems = [
@@ -264,12 +384,22 @@ export const App: React.FC = () => {
             loading={chatLoading}
             stopping={stopping}
             onStopAll={handleStopAll}
+            onOpenLiveVoice={() => setLiveVoiceOpen(true)}
           />
         </Suspense>
         <div className={`tj-pulse-drawer ${contextOpen ? 'is-open' : ''}`} aria-hidden={!contextOpen}>
           <InteractionPanel persona={persona} status={status} messages={messages} loading={chatLoading} error={chatError} onSend={(txt) => handleSendChat(txt, 'chat')} />
         </div>
         {paletteOpen && <CommandPalette actions={paletteActions} onClose={() => setPaletteOpen(false)} />}
+        <LiveVoiceModal
+          isOpen={liveVoiceOpen}
+          onClose={() => setLiveVoiceOpen(false)}
+          activeConversationId={activeConvId}
+          onConversationCreated={(id) => setActiveConvId(id)}
+          onMessageLogged={(role, content) => {
+            setMessages((prev) => [...prev, { id: `voice-${Date.now()}-${Math.random()}`, role, content }]);
+          }}
+        />
         {eventNotice && <button type="button" onClick={() => { setActiveTab(eventNotice.name === 'approval.requested' ? 'approvals' : 'activity'); setEventNotice(null); }} style={{ position: 'fixed', left: 24, bottom: 24, zIndex: 111, maxWidth: 390, padding: '12px 16px', border: '1px solid var(--accent-cyan)', borderRadius: 10, background: 'var(--bg-secondary)', color: '#fff', textAlign: 'left', cursor: 'pointer' }} role="alert">{eventNotice.summary} · Open {eventNotice.name === 'approval.requested' ? 'Approvals' : 'Activity'}</button>}
       </div>
     );
@@ -283,6 +413,7 @@ export const App: React.FC = () => {
         onStopAll={handleStopAll}
         onNavigate={openTab}
         activeTab={activeTab}
+        onOpenLiveVoice={() => setLiveVoiceOpen(true)}
       />
 
       <div style={{ display: 'flex', flex: 1, height: 'calc(100vh - 60px)', overflow: 'hidden' }}>
@@ -349,6 +480,15 @@ export const App: React.FC = () => {
       </div>
       <div className={`tj-pulse-drawer ${contextOpen ? 'is-open' : ''}`} aria-hidden={!contextOpen}><InteractionPanel persona={persona} status={status} messages={messages} loading={chatLoading} error={chatError} onSend={(txt) => handleSendChat(txt, 'chat')} /></div>
       {paletteOpen && <CommandPalette actions={paletteActions} onClose={() => setPaletteOpen(false)} />}
+      <LiveVoiceModal
+        isOpen={liveVoiceOpen}
+        onClose={() => setLiveVoiceOpen(false)}
+        activeConversationId={activeConvId}
+        onConversationCreated={(id) => setActiveConvId(id)}
+        onMessageLogged={(role, content) => {
+          setMessages((prev) => [...prev, { id: `voice-${Date.now()}-${Math.random()}`, role, content }]);
+        }}
+      />
       {eventNotice && <button type="button" onClick={() => { setActiveTab(eventNotice.name === 'approval.requested' ? 'approvals' : 'activity'); setEventNotice(null); }} style={{ position: 'fixed', left: 82, bottom: 20, zIndex: 111, maxWidth: 390, padding: '12px 16px', border: '1px solid var(--accent-cyan)', borderRadius: 10, background: 'var(--bg-secondary)', color: '#fff', textAlign: 'left', cursor: 'pointer' }} role="alert">{eventNotice.summary} · Open {eventNotice.name === 'approval.requested' ? 'Approvals' : 'Activity'}</button>}
     </div>
   );

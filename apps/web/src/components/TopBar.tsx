@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cpu, ShieldCheck, Sliders, Power, Lock, Globe2, Focus, Workflow, Bell } from 'lucide-react';
+import { Cpu, ShieldCheck, Sliders, Power, Lock, Globe2, Focus, Workflow, Bell, Mic } from 'lucide-react';
 import type { SystemStatus } from '@tj/schemas';
 
 interface TopBarProps {
@@ -8,6 +8,7 @@ interface TopBarProps {
   onStopAll: () => void;
   onNavigate: (tab: string) => void;
   activeTab: string;
+  onOpenLiveVoice?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onNavigate, activeTab }) => {
@@ -71,6 +72,32 @@ export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onN
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {onOpenLiveVoice && (
+          <button
+            type="button"
+            onClick={onOpenLiveVoice}
+            className="tj-topbar-live-voice"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 13px',
+              borderRadius: 9999,
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(56, 189, 248, 0.12))',
+              border: '1px solid rgba(56, 189, 248, 0.45)',
+              color: '#7dd3fc',
+              fontWeight: 700,
+              fontSize: '0.74rem',
+              letterSpacing: '0.04em',
+              cursor: 'pointer',
+              boxShadow: '0 0 12px rgba(56, 189, 248, 0.2)',
+            }}
+            title="Start Live Voice Conversation like ChatGPT / Gemini"
+          >
+            <Mic size={13} color="#38bdf8" />
+            <span>LIVE VOICE</span>
+          </button>
+        )}
         <button type="button" onClick={() => onNavigate('activity')} aria-label="Open notifications and recent activity" title="Open notifications and event history" className="tj-notification-toggle"><Bell size={15} /><span>Notifications</span></button>
         <button onClick={() => onNavigate('settings')} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex' }}>
           <Sliders size={15} />

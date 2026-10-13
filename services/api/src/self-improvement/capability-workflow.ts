@@ -222,6 +222,18 @@ export class CapabilityWorkflowService {
     return result;
   }
 
+  delete(id: string): boolean {
+    const deleted = this.results.delete(id) || this.runs.delete(id);
+    if (deleted) this.persist();
+    return deleted;
+  }
+
+  clear(): void {
+    this.runs.clear();
+    this.results.clear();
+    this.persist();
+  }
+
   private persist(): void {
     const temporary = `${this.stateFile}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
     fs.writeFileSync(temporary, JSON.stringify({ runs: [...this.runs], results: [...this.results] }), 'utf8');

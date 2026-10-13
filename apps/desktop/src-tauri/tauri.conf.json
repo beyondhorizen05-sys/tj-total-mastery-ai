@@ -28,7 +28,9 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "TJ — Total Mastery AI",
+        "url": "index.html",
         "width": 1280,
         "height": 850,
         "minWidth": 900,
@@ -38,7 +40,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' tauri: http: https: ws: 'unsafe-inline' 'unsafe-eval'"
+      "csp": "default-src 'self' tauri: http: https: ws: wss: 'unsafe-inline' 'unsafe-eval'"
     }
   }
 }

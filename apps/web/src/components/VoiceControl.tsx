@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Volume2 } from 'lucide-react';
-import { apiFetch } from '../api';
+import { Mic, MicOff, Volume2, X } from 'lucide-react';
+import { apiFetch, apiUrl } from '../api';
 import { BrowserVoiceSession } from './BrowserVoiceSession';
 import './VoiceControl.css';
 
@@ -62,7 +62,7 @@ export const VoiceControl: React.FC = () => {
       reportSpeaking(true);
       try {
         const controller = new AbortController(); activeSpeechRequestRef.current = controller;
-        const response = await fetch('/api/v1/voice/browser/synthesize', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }), signal: controller.signal });
+        const response = await fetch(apiUrl('/api/v1/voice/browser/synthesize'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }), signal: controller.signal });
         if (!response.ok) throw new Error(await response.text());
         if (response.headers.get('content-type')?.includes('audio/mpeg')) {
           const url = URL.createObjectURL(await response.blob());
@@ -80,8 +80,16 @@ export const VoiceControl: React.FC = () => {
           await new Promise<void>((resolve, reject) => {
             const utterance = new SpeechSynthesisUtterance(text.replace(/\bT\s*J\b/gi, 'Tee Jay'));
             const available = window.speechSynthesis.getVoices();
-            const female = descriptor.voice_id === 'windows:female';
-            utterance.voice = available.find((voice) => female ? /female|zira|aria|jenny/i.test(voice.name) : voice.name === descriptor.voice_id?.slice(8)) ?? null;
+            const isNatural = (v: SpeechSynthesisVoice) => /natural|online|neural|google|journey/i.test(v.name);
+            const isNotRobotic = (v: SpeechSynthesisVoice) => !/desktop|sapi|zira|david/i.test(v.name);
+            const female = descriptor.voice_id === 'windows:female' || descriptor.voice_id === 'neural:jenny';
+            utterance.voice =
+              available.find((voice) => isNatural(voice) && (female ? /jenny|aria|ava/i.test(voice.name) : /guy|andrew/i.test(voice.name))) ||
+              available.find((voice) => isNatural(voice) && /en/i.test(voice.lang)) ||
+              available.find((voice) => isNotRobotic(voice) && (female ? /female|jenny|aria/i.test(voice.name) : /guy|andrew/i.test(voice.name))) ||
+              available.find((voice) => isNotRobotic(voice) && /en/i.test(voice.lang)) ||
+              available[0] ||
+              null;
             utterance.onend = () => resolve(); utterance.onerror = (event) => reject(new Error(event.error));
             window.speechSynthesis.speak(utterance);
           });
@@ -207,7 +215,19 @@ export const VoiceControl: React.FC = () => {
       <span className="tj-voice-dot" />
     </button>
     {expanded && <div className="tj-voice-panel">
-      <div className="tj-voice-heading"><Volume2 size={16} /><strong>TJ voice and Windows control</strong></div>
+      <div className="tj-voice-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <Volume2 size={16} /><strong>TJ voice and Windows control</strong>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
+          title="Close voice panel"
+          style={{ background: 'transparent', border: 'none', color: '#a2faff', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}
+        >
+          <X size={14} />
+        </button>
+      </div>
       <p>{browserSessionRef.current ? transcribing ? 'Transcribing your turn…' : userSpeaking ? 'Listening to you…' : speakingRef.current ? 'TJ is speaking and still listening.' : 'Live conversation is listening for your voice.' : voice?.available ? voice?.speaking ? 'TJ is speaking; microphone capture is paused.' : voice?.transcribing ? 'TJ is transcribing the last audio clip.' : voice?.listening ? 'TJ is capturing audio from the Windows microphone.' : voice?.starting ? 'TJ is starting microphone capture.' : 'TJ voice is ready to start.' : 'Voice listening is unavailable.'} {computer?.enabled ? 'Windows computer actions are enabled under TJ permissions.' : 'Windows computer actions are off; conversation can still work.'}</p>
       <small>{browserSessionRef.current ? 'Live conversation is active. Speak naturally; TJ listens while speaking and stops when you begin talking.' : 'Click the voice button in this chat to start a conversation. Microphone audio is processed locally unless Fish Audio transcription is selected.'} Windows actions still follow configured permissions and approvals. {lastTurnTiming ? `Last response processing: ${(lastTurnTiming.turn_ms / 1000).toFixed(1)}s to completion, ${(lastTurnTiming.transcription_ms / 1000).toFixed(1)}s speech recognition.` : voice?.last_transcription_ms != null ? `Last speech recognition: ${(voice.last_transcription_ms / 1000).toFixed(1)}s.` : ''}</small>
       {userSpeaking && <p className="tj-voice-line" role="status"><b>You:</b> Listening…</p>}

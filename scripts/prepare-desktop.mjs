@@ -10,4 +10,8 @@ fs.rmSync(runtime, { recursive: true, force: true });
 fs.mkdirSync(path.join(runtime, 'services/api'), { recursive: true });
 fs.copyFileSync(process.execPath, path.join(runtime, 'node.exe'));
 fs.cpSync(api, path.join(runtime, 'services/api/dist'), { recursive: true });
+const scripts = path.join(root, 'services/api/scripts');
+if (fs.existsSync(scripts)) {
+  fs.cpSync(scripts, path.join(runtime, 'services/api/scripts'), { recursive: true });
+}
 console.log(`Prepared TJ desktop runtime with ${process.version} and bundled API assets.`);

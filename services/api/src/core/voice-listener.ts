@@ -4,36 +4,58 @@ import path from 'node:path';
 import { REPO_ROOT } from '../config.js';
 import type { EventBus } from './event-bus.js';
 
-const SCRIPT = path.join(REPO_ROOT, 'services', 'api', 'scripts', 'voice-listener.ps1');
-const SPEAK_SCRIPT = path.join(REPO_ROOT, 'services', 'api', 'scripts', 'voice-speak.ps1');
-const VOICES_SCRIPT = path.join(REPO_ROOT, 'services', 'api', 'scripts', 'voice-voices.ps1');
+function resolveScript(name: string): string | null {
+  const candidates = [
+    path.join(REPO_ROOT, 'services', 'api', 'scripts', name),
+    path.join(path.dirname(process.execPath), 'resources', 'services', 'api', 'scripts', name),
+    path.join(path.dirname(process.execPath), 'services', 'api', 'scripts', name),
+    path.join(process.cwd(), 'services', 'api', 'scripts', name),
+    path.join('C:\\Projects\\tj-total-mastery-ai\\services\\api\\scripts', name),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return null;
+}
 
 export type WindowsVoice = { name: string; gender: string; culture: string };
 
 export async function listLocalVoices(): Promise<WindowsVoice[]> {
-  if (process.platform !== 'win32' || !fs.existsSync(VOICES_SCRIPT)) return [];
-  return new Promise<WindowsVoice[]>((resolve, reject) => {
-    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Sta', '-File', VOICES_SCRIPT], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-    let output = ''; let error = '';
+  const scriptPath = resolveScript('voice-voices.ps1');
+  if (process.platform !== 'win32' || !scriptPath) return [];
+  return new Promise<WindowsVoice[]>((resolve) => {
+    let settled = false;
+    const finish = (result: WindowsVoice[]) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(result);
+    };
+    const timer = setTimeout(() => {
+      try { child.kill(); } catch {}
+      finish([]);
+    }, 1500);
+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Sta', '-File', scriptPath], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let output = '';
     child.stdout?.on('data', (chunk: Buffer) => { output += chunk.toString(); });
-    child.stderr?.on('data', (chunk: Buffer) => { error += chunk.toString(); });
-    child.on('error', reject);
+    child.on('error', () => finish([]));
     child.on('close', (code) => {
-      if (code !== 0) { reject(new Error(error.trim() || 'Windows voices could not be listed.')); return; }
+      if (code !== 0) { finish([]); return; }
       try {
         const parsed: unknown = JSON.parse(output);
-        if (!Array.isArray(parsed)) throw new Error('Invalid Windows voice list.');
-        resolve(parsed.filter((voice): voice is WindowsVoice => typeof voice === 'object' && voice !== null && typeof voice.name === 'string' && typeof voice.gender === 'string' && typeof voice.culture === 'string'));
-      } catch (reason) { reject(reason); }
+        if (!Array.isArray(parsed)) { finish([]); return; }
+        finish(parsed.filter((voice): voice is WindowsVoice => typeof voice === 'object' && voice !== null && typeof voice.name === 'string' && typeof voice.gender === 'string' && typeof voice.culture === 'string'));
+      } catch { finish([]); }
     });
   });
 }
 
 export async function speakLocally(text: string, voiceId?: string, signal?: AbortSignal): Promise<void> {
-  if (process.platform !== 'win32' || !fs.existsSync(SPEAK_SCRIPT)) return;
+  const speakScript = resolveScript('voice-speak.ps1');
+  if (process.platform !== 'win32' || !speakScript) return;
   await new Promise<void>((resolve, reject) => {
     const voiceName = voiceId?.startsWith('windows:') ? voiceId.slice(8) : '';
-    const args = ['-NoProfile', '-NonInteractive', '-Sta', '-File', SPEAK_SCRIPT,
+    const args = ['-NoProfile', '-NonInteractive', '-Sta', '-File', speakScript,
       ...(voiceName === 'female' ? ['-Female'] : voiceName && voiceName !== 'default' ? ['-VoiceName', voiceName] : [])];
     const child = spawn('powershell.exe', args, { windowsHide: true, stdio: ['pipe', 'ignore', 'ignore'] });
     const abort = () => child.kill();
@@ -55,13 +77,17 @@ export class VoiceListener {
   private lastError: string | null = null;
   constructor(private bus: EventBus, private onTranscript: (text: string) => Promise<void>) {}
 
-  status() { return { available: process.platform === 'win32' && fs.existsSync(SCRIPT), listening: this.process !== null && this.ready, starting: this.process !== null && !this.ready, culture: this.culture, error: this.lastError }; }
+  status() {
+    const script = resolveScript('voice-listener.ps1');
+    return { available: process.platform === 'win32' && !!script, listening: this.process !== null && this.ready, starting: this.process !== null && !this.ready, culture: this.culture, error: this.lastError };
+  }
 
   start() {
     if (this.process) return this.status();
-    if (process.platform !== 'win32' || !fs.existsSync(SCRIPT)) throw new Error('Windows speech listener is unavailable.');
+    const script = resolveScript('voice-listener.ps1');
+    if (process.platform !== 'win32' || !script) throw new Error('Windows speech listener is unavailable.');
     this.lastError = null; this.ready = false;
-    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Sta', '-File', SCRIPT], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Sta', '-File', script], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     this.process = child;
     let buffer = '';
     child.stdout?.on('data', (chunk: Buffer) => {

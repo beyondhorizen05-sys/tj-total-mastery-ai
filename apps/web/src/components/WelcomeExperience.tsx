@@ -1,9 +1,8 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Sparkles, Volume2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sparkles } from 'lucide-react';
 import { DEFAULT_TJ_PERSONA, type TJPersona, type SystemStatus } from '@tj/schemas';
 import { apiFetch } from '../api';
 const IdentityScene = lazy(() => import('./IdentityScene').then((m) => ({ default: m.IdentityScene })));
-import { VoiceSelector } from './VoiceSelector';
 import './WelcomeExperience.css';
 
 type ProviderChoice = 'later' | 'ollama' | 'openai' | 'anthropic' | 'openrouter' | 'custom';
@@ -67,17 +66,13 @@ export const WelcomeExperience: React.FC<{ onComplete: () => void }> = ({ onComp
   const [computerControl, setComputerControl] = useState(false);
   const [computerAvailable, setComputerAvailable] = useState(false);
   const [computerDetail, setComputerDetail] = useState('Checking local Windows bridge…');
-  const [handsFree, setHandsFree] = useState(false);
-  const [localAsrAvailable, setLocalAsrAvailable] = useState(false);
   const [autonomy, setAutonomy] = useState(2);
   const [dailyBudget, setDailyBudget] = useState('');
   const [monthlyBudget, setMonthlyBudget] = useState('');
   const [requestBudget, setRequestBudget] = useState('');
   const [notifications, setNotifications] = useState(true);
   const [browserNotifications, setBrowserNotifications] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
-  const [welcomeMessage, setWelcomeMessage] = useState("Welcome. I'm TJ. I'm so glad you're here. This is your space to think bigger, create freely, and make what matters to you real. Take a breath. The future is open, and we'll step into it together.");
-  const [welcomeSpeaking, setWelcomeSpeaking] = useState(false);
-  const [welcomeVoiceError, setWelcomeVoiceError] = useState('');
+  const welcomeMessage = "Welcome. I'm TJ. I'm so glad you're here. This is your space to think bigger, create freely, and make what matters to you real. Take a breath. The future is open, and we'll step into it together.";
 
   const load = async () => {
     setLoading(true); setError('');
@@ -98,8 +93,6 @@ export const WelcomeExperience: React.FC<{ onComplete: () => void }> = ({ onComp
       setComputerControl(setup.settings.computer_control_enabled === true);
       setComputerAvailable(computer.available);
       setComputerDetail(computer.available ? 'Local Windows bridge verified.' : computer.bridge.error || 'Windows bridge unavailable.');
-      setLocalAsrAvailable(computer.local_asr?.available === true);
-      setHandsFree(setup.settings.voice_autostart === true && setup.settings.voice_handsfree_mode === true);
       setAutonomy(typeof setup.settings.autonomy_level === 'number' ? setup.settings.autonomy_level : 2);
       setDailyBudget(setup.settings.budget_daily_usd == null ? '' : String(setup.settings.budget_daily_usd));
       setMonthlyBudget(setup.settings.budget_monthly_usd == null ? '' : String(setup.settings.budget_monthly_usd));
@@ -113,25 +106,6 @@ export const WelcomeExperience: React.FC<{ onComplete: () => void }> = ({ onComp
     finally { setLoading(false); }
   };
   useEffect(() => { void load(); }, []);
-  useEffect(() => {
-    if (loading || step !== 0) return;
-    let cancelled = false;
-    const locale = profile.locale || navigator.language || 'en-US';
-    void apiFetch<{ text: string; played: boolean }>(`/api/v1/voice/welcome?locale=${encodeURIComponent(locale)}`)
-      .then(async (welcome) => {
-        if (cancelled) return;
-        setWelcomeMessage(welcome.text);
-        if (welcome.played) return;
-        setWelcomeSpeaking(true);
-        try {
-          await apiFetch('/api/v1/voice/welcome', { method: 'POST', body: JSON.stringify({ locale }) });
-        } catch (reason) {
-          if (!cancelled) setWelcomeVoiceError(reason instanceof Error ? reason.message : 'Could not play the welcome.');
-        } finally { if (!cancelled) setWelcomeSpeaking(false); }
-      })
-      .catch(() => { if (!cancelled) setWelcomeVoiceError('Voice service is unavailable. Try Replay welcome.'); });
-    return () => { cancelled = true; };
-  }, [loading, step, profile.locale]);
   useEffect(() => {
     if (step !== 8) return;
     void apiFetch<SetupResponse>('/api/v1/system/setup').then((current) => setComputerControl(current.settings.computer_control_enabled === true)).catch(() => {});
@@ -210,15 +184,7 @@ export const WelcomeExperience: React.FC<{ onComplete: () => void }> = ({ onComp
       } else if (step === 5) {
         await saveSettings({ default_model_id: selectedModel || null });
       } else if (step === 6) {
-        if (handsFree) {
-          if (!localAsrAvailable) throw new Error('The local multilingual speech model is unavailable. Install it before enabling hands-free listening.');
-          await saveSettings({ voice_handsfree_mode: true, voice_asr_provider: 'local' });
-          await apiFetch('/api/v1/voice/start', { method: 'POST' });
-          setNotice('Windows microphone is listening. TJ will listen again when the API starts.');
-        } else {
-          await apiFetch('/api/v1/voice/stop', { method: 'POST' });
-          await saveSettings({ voice_handsfree_mode: false });
-        }
+        // Voice hands-free skipped
       } else if (step === 8) {
         if (computerControl && !computerAvailable) throw new Error('Local computer bridge is unavailable. Leave this off or fix the bridge before continuing.');
         await saveSettings({ computer_control_enabled: computerControl });
@@ -288,14 +254,6 @@ export const WelcomeExperience: React.FC<{ onComplete: () => void }> = ({ onComp
     if (permission !== 'granted') setNotice('In-app alerts can still appear; browser notifications were not granted.');
   };
 
-  const replayWelcome = async () => {
-    setWelcomeSpeaking(true); setWelcomeVoiceError('');
-    try {
-      await apiFetch('/api/v1/voice/welcome', { method: 'POST', body: JSON.stringify({ locale: profile.locale || navigator.language || 'en-US', replay: true }) });
-    } catch (reason) { setWelcomeVoiceError(reason instanceof Error ? reason.message : 'Could not play the welcome.'); }
-    finally { setWelcomeSpeaking(false); }
-  };
-
   const choose = (selected: boolean) => selected ? 'tj-setup-choice selected' : 'tj-setup-choice';
   const budgetInput = (label: string, value: string, setValue: (value: string) => void) => <label className="tj-setup-field">{label}<input type="number" min="0" step="0.01" value={value} placeholder="No limit" onChange={(event) => setValue(event.target.value)} /></label>;
   const deviceStep = (kind: DeviceKind, title: string, detail: string) => <div className="tj-welcome-copy"><span className="tj-eyebrow">OPTIONAL PERMISSION</span><h1>{title}</h1><p>{detail}</p><button className="tj-setup-action" onClick={() => void testDevice(kind)}>Request and test {kind} access</button><p className="tj-setup-result" role="status">{deviceResult[kind] || 'Nothing is requested until you press the button. You can continue without granting access.'}</p></div>;
@@ -308,8 +266,8 @@ export const WelcomeExperience: React.FC<{ onComplete: () => void }> = ({ onComp
       <section className="tj-welcome-content">
         <div className="tj-setup-progress" role="status" aria-live="polite" aria-atomic="true"><span>SETUP {String(step + 1).padStart(2, '0')} / 14</span><strong>{STAGES[step]}</strong><div className="tj-setup-track"><i style={{ width: `${((step + 1) / STAGES.length) * 100}%` }} /></div></div>
         {loading ? <p className="tj-setup-result">Loading your local setup…</p> : <>
-          {step === 0 && <div className="tj-welcome-copy"><span className="tj-eyebrow"><Sparkles size={14} /> A NEW KIND OF BEGINNING</span><h1>Open the door<br />to <em>what's next.</em></h1><p>Build a personal intelligence environment around your preferences. Fourteen short stages connect each choice to a real local setting or service; optional access can be skipped.</p><div className={welcomeSpeaking ? 'tj-welcome-greeting speaking' : 'tj-welcome-greeting'}><div className="tj-welcome-greeting-head"><span><Volume2 size={16} /> TJ, HERE WITH YOU</span><button type="button" disabled={welcomeSpeaking} onClick={() => void replayWelcome()}>{welcomeSpeaking ? 'Speaking…' : 'Replay welcome'}</button></div><p>“{welcomeMessage}”</p>{welcomeVoiceError && <small role="alert">{welcomeVoiceError}</small>}</div><div className="tj-welcome-health"><span className={status ? 'online' : ''} /> {status ? `System connected · ${status.tj_state}` : 'Connecting to your local system…'}</div><div className="tj-choice-grid">{(['core', 'female', 'male'] as const).map((form) => <button key={form} className={persona.embodiment === form ? 'tj-choice selected' : 'tj-choice'} onClick={() => updatePersona('embodiment', form)}><span>{form}</span><small>{form === 'core' ? 'Pure intelligence' : 'Human presence'}</small>{persona.embodiment === form && <Check size={16} />}</button>)}</div></div>}
-          {step === 1 && <div className="tj-welcome-copy"><span className="tj-eyebrow">LOCAL PROFILE</span><h1>Make it<br /><em>yours.</em></h1><p>Your profile stays in TJ's local database. Appearance and personality are applied across the workspace.</p><div className="tj-form-row"><label>Your name<input value={profile.display_name} maxLength={80} onChange={(event) => setProfile({ ...profile, display_name: event.target.value })} /></label><label>Assistant name<input value={persona.name} maxLength={32} onChange={(event) => updatePersona('name', event.target.value)} /></label></div><div className="tj-form-row"><label>Locale<input value={profile.locale} onChange={(event) => setProfile({ ...profile, locale: event.target.value })} /></label><label>Time zone<input value={profile.time_zone} onChange={(event) => setProfile({ ...profile, time_zone: event.target.value })} /></label></div><div className="tj-archetypes">{ARCHETYPES.map((item) => <button key={item.id} className={persona.archetype === item.id ? 'tj-archetype selected' : 'tj-archetype'} onClick={() => updatePersona('archetype', item.id)}><b>{item.id}</b><small>{item.detail}</small></button>)}</div><div className="tj-form-row"><label>Communication<select value={persona.communication} onChange={(event) => updatePersona('communication', event.target.value as TJPersona['communication'])}><option value="concise">Concise</option><option value="balanced">Balanced</option><option value="detailed">Detailed</option></select></label><label>Relationship<select value={persona.relationship} onChange={(event) => updatePersona('relationship', event.target.value as TJPersona['relationship'])}><option value="friendly">Friendly</option><option value="professional">Professional</option><option value="coach">Coach</option><option value="girlfriend">Girlfriend · affectionate</option><option value="boyfriend">Boyfriend · affectionate</option></select></label></div><VoiceSelector value={persona.voice_id} onChange={(voice) => updatePersona('voice_id', voice)} previewName={persona.name} /></div>}
+          {step === 0 && <div className="tj-welcome-copy"><span className="tj-eyebrow"><Sparkles size={14} /> A NEW KIND OF BEGINNING</span><h1>Open the door<br />to <em>what's next.</em></h1><p>Build a personal intelligence environment around your preferences. Fourteen short stages connect each choice to a real local setting or service; optional access can be skipped.</p><div className="tj-welcome-greeting"><div className="tj-welcome-greeting-head"><span>TJ, HERE WITH YOU</span></div><p>“{welcomeMessage}”</p></div><div className="tj-welcome-health"><span className={status ? 'online' : ''} /> {status ? `System connected · ${status.tj_state}` : 'Connecting to your local system…'}</div><div className="tj-choice-grid">{(['core', 'female', 'male'] as const).map((form) => <button key={form} className={persona.embodiment === form ? 'tj-choice selected' : 'tj-choice'} onClick={() => updatePersona('embodiment', form)}><span>{form}</span><small>{form === 'core' ? 'Pure intelligence' : 'Human presence'}</small>{persona.embodiment === form && <Check size={16} />}</button>)}</div></div>}
+          {step === 1 && <div className="tj-welcome-copy"><span className="tj-eyebrow">LOCAL PROFILE</span><h1>Make it<br /><em>yours.</em></h1><p>Your profile stays in TJ's local database. Appearance and personality are applied across the workspace.</p><div className="tj-form-row"><label>Your name<input value={profile.display_name} maxLength={80} onChange={(event) => setProfile({ ...profile, display_name: event.target.value })} /></label><label>Assistant name<input value={persona.name} maxLength={32} onChange={(event) => updatePersona('name', event.target.value)} /></label></div><div className="tj-form-row"><label>Locale<input value={profile.locale} onChange={(event) => setProfile({ ...profile, locale: event.target.value })} /></label><label>Time zone<input value={profile.time_zone} onChange={(event) => setProfile({ ...profile, time_zone: event.target.value })} /></label></div><div className="tj-archetypes">{ARCHETYPES.map((item) => <button key={item.id} className={persona.archetype === item.id ? 'tj-archetype selected' : 'tj-archetype'} onClick={() => updatePersona('archetype', item.id)}><b>{item.id}</b><small>{item.detail}</small></button>)}</div><div className="tj-form-row"><label>Communication<select value={persona.communication} onChange={(event) => updatePersona('communication', event.target.value as TJPersona['communication'])}><option value="concise">Concise</option><option value="balanced">Balanced</option><option value="detailed">Detailed</option></select></label><label>Relationship<select value={persona.relationship} onChange={(event) => updatePersona('relationship', event.target.value as TJPersona['relationship'])}><option value="friendly">Friendly</option><option value="professional">Professional</option><option value="coach">Coach</option><option value="girlfriend">Girlfriend · affectionate</option><option value="boyfriend">Boyfriend · affectionate</option></select></label></div></div>}
           {step === 2 && <div className="tj-welcome-copy"><span className="tj-eyebrow">PRIVACY</span><h1>Choose your<br /><em>boundary.</em></h1><p>Local-only blocks cloud models, outbound network tools and connectors. Balanced allows connected providers under TJ permissions.</p><div className="tj-setup-options"><button className={choose(privacy === 'local-only')} onClick={() => setPrivacy('local-only')}><b>Local-only</b><small>Keep model/tool traffic on this machine.</small></button><button className={choose(privacy === 'balanced')} onClick={() => setPrivacy('balanced')}><b>Balanced</b><small>Allow configured cloud providers and approved connectors.</small></button></div></div>}
           {step === 3 && <div className="tj-welcome-copy"><span className="tj-eyebrow">STORAGE LOCATION</span><h1>Your files.<br /><em>Your place.</em></h1><p>Choose where new TJ project files are created. Existing projects remain in their current folders; the local database and encrypted vault stay in the core data directory shown below.</p><label className="tj-setup-field">New project files folder<input value={projectDir} onChange={(event) => setProjectDir(event.target.value)} /></label><p className="tj-setup-result">Core database and vault: {storage.core_data_dir || 'Loading…'}</p></div>}
           {step === 4 && <div className="tj-welcome-copy">
@@ -325,7 +283,7 @@ export const WelcomeExperience: React.FC<{ onComplete: () => void }> = ({ onComp
             {provider === 'ollama' && <label className="tj-setup-field">Ollama URL<input type="url" value={providerUrl} onChange={(event) => setProviderUrl(event.target.value)} /></label>}
           </div>}
           {step === 5 && <div className="tj-welcome-copy"><span className="tj-eyebrow">LOCAL MODEL DISCOVERY</span><h1>Find a model<br /><em>near you.</em></h1><p>Optionally connect Ollama running on this computer. Discovery reads its real model list. Choose a default from models already found.</p><label className="tj-setup-field">Local Ollama URL<input value={localUrl} onChange={(event) => setLocalUrl(event.target.value)} /></label><button className="tj-setup-action" disabled={saving} onClick={() => { setSaving(true); setError(''); void connectProvider('ollama', localUrl.trim()).catch((reason) => setError(reason.message)).finally(() => setSaving(false)); }}>Test and discover local models</button><label className="tj-setup-field">Default model<select value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}><option value="">Automatic routing / choose later</option>{models.map((model) => <option key={model.id} value={model.id}>{model.display_name || model.id}</option>)}</select></label><p className="tj-setup-result">{models.length} available model records. Discovery alone does not prove inference; TJ will report actual call failures.</p></div>}
-          {step === 6 && <>{deviceStep('microphone', 'Let TJ hear you.', 'The browser permission test is optional and stops its track immediately. TJ hands-free listening uses the Windows microphone and local multilingual speech recognition.')}<div className="tj-setup-inline"><label><input type="checkbox" checked={handsFree} disabled={!localAsrAvailable} onChange={(event) => setHandsFree(event.target.checked)} /> Start Windows hands-free listening and remember this choice</label><small>{localAsrAvailable ? 'The local speech model is installed. This starts the actual TJ listener when you continue.' : 'The local speech model is unavailable on this host. You can still continue without hands-free listening.'}</small></div></>}
+          {step === 6 && <>{deviceStep('microphone', 'Let TJ hear you.', 'The microphone test is completely optional. You can test it or simply continue without granting access.')}</>}
           {step === 7 && deviceStep('camera', 'Give TJ sight.', 'Optional camera access for future visual tasks. The camera stream is stopped immediately after this permission test.')}
           {step === 8 && <>{deviceStep('screen', 'Share your screen.', 'Choose a screen or window to test browser screen capture. Browser sharing is not Windows input control; it must be requested again when used.')}<div className="tj-setup-inline"><label><input type="checkbox" checked={computerControl} disabled={!computerAvailable} onChange={(event) => setComputerControl(event.target.checked)} /> Enable local Windows computer tools for TJ agents</label><small>{computerDetail} TJ still checks action permissions and approvals. With hands-free listening enabled, say “TJ” and your command.</small></div></>}
           {step === 9 && <div className="tj-welcome-copy"><span className="tj-eyebrow">CONNECTORS</span><h1>Connect your<br /><em>world.</em></h1><p>Each connector shows its data scope and privacy path. Keys are stored in TJ's encrypted vault. This stage is optional.</p><label className="tj-setup-field">Find connector<input value={connectorSearch} onChange={(event) => setConnectorSearch(event.target.value)} placeholder="Search by name or purpose" /></label><div className="tj-setup-connectors">{connectors.filter((item) => `${item.name} ${item.description}`.toLowerCase().includes(connectorSearch.toLowerCase())).map((item) => <div key={item.id} className="tj-setup-connector"><b>{item.name} <small>{item.status}</small></b><p>{item.description}</p><small>Scopes: {item.scopes.join(', ') || 'None'} · {item.privacy}</small>{item.config_fields.map((field) => <label key={field.key} className="tj-setup-field">{field.label}{field.required ? ' *' : ''}<input type={field.secret ? 'password' : 'text'} autoComplete="off" value={connectorDraft[item.id]?.[field.key] ?? ''} placeholder={item.configured_keys.includes(field.key) ? 'Saved · leave blank to keep' : field.placeholder ?? ''} onChange={(event) => setConnectorDraft((current) => ({ ...current, [item.id]: { ...current[item.id], [field.key]: event.target.value } }))} /></label>)}<button className="tj-setup-action" disabled={saving} onClick={() => void saveConnector(item)}>Save and test connection</button>{item.configured_keys.length > 0 && <button className="tj-setup-action tj-setup-disconnect" disabled={saving} onClick={() => void disconnectConnector(item)}>Disconnect</button>}{connectorResult[item.id] && <p role={connectorResult[item.id].ok ? 'status' : 'alert'} className={connectorResult[item.id].ok ? 'tj-setup-result' : 'tj-welcome-error'}>{connectorResult[item.id].ok ? (connectorResult[item.id].detail === 'Saved configuration removed.' ? 'Disconnected: ' : 'Connected: ') : 'Connection failed: '}{connectorResult[item.id].detail}</p>}</div>)}</div></div>}

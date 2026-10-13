@@ -5,7 +5,8 @@ import {
   Send, ShieldAlert, Sliders, Sparkles, UserCheck, Users, Workflow,
   Edit3, X, Maximize2, Minimize2, Minus, Eye, BarChart3, GraduationCap,
   Briefcase, HeartPulse, Wallet, LineChart, Wrench, HardDrive, Network,
-  Plus, Trash2, Zap, Brain, Terminal, Sun, Moon
+  Plus, Trash2, Zap, Brain, Terminal, Sun, Moon, RotateCcw, Palette,
+  Move, Layers, Grid, History, ChevronDown, Boxes, Globe2, Mic
 } from 'lucide-react';
 import type { SystemStatus, TJPersona, TownAgent } from '@tj/schemas';
 import { apiFetch } from '../api';
@@ -13,7 +14,9 @@ import {
   LivingHQScene,
   type AgentSoul,
   type CustomRoom,
+  DEFAULT_DEPARTMENT_POSITIONS,
 } from '../components/LivingHQScene';
+import { THEMES, loadTheme, setTheme, type ThemeId } from '../themes';
 import './living-world.css';
 
 // Lazy-loaded Subsystem Views for Floating Windows
@@ -38,6 +41,9 @@ const WellnessView = lazy(() => import('./WellnessView').then((m) => ({ default:
 const FinanceView = lazy(() => import('./FinanceView').then((m) => ({ default: m.FinanceView })));
 const PaperTradingView = lazy(() => import('./PaperTradingView').then((m) => ({ default: m.PaperTradingView })));
 const FocusWorkspace = lazy(() => import('./FocusWorkspace').then((m) => ({ default: m.FocusWorkspace })));
+const CapabilitiesView = lazy(() => import('./CapabilitiesView').then((m) => ({ default: m.CapabilitiesView })));
+const LearningView = lazy(() => import('./LearningView').then((m) => ({ default: m.LearningView })));
+const WorkbenchView = lazy(() => import('./WorkbenchView').then((m) => ({ default: m.WorkbenchView })));
 
 const INITIAL_SOULS: AgentSoul[] = [
   {
@@ -49,8 +55,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 94,
     status: 'working',
     currentThought: 'Calibrating anti-gravity drift parameters to 0.02G tolerance.',
-    workstationPos: [-6.8, 0.44, -2.1],
-    restPos: [-7.8, 0, -1.8],
+    workstationPos: [-18.4, 0.22, -11.12],
+    restPos: [-18.7, 0, -9.8],
     assignedRoom: 'ANTIGRAVITY RESEARCH LAB',
     jacketColor: '#253d56',
     hairColor: '#2b231f',
@@ -65,8 +71,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 88,
     status: 'working',
     currentThought: 'Robotic calibration rig servo latency measured at 0.8ms.',
-    workstationPos: [-6.4, 0.44, 4.8],
-    restPos: [-7.2, 0, 5.2],
+    workstationPos: [-9.5, 0.22, 5.38],
+    restPos: [-9.9, 0, 6.6],
     assignedRoom: 'BIOMETRICS & CYBERNETICS LAB',
     jacketColor: '#24374a',
     hairColor: '#1e1c1b',
@@ -81,8 +87,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 85,
     status: 'working',
     currentThought: 'Tracing runtime state diffs and memory heap bounds.',
-    workstationPos: [-7.6, 0.44, 4.8],
-    restPos: [-8.2, 0, 5.2],
+    workstationPos: [-7.5, 0.22, 5.38],
+    restPos: [-7.1, 0, 6.6],
     assignedRoom: 'BIOMETRICS & CYBERNETICS LAB',
     jacketColor: '#384d63',
     hairColor: '#4a2e1d',
@@ -97,8 +103,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 92,
     status: 'working',
     currentThought: 'Analyzing price tick spreads across backtesting windows.',
-    workstationPos: [-5.5, 2.24, 4.8],
-    restPos: [-6.2, 1.8, 5.2],
+    workstationPos: [-18.4, 0.22, 5.88],
+    restPos: [-18.7, 0, 7.2],
     assignedRoom: 'FINANCE & TRADING FLOOR',
     jacketColor: '#1c2e42',
     hairColor: '#181818',
@@ -112,10 +118,10 @@ const INITIAL_SOULS: AgentSoul[] = [
     personality: 'Observant, tactical, alert to vulnerability vectors.',
     energy: 96,
     status: 'transit',
-    currentThought: 'Patrolling central bulkhead vault; access policies verified.',
-    workstationPos: [-1.8, 0.44, -6.2],
-    restPos: [-2.5, 0, -5.8],
-    assignedRoom: 'SECURITY VAULT & CITADEL',
+    currentThought: 'Patrolling central boulevard; all perimeter credentials valid.',
+    workstationPos: [-9.5, 0.22, 14.38],
+    restPos: [-9.9, 0, 15.6],
+    assignedRoom: 'SECURITY CITADEL & APPROVALS VAULT',
     jacketColor: '#2b3f54',
     hairColor: '#222222',
     skinColor: '#ca9478',
@@ -129,9 +135,9 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 90,
     status: 'collaborating',
     currentThought: 'Fine-tuning provider token distribution and prompt cache.',
-    workstationPos: [5.5, 2.24, -4.6],
-    restPos: [4.8, 1.8, -4.2],
-    assignedRoom: 'AI MODELS & NEURAL ENGINE',
+    workstationPos: [16.5, 0.22, -11.12],
+    restPos: [16.1, 0, -9.8],
+    assignedRoom: 'AI MODELS & NEURAL ENGINE BAY',
     jacketColor: '#22384c',
     hairColor: '#332722',
     skinColor: '#d8a186',
@@ -145,8 +151,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 91,
     status: 'collaborating',
     currentThought: 'Validating workflow DAG branching with real-time approval gates.',
-    workstationPos: [7.5, 2.24, 0.6],
-    restPos: [8.2, 1.8, 1.0],
+    workstationPos: [16.5, 0.22, -2.62],
+    restPos: [16.1, 0, -1.3],
     assignedRoom: 'WORKFLOWS & AUTOMATION FACTORY',
     jacketColor: '#d8e4ef',
     hairColor: '#1c1b1a',
@@ -161,9 +167,9 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 87,
     status: 'working',
     currentThought: 'Optimizing holographic data globe cluster indexes.',
-    workstationPos: [6.5, 2.24, 5.0],
-    restPos: [7.2, 1.8, 5.5],
-    assignedRoom: 'DATA INTELLIGENCE & ANALYTICS',
+    workstationPos: [16.6, 0.22, 5.88],
+    restPos: [16.3, 0, 7.2],
+    assignedRoom: 'DATA INTELLIGENCE & ANALYTICS BAY',
     jacketColor: '#33485c',
     hairColor: '#4f301d',
     skinColor: '#d1997d',
@@ -177,9 +183,9 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 95,
     status: 'working',
     currentThought: 'Tracking world map geopolitical relays and active approval queues.',
-    workstationPos: [0.0, 2.24, -5.3],
-    restPos: [-0.8, 1.8, -4.8],
-    assignedRoom: 'MISSION CONTROL',
+    workstationPos: [-1.8, 0.22, -14.62],
+    restPos: [-2.2, 0, -13.2],
+    assignedRoom: 'MISSION CONTROL BRIDGE',
     jacketColor: '#203244',
     hairColor: '#2a2220',
     skinColor: '#dca48a',
@@ -193,8 +199,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 89,
     status: 'working',
     currentThought: 'Monitoring RGB cryogenic cooling conduits at 3.4 Kelvin.',
-    workstationPos: [-3.5, 4.04, -4.8],
-    restPos: [-4.2, 3.6, -4.4],
+    workstationPos: [-9.4, 0.22, -14.62],
+    restPos: [-9.7, 0, -13.2],
     assignedRoom: 'QUANTUM COMPUTE HUB',
     jacketColor: '#2c4257',
     hairColor: '#5c3a21',
@@ -209,9 +215,9 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 93,
     status: 'working',
     currentThought: 'Compiling optimized binary routes for high-throughput messaging.',
-    workstationPos: [6.5, 2.24, -4.6],
-    restPos: [7.2, 1.8, -4.2],
-    assignedRoom: 'AI MODELS & NEURAL ENGINE',
+    workstationPos: [18.5, 0.22, -11.12],
+    restPos: [18.9, 0, -9.8],
+    assignedRoom: 'AI MODELS & NEURAL ENGINE BAY',
     jacketColor: '#1e3042',
     hairColor: '#1c1c1c',
     skinColor: '#d89e82',
@@ -225,9 +231,9 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 91,
     status: 'working',
     currentThought: 'Decomposing autonomous compound objectives into linear stages.',
-    workstationPos: [1.2, 2.24, -5.3],
-    restPos: [1.8, 1.8, -4.8],
-    assignedRoom: 'MISSION CONTROL',
+    workstationPos: [0.0, 0.22, -14.62],
+    restPos: [0.0, 0, -13.2],
+    assignedRoom: 'MISSION CONTROL BRIDGE',
     jacketColor: '#283e52',
     hairColor: '#36281e',
     skinColor: '#d49b7e',
@@ -241,9 +247,9 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 94,
     status: 'working',
     currentThought: 'Scanning active OS viewport bounds for input dispatch.',
-    workstationPos: [-1.2, 2.24, -5.3],
-    restPos: [-1.8, 1.8, -4.8],
-    assignedRoom: 'MISSION CONTROL',
+    workstationPos: [1.8, 0.22, -14.62],
+    restPos: [2.2, 0, -13.2],
+    assignedRoom: 'MISSION CONTROL BRIDGE',
     jacketColor: '#34475c',
     hairColor: '#1a1918',
     skinColor: '#e2ab90',
@@ -257,8 +263,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 90,
     status: 'working',
     currentThought: 'Refining glassmorphic HUD shader highlights and color tokens.',
-    workstationPos: [-7.0, 2.24, 0.6],
-    restPos: [-7.8, 1.8, 1.0],
+    workstationPos: [-18.5, 0.22, -2.62],
+    restPos: [-18.9, 0, -1.3],
     assignedRoom: 'MEDIA & CREATIVE STUDIO',
     jacketColor: '#3a2e48',
     hairColor: '#443228',
@@ -273,8 +279,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 88,
     status: 'working',
     currentThought: 'Archiving real-time agent execution transcripts into knowledge base.',
-    workstationPos: [8.0, 0.44, -3.2],
-    restPos: [8.8, 0, -2.8],
+    workstationPos: [7.6, 0.22, -14.62],
+    restPos: [7.3, 0, -13.2],
     assignedRoom: 'PERSISTENT MEMORY VAULT',
     jacketColor: '#23364a',
     hairColor: '#282320',
@@ -289,8 +295,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 92,
     status: 'working',
     currentThought: 'Calculating risk-reward ratios on pending tool approvals.',
-    workstationPos: [7.8, 0.44, 4.2],
-    restPos: [8.5, 0, 4.6],
+    workstationPos: [16.5, 0.22, 14.38],
+    restPos: [16.1, 0, 15.6],
     assignedRoom: 'KNOWLEDGE GRAPH LAB',
     jacketColor: '#1d2f40',
     hairColor: '#1f1e1d',
@@ -305,8 +311,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 93,
     status: 'working',
     currentThought: 'Executing synthetic integration tests against API gateways.',
-    workstationPos: [8.5, 2.24, 0.6],
-    restPos: [9.0, 1.8, 1.0],
+    workstationPos: [18.5, 0.22, -2.62],
+    restPos: [18.9, 0, -1.3],
     assignedRoom: 'WORKFLOWS & AUTOMATION FACTORY',
     jacketColor: '#2a4258',
     hairColor: '#4f3422',
@@ -321,8 +327,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 96,
     status: 'working',
     currentThought: 'Allocating global compute budgets across multi-agent pipelines.',
-    workstationPos: [2.2, 0.44, 4.6],
-    restPos: [2.8, 0, 5.0],
+    workstationPos: [7.5, 0.22, 5.38],
+    restPos: [7.1, 0, 6.6],
     assignedRoom: 'BUSINESS CRM & WAR ROOM',
     jacketColor: '#223446',
     hairColor: '#242120',
@@ -337,8 +343,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 89,
     status: 'working',
     currentThought: 'Synthesizing client deal conversion probabilities in pipeline.',
-    workstationPos: [1.4, 0.44, 4.6],
-    restPos: [0.8, 0, 5.0],
+    workstationPos: [9.5, 0.22, 5.38],
+    restPos: [9.9, 0, 6.6],
     assignedRoom: 'BUSINESS CRM & WAR ROOM',
     jacketColor: '#1b2d3f',
     hairColor: '#1c1c1b',
@@ -353,8 +359,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 91,
     status: 'working',
     currentThought: 'Composing interactive media campaigns for external releases.',
-    workstationPos: [-6.2, 2.24, 0.6],
-    restPos: [-5.6, 1.8, 1.0],
+    workstationPos: [-16.5, 0.22, -2.62],
+    restPos: [-16.1, 0, -1.3],
     assignedRoom: 'MEDIA & CREATIVE STUDIO',
     jacketColor: '#432d4a',
     hairColor: '#5a3824',
@@ -369,9 +375,9 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 94,
     status: 'working',
     currentThought: 'Streaming telemetry responses through The Living Pulse bridge.',
-    workstationPos: [0.0, 4.04, 0.8],
-    restPos: [-0.8, 3.6, 0.8],
-    assignedRoom: 'COMMUNICATIONS & LIVING PULSE',
+    workstationPos: [-0.9, 0.22, 14.38],
+    restPos: [-1.2, 0, 15.6],
+    assignedRoom: 'CONNECTORS & API WORKBENCH',
     jacketColor: '#273c50',
     hairColor: '#262220',
     skinColor: '#d69d80',
@@ -385,8 +391,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 88,
     status: 'working',
     currentThought: 'Auditing data isolation boundaries against privacy directives.',
-    workstationPos: [-6.0, 4.04, -3.3],
-    restPos: [-6.8, 3.6, -3.0],
+    workstationPos: [-18.4, 0.22, 14.38],
+    restPos: [-18.7, 0, 15.6],
     assignedRoom: 'EDUCATION & SKILL ACADEMY',
     jacketColor: '#2e3a4e',
     hairColor: '#3a291f',
@@ -401,8 +407,8 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 90,
     status: 'working',
     currentThought: 'Stress-testing neural cluster consensus against edge-case failures.',
-    workstationPos: [7.0, 0.44, 4.2],
-    restPos: [6.4, 0, 4.6],
+    workstationPos: [18.5, 0.22, 14.38],
+    restPos: [18.9, 0, 15.6],
     assignedRoom: 'KNOWLEDGE GRAPH LAB',
     jacketColor: '#1c2838',
     hairColor: '#1e1c1b',
@@ -417,9 +423,9 @@ const INITIAL_SOULS: AgentSoul[] = [
     energy: 95,
     status: 'working',
     currentThought: 'Cryptographically validating task execution evidence hashes.',
-    workstationPos: [-0.8, 0.44, -6.2],
-    restPos: [-0.2, 0, -5.8],
-    assignedRoom: 'SECURITY VAULT & CITADEL',
+    workstationPos: [-7.5, 0.22, 14.38],
+    restPos: [-7.1, 0, 15.6],
+    assignedRoom: 'SECURITY CITADEL & APPROVALS VAULT',
     jacketColor: '#263d54',
     hairColor: '#2c221e',
     skinColor: '#ddab92',
@@ -439,6 +445,7 @@ interface Props {
   loading: boolean;
   stopping?: boolean;
   onStopAll?: () => void;
+  onOpenLiveVoice?: () => void;
 }
 
 export const CommandCenter: React.FC<Props> = ({
@@ -450,6 +457,7 @@ export const CommandCenter: React.FC<Props> = ({
   loading,
   stopping = false,
   onStopAll,
+  onOpenLiveVoice,
 }) => {
   const [input, setInput] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -471,31 +479,94 @@ export const CommandCenter: React.FC<Props> = ({
     });
   };
 
-  // Department 3D Room Coordinates for Smooth Camera Focus
+  // Department 3D Room Coordinates for Smooth Camera Focus (All Ground Floor y = 1.2)
   const ROOM_COORDINATES: Record<string, [number, number, number]> = {
-    vision: [-7.5, 0.8, -2.5],
-    wellness: [-7.0, 0.8, 4.5],
-    approvals: [-1.5, 0.8, -6.5],
-    business: [2.0, 0.8, 4.5],
-    graph: [7.5, 0.8, 4.0],
-    memory: [8.0, 0.8, -3.5],
-    tasks: [0.0, 2.4, -5.5],
-    models: [6.0, 2.4, -4.8],
-    workflows: [8.0, 2.4, 0.5],
-    data: [6.5, 2.4, 5.0],
-    finance: [-5.5, 2.4, 4.8],
-    paper: [-5.5, 2.4, 4.8],
-    media: [-7.0, 2.4, 0.5],
-    connectors: [-2.5, 2.4, 0.0],
-    workbench: [-2.5, 2.4, 0.0],
-    skills: [-6.0, 4.2, -3.5],
-    education: [-6.0, 4.2, -3.5],
-    agents: [-3.5, 4.2, -5.0],
-    chat: [0.0, 5.2, 0.8],
-    command: [0.0, 2.4, -5.5],
+    vision: [-17.5, 1.2, -11.0],
+    wellness: [-8.5, 1.2, 5.5],
+    approvals: [-8.5, 1.2, 14.5],
+    business: [8.5, 1.2, 5.5],
+    graph: [17.5, 1.2, 14.5],
+    memory: [8.5, 1.2, -14.5],
+    tasks: [0.0, 1.2, -14.5],
+    models: [17.5, 1.2, -11.0],
+    workflows: [17.5, 1.2, -2.5],
+    data: [17.5, 1.2, 6.0],
+    finance: [-17.5, 1.2, 6.0],
+    paper: [-17.5, 1.2, 6.0],
+    media: [-17.5, 1.2, -2.5],
+    connectors: [0.0, 1.2, 14.5],
+    workbench: [0.0, 1.2, 14.5],
+    skills: [-17.5, 1.2, 14.5],
+    education: [-17.5, 1.2, 14.5],
+    agents: [-8.5, 1.2, -14.5],
+    chat: [0.0, 2.5, 0.0],
+    command: [0.0, 1.8, 0.0],
   };
 
+  const DEPARTMENT_ROOM_NAMES: Record<string, string> = {
+    RES: 'RESEARCH & ANTIGRAVITY LAB',
+    BIO: 'BIOMETRICS & CYBERNETICS LAB',
+    SEC: 'SECURITY CITADEL & DEFENSE',
+    MEM: 'PERSISTENT MEMORY VAULT',
+    GRAPH: 'KNOWLEDGE GRAPH LAB',
+    CRM: 'BUSINESS CRM WAR ROOM',
+    CMD: 'MISSION CONTROL BRIDGE',
+    MEDIA: 'MEDIA & SYNTHESIS STUDIO',
+    FIN: 'TRADING & FINANCE FLOOR',
+    SKILL: 'SKILL ACADEMY & DISCOVERY',
+    MODELS: 'AI MODELS & NEURAL BAY',
+    FLOW: 'WORKFLOWS & AUTOMATION FACTORY',
+    DATA: 'DATA INTELLIGENCE BAY',
+    QUANTUM: 'QUANTUM COMPUTE HUB',
+    API: 'CONNECTORS & TOOLS WORKBENCH',
+  };
+
+  const DEPARTMENT_WINDOW_MAP: Record<string, string> = {
+    RES: 'vision',
+    BIO: 'wellness',
+    SEC: 'approvals',
+    MEM: 'memory',
+    GRAPH: 'graph',
+    CRM: 'business',
+    CMD: 'tasks',
+    MEDIA: 'media',
+    FIN: 'finance',
+    SKILL: 'skills',
+    MODELS: 'models',
+    FLOW: 'workflows',
+    DATA: 'data',
+    QUANTUM: 'agents',
+    API: 'connectors',
+  };
+
+  // Architect Mode & Department Positions State
+  const [departmentPositions, setDepartmentPositions] = useState<Record<string, [number, number, number]>>(() => {
+    try {
+      const saved = localStorage.getItem('tj_department_positions');
+      return saved ? JSON.parse(saved) : DEFAULT_DEPARTMENT_POSITIONS;
+    } catch {
+      return DEFAULT_DEPARTMENT_POSITIONS;
+    }
+  });
+  const [isArchitectMode, setIsArchitectMode] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+
+  // 360 Degree View & Continuous Orbit
+  const [isAutoOrbit, setIsAutoOrbit] = useState(false);
+
+  // Dynamic Theme Selection State
+  const [activeTheme, setActiveTheme] = useState<ThemeId>(loadTheme);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+
+  // AI Command Chat Popup State (Full Conversation Engine)
+  const [showChatPopup, setShowChatPopup] = useState(false);
+  const [telemetryTab, setTelemetryTab] = useState<'agents' | 'components' | 'compute'>('agents');
+
   const handleOpenRoom = (roomId: string) => {
+    if (roomId === 'chat') {
+      setShowChatPopup(true);
+      return;
+    }
     if (ROOM_COORDINATES[roomId]) {
       setFocusTarget(ROOM_COORDINATES[roomId]);
     }
@@ -505,14 +576,13 @@ export const CommandCenter: React.FC<Props> = ({
   };
 
   // Overlay Panels Visibility (Allow closing/minimizing everything)
-  const [showBottomLeft, setShowBottomLeft] = useState(true);
   const [showBottomRight, setShowBottomRight] = useState(true);
   const [showBottomPulse, setShowBottomPulse] = useState(true);
 
   // Live Agent Souls (Realistic human behavior & state machine)
   const [agentSouls, setAgentSouls] = useState<AgentSoul[]>(() => {
     try {
-      const saved = localStorage.getItem('tj_agent_souls');
+      const saved = localStorage.getItem('tj_agent_souls_v3');
       return saved ? JSON.parse(saved) : INITIAL_SOULS;
     } catch {
       return INITIAL_SOULS;
@@ -538,15 +608,23 @@ export const CommandCenter: React.FC<Props> = ({
   const [newRoomTheme, setNewRoomTheme] = useState<CustomRoom['theme']>('quantum');
   const [newRoomBay, setNewRoomBay] = useState<CustomRoom['bay']>('ground_right');
   const [newRoomColor, setNewRoomColor] = useState('#00f2fe');
+  const [newRoomWorkstationsCount, setNewRoomWorkstationsCount] = useState<number>(2);
+  const [newRoomAssignedAgentIds, setNewRoomAssignedAgentIds] = useState<string[]>([]);
 
   // Category switch toggles
-  const [switches, setSwitches] = useState({
-    aiSystems: true,
-    studios: true,
-    finance: false,
-    system: false,
-  });
   const [activeCategoryDrawer, setActiveCategoryDrawer] = useState<string | null>(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target?.closest('.tj-cmd-tab-dropdown-wrap') && !target?.closest('.tj-cmd-cat-drawer')) {
+        setActiveCategoryDrawer(null);
+      }
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   // --------------------------------------------------------------------------
   // LIVE BACKEND INTEGRATION & REAL-TIME EVENT STREAM
@@ -639,13 +717,8 @@ export const CommandCenter: React.FC<Props> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeFloatingWindow, inspectingSoul]);
 
-  const toggleSwitch = (key: keyof typeof switches) => {
-    setSwitches((prev) => {
-      const next = !prev[key];
-      if (next) setActiveCategoryDrawer(key);
-      else if (activeCategoryDrawer === key) setActiveCategoryDrawer(null);
-      return { ...prev, [key]: next };
-    });
+  const toggleCategoryDrawer = (key: string) => {
+    setActiveCategoryDrawer((prev) => (prev === key ? null : key));
   };
 
   const openFloating = (windowId: string) => {
@@ -666,10 +739,10 @@ export const CommandCenter: React.FC<Props> = ({
     if (!newRoomName.trim()) return;
 
     const bayPositions: Record<CustomRoom['bay'], [number, number, number]> = {
-      ground_right: [3.4, 0, 2.6],
-      mezzanine_right: [3.8, 2.8, 1.8],
-      observation_high: [0, 4.2, 0],
-      extended_left: [-7.2, 0, 0],
+      ground_right: [24.0, 0, 4.0],
+      mezzanine_right: [24.0, 0, 12.0],
+      observation_high: [24.0, 0, -12.0],
+      extended_left: [-24.0, 0, 0],
     };
 
     const newRoom: CustomRoom = {
@@ -679,7 +752,8 @@ export const CommandCenter: React.FC<Props> = ({
       bay: newRoomBay,
       position: bayPositions[newRoomBay] || [0, 0, 0],
       accentColor: newRoomColor,
-      assignedAgentIds: [],
+      workstationsCount: newRoomWorkstationsCount,
+      assignedAgentIds: newRoomAssignedAgentIds,
     };
 
     const updated = [...customRooms, newRoom];
@@ -690,9 +764,122 @@ export const CommandCenter: React.FC<Props> = ({
       console.error(err);
     }
 
+    if (newRoomAssignedAgentIds.length > 0) {
+      setAgentSouls((prev) =>
+        prev.map((soul) => {
+          if (newRoomAssignedAgentIds.includes(soul.id)) {
+            const slotIndex = newRoomAssignedAgentIds.indexOf(soul.id);
+            const offsetX = slotIndex === 0 ? -1.0 : slotIndex === 1 ? 1.0 : slotIndex === 2 ? -1.0 : 1.0;
+            const offsetZ = slotIndex < 2 ? 0.3 : -0.6;
+            return {
+              ...soul,
+              assignedRoom: newRoom.name,
+              workstationPos: [newRoom.position[0] + offsetX, 0.22, newRoom.position[2] + offsetZ],
+              restPos: [newRoom.position[0] + offsetX, 0, newRoom.position[2] + offsetZ + 1.2],
+            };
+          }
+          return soul;
+        })
+      );
+    }
+
     setNewRoomName('');
+    setNewRoomAssignedAgentIds([]);
     closeFloating();
   };
+
+  const handleNudgeRoom = (dx: number, dz: number) => {
+    if (!selectedRoomId) return;
+
+    const isCustom = customRooms.some((r) => r.id === selectedRoomId);
+    if (isCustom) {
+      setCustomRooms((prev) => {
+        const next = prev.map((r) =>
+          r.id === selectedRoomId
+            ? { ...r, position: [r.position[0] + dx, r.position[1], r.position[2] + dz] as [number, number, number] }
+            : r
+        );
+        try { localStorage.setItem('tj_custom_rooms', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    } else {
+      const current = departmentPositions[selectedRoomId] || DEFAULT_DEPARTMENT_POSITIONS[selectedRoomId] || [0, 0, 0];
+      const newPos: [number, number, number] = [
+        Math.round((current[0] + dx) * 10) / 10,
+        0,
+        Math.round((current[2] + dz) * 10) / 10,
+      ];
+      setDepartmentPositions((prev) => {
+        const next = { ...prev, [selectedRoomId]: newPos };
+        try { localStorage.setItem('tj_department_positions', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+
+    // Shift assigned agents' workstationPos and restPos by the same delta!
+    setAgentSouls((prevSouls) =>
+      prevSouls.map((soul) => {
+        const roomName = DEPARTMENT_ROOM_NAMES[selectedRoomId];
+        if (soul.assignedRoom === roomName || soul.assignedRoom?.includes(selectedRoomId)) {
+          return {
+            ...soul,
+            workstationPos: [soul.workstationPos[0] + dx, soul.workstationPos[1], soul.workstationPos[2] + dz],
+            restPos: [soul.restPos[0] + dx, soul.restPos[1], soul.restPos[2] + dz],
+          };
+        }
+        return soul;
+      })
+    );
+  };
+
+  const handleSnapToGrid = () => {
+    if (!selectedRoomId) return;
+    const isCustom = customRooms.some((r) => r.id === selectedRoomId);
+    if (isCustom) {
+      setCustomRooms((prev) => {
+        const next = prev.map((r) =>
+          r.id === selectedRoomId
+            ? {
+                ...r,
+                position: [
+                  Math.round(r.position[0] / 2) * 2,
+                  r.position[1],
+                  Math.round(r.position[2] / 2) * 2,
+                ] as [number, number, number],
+              }
+            : r
+        );
+        try { localStorage.setItem('tj_custom_rooms', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    } else {
+      const current = departmentPositions[selectedRoomId] || DEFAULT_DEPARTMENT_POSITIONS[selectedRoomId] || [0, 0, 0];
+      const newPos: [number, number, number] = [
+        Math.round(current[0] / 2) * 2,
+        0,
+        Math.round(current[2] / 2) * 2,
+      ];
+      setDepartmentPositions((prev) => {
+        const next = { ...prev, [selectedRoomId]: newPos };
+        try { localStorage.setItem('tj_department_positions', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    }
+  };
+
+  const handleResetDepartmentPositions = () => {
+    setDepartmentPositions(DEFAULT_DEPARTMENT_POSITIONS);
+    try {
+      localStorage.setItem('tj_department_positions', JSON.stringify(DEFAULT_DEPARTMENT_POSITIONS));
+    } catch {}
+  };
+
+  const handleSelectTheme = (themeId: ThemeId) => {
+    setTheme(themeId);
+    setActiveTheme(themeId);
+    setShowThemePicker(false);
+  };
+
 
   const handleDeleteRoom = (roomId: string) => {
     const updated = customRooms.filter((r) => r.id !== roomId);
@@ -767,12 +954,11 @@ export const CommandCenter: React.FC<Props> = ({
   const runningTasks = status?.running_tasks ?? 0;
   const pendingApprovals = status?.pending_approvals ?? 0;
 
-  // PRIMARY TOP NAVIGATION TABS (WITHOUT DUMMY "MAIN INTERFACE")
+  // PRIMARY TOP NAVIGATION TABS (WITHOUT DUMMY "MAIN INTERFACE" & CONVERSATIONS WINDOW REMOVED)
   const topTabs = [
     { id: 'command', label: 'LIVING WORLD', icon: Compass, isActive: !activeFloatingWindow && !inspectingSoul },
     { id: 'tasks', label: 'MISSION CONTROL', icon: CheckSquare, badge: runningTasks, isWindow: true },
     { id: 'agents', label: 'AGENTS', icon: Users, isWindow: true },
-    { id: 'chat', label: 'CONVERSATIONS', icon: MessageSquare, isWindow: true },
     { id: 'workflows', label: 'WORKFLOWS', icon: Workflow, isWindow: true },
     { id: 'media', label: 'FILES & MEDIA', icon: Clapperboard, isWindow: true },
     { id: 'activity', label: 'ACTIVITY', icon: Radio, isWindow: true },
@@ -803,6 +989,9 @@ export const CommandCenter: React.FC<Props> = ({
       case 'finance': return <FinanceView />;
       case 'paper': return <PaperTradingView />;
       case 'focus': return <FocusWorkspace personaName={persona.name} />;
+      case 'capabilities': return <CapabilitiesView />;
+      case 'learning': return <LearningView />;
+      case 'workbench': return <WorkbenchView />;
       case 'add_room':
         return (
           <div style={{ padding: 12 }}>
@@ -880,6 +1069,60 @@ export const CommandCenter: React.FC<Props> = ({
                     <option value="#a855f7">Quantum Violet (#a855f7)</option>
                     <option value="#ff476f">Crimson Core (#ff476f)</option>
                   </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8da6bd', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                    WORKSTATIONS COUNT (DESKS & CHAIRS)
+                  </label>
+                  <select
+                    className="tj-room-builder-select"
+                    value={newRoomWorkstationsCount}
+                    onChange={(e) => setNewRoomWorkstationsCount(Number(e.target.value))}
+                  >
+                    <option value={1}>1 Workstation (Solo Executive Desk)</option>
+                    <option value={2}>2 Workstations (Dual Collaborative Desks)</option>
+                    <option value={3}>3 Workstations (Triple Pod Bay)</option>
+                    <option value={4}>4 Workstations (Quad Engineering Lab)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, color: '#8da6bd', fontFamily: 'JetBrains Mono', marginBottom: 4 }}>
+                    ASSIGN AGENTS TO THIS ROOM (MAX {newRoomWorkstationsCount})
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 90, overflowY: 'auto', padding: 6, background: 'rgba(5, 12, 20, 0.8)', border: '1px solid rgba(141, 166, 189, 0.2)', borderRadius: 6 }}>
+                    {agentSouls.map((soul) => {
+                      const isAssigned = newRoomAssignedAgentIds.includes(soul.id);
+                      return (
+                        <button
+                          key={soul.id}
+                          type="button"
+                          onClick={() => {
+                            if (isAssigned) {
+                              setNewRoomAssignedAgentIds(newRoomAssignedAgentIds.filter((id) => id !== soul.id));
+                            } else {
+                              if (newRoomAssignedAgentIds.length < newRoomWorkstationsCount) {
+                                setNewRoomAssignedAgentIds([...newRoomAssignedAgentIds, soul.id]);
+                              }
+                            }
+                          }}
+                          style={{
+                            padding: '3px 8px',
+                            borderRadius: 4,
+                            background: isAssigned ? 'rgba(0, 242, 254, 0.2)' : 'rgba(15, 23, 42, 0.6)',
+                            border: `1px solid ${isAssigned ? '#00f2fe' : 'rgba(148, 163, 184, 0.2)'}`,
+                            color: isAssigned ? '#00f2fe' : '#94a3b8',
+                            fontSize: 10,
+                            fontFamily: 'JetBrains Mono',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {soul.name} ({soul.role.slice(0, 10)})
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -984,6 +1227,9 @@ export const CommandCenter: React.FC<Props> = ({
       case 'finance': return { title: 'PERSONAL FINANCE & BUDGETS', icon: Wallet };
       case 'paper': return { title: 'PAPER TRADING SIMULATION', icon: LineChart };
       case 'focus': return { title: 'FOCUS WORKSPACE', icon: Compass };
+      case 'capabilities': return { title: 'CAPABILITIES & PERMISSIONS VAULT', icon: Boxes };
+      case 'learning': return { title: 'SELF-IMPROVEMENT & LEARNING REVIEW', icon: Sparkles };
+      case 'workbench': return { title: 'API WORKBENCH & TESTING SANDBOX', icon: Globe2 };
       case 'add_room': return { title: 'BUILDING ARCHITECT · ADD ROOM', icon: Plus };
       default: return { title: 'SUBSYSTEM WINDOW', icon: Compass };
     }
@@ -1026,18 +1272,70 @@ export const CommandCenter: React.FC<Props> = ({
             >
               <span>Focus</span>
             </button>
-            <button
-              type="button"
-              className={`tj-cmd-mode-btn ${activeFloatingWindow === 'workflows' ? 'is-active' : ''}`}
-              onClick={() => openFloating('workflows')}
-            >
-              <Workflow size={13} />
-              <span>Workflow</span>
-            </button>
           </nav>
 
           {/* Right Header Actions */}
           <div className="tj-cmd-header-actions">
+            {/* Live Voice Conversation Button */}
+            {onOpenLiveVoice && (
+              <button
+                type="button"
+                className="tj-cmd-live-voice-btn"
+                onClick={onOpenLiveVoice}
+                title="Start Real-time Live Voice Conversation (ChatGPT / Gemini style)"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 14px',
+                  borderRadius: 20,
+                  background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(56, 189, 248, 0.14))',
+                  border: '1px solid rgba(56, 189, 248, 0.55)',
+                  color: '#7dd3fc',
+                  fontWeight: 700,
+                  fontSize: 11,
+                  letterSpacing: '0.04em',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 15px rgba(56, 189, 248, 0.25)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Mic size={13} color="#38bdf8" />
+                <span>LIVE VOICE</span>
+              </button>
+            )}
+
+            {/* Architect Mode Toggle Button */}
+            <button
+              type="button"
+              className={`tj-cmd-cat-btn ${isArchitectMode ? 'is-active' : ''}`}
+              onClick={() => setIsArchitectMode(!isArchitectMode)}
+              title="Architect Studio: Select & Reposition Buildings"
+              style={{
+                color: isArchitectMode ? '#050b14' : 'var(--tj-theme-primary)',
+                background: isArchitectMode ? 'var(--tj-theme-primary)' : 'rgba(14, 27, 44, 0.82)',
+                fontWeight: 800,
+              }}
+            >
+              <Move size={12} />
+              <span>ARCHITECT</span>
+            </button>
+
+            {/* 360 Degree Continuous Orbit Tour Toggle */}
+            <button
+              type="button"
+              className={`tj-cmd-cat-btn ${isAutoOrbit ? 'is-active' : ''}`}
+              onClick={() => setIsAutoOrbit(!isAutoOrbit)}
+              title="360 Degree Continuous Orbit Tour"
+              style={{
+                color: isAutoOrbit ? '#00f2fe' : '#94a3b8',
+                borderColor: isAutoOrbit ? '#00f2fe' : undefined,
+              }}
+            >
+              <RotateCcw size={12} />
+              <span>360° ORBIT</span>
+            </button>
+
             {/* Day / Night Mode Cycle Button */}
             <button
               type="button"
@@ -1129,11 +1427,171 @@ export const CommandCenter: React.FC<Props> = ({
             );
           })}
 
+          {/* RIGHT AFTER APPROVALS: AI SYSTEMS, STUDIOS, FINANCE, SYSTEM */}
+          <div className="tj-cmd-tab-dropdown-wrap" style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className={`tj-cmd-tab ${activeCategoryDrawer === 'aiSystems' ? 'is-active' : ''}`}
+              onClick={() => setActiveCategoryDrawer(activeCategoryDrawer === 'aiSystems' ? null : 'aiSystems')}
+              title="AI Systems & Neural Mesh"
+            >
+              <Cpu size={13} />
+              <span>AI SYSTEMS</span>
+              <ChevronDown size={11} style={{ opacity: 0.7 }} />
+            </button>
+            {activeCategoryDrawer === 'aiSystems' && (
+              <div className="tj-cmd-cat-drawer">
+                <div className="tj-cmd-cat-drawer-header">AI SYSTEMS & NEURAL MESH</div>
+                <button type="button" onClick={() => { openFloating('models'); setActiveCategoryDrawer(null); }}>
+                  <Cpu size={12} color="var(--tj-theme-primary)" />
+                  <span>AI Models & Providers</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('connectors'); setActiveCategoryDrawer(null); }}>
+                  <Activity size={12} color="#4cd997" />
+                  <span>Connectors & Tools</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('skills'); setActiveCategoryDrawer(null); }}>
+                  <Wrench size={12} color="#00f2fe" />
+                  <span>Skills Engine</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('capabilities'); setActiveCategoryDrawer(null); }}>
+                  <Boxes size={12} color="#f59e0b" />
+                  <span>Capabilities Vault</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('memory'); setActiveCategoryDrawer(null); }}>
+                  <HardDrive size={12} color="#38bdf8" />
+                  <span>Memory Core</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('graph'); setActiveCategoryDrawer(null); }}>
+                  <Network size={12} color="#a855f7" />
+                  <span>Knowledge Graph</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('workbench'); setActiveCategoryDrawer(null); }}>
+                  <Globe2 size={12} color="#ec4899" />
+                  <span>API Workbench</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="tj-cmd-tab-dropdown-wrap" style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className={`tj-cmd-tab ${activeCategoryDrawer === 'studios' ? 'is-active' : ''}`}
+              onClick={() => setActiveCategoryDrawer(activeCategoryDrawer === 'studios' ? null : 'studios')}
+              title="Creative & Analytic Studios"
+            >
+              <Layers size={13} />
+              <span>STUDIOS</span>
+              <ChevronDown size={11} style={{ opacity: 0.7 }} />
+            </button>
+            {activeCategoryDrawer === 'studios' && (
+              <div className="tj-cmd-cat-drawer">
+                <div className="tj-cmd-cat-drawer-header">CREATIVE & ANALYTIC STUDIOS</div>
+                <button type="button" onClick={() => { openFloating('vision'); setActiveCategoryDrawer(null); }}>
+                  <Eye size={12} color="#00f2fe" />
+                  <span>Vision & Multimodal Studio</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('data'); setActiveCategoryDrawer(null); }}>
+                  <BarChart3 size={12} color="#4cd997" />
+                  <span>Data Intelligence & Analytics</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('education'); setActiveCategoryDrawer(null); }}>
+                  <GraduationCap size={12} color="#f59e0b" />
+                  <span>Education & Study Plans</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('business'); setActiveCategoryDrawer(null); }}>
+                  <Briefcase size={12} color="#38bdf8" />
+                  <span>Business CRM & Pipeline</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('wellness'); setActiveCategoryDrawer(null); }}>
+                  <HeartPulse size={12} color="#f43f5e" />
+                  <span>Wellness Trends & Health</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('media'); setActiveCategoryDrawer(null); }}>
+                  <Clapperboard size={12} color="#a855f7" />
+                  <span>Files & Media Studio</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('workflows'); setActiveCategoryDrawer(null); }}>
+                  <Workflow size={12} color="#06b6d4" />
+                  <span>Workflows Factory</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="tj-cmd-tab-dropdown-wrap" style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className={`tj-cmd-tab ${activeCategoryDrawer === 'finance' ? 'is-active' : ''}`}
+              onClick={() => setActiveCategoryDrawer(activeCategoryDrawer === 'finance' ? null : 'finance')}
+              title="Finance & Trading Floor"
+            >
+              <Wallet size={13} />
+              <span>FINANCE</span>
+              <ChevronDown size={11} style={{ opacity: 0.7 }} />
+            </button>
+            {activeCategoryDrawer === 'finance' && (
+              <div className="tj-cmd-cat-drawer">
+                <div className="tj-cmd-cat-drawer-header">FINANCE & TRADING SUITE</div>
+                <button type="button" onClick={() => { openFloating('finance'); setActiveCategoryDrawer(null); }}>
+                  <Wallet size={12} color="#10b981" />
+                  <span>Personal Finance & Budgets</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('paper'); setActiveCategoryDrawer(null); }}>
+                  <LineChart size={12} color="#00f2fe" />
+                  <span>Paper Trading Simulation</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="tj-cmd-tab-dropdown-wrap" style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className={`tj-cmd-tab ${activeCategoryDrawer === 'system' ? 'is-active' : ''}`}
+              onClick={() => setActiveCategoryDrawer(activeCategoryDrawer === 'system' ? null : 'system')}
+              title="System Configuration & Themes"
+            >
+              <Sliders size={13} />
+              <span>SYSTEM</span>
+              <ChevronDown size={11} style={{ opacity: 0.7 }} />
+            </button>
+            {activeCategoryDrawer === 'system' && (
+              <div className="tj-cmd-cat-drawer">
+                <div className="tj-cmd-cat-drawer-header">CORE SYSTEM CONTROLS</div>
+                <button type="button" onClick={() => { openFloating('settings'); setActiveCategoryDrawer(null); }}>
+                  <Sliders size={12} color="var(--tj-theme-primary)" />
+                  <span>Settings & Environment</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowThemePicker(true);
+                    setActiveCategoryDrawer(null);
+                  }}
+                  style={{ color: 'var(--tj-theme-primary)', fontWeight: 800 }}
+                >
+                  <Palette size={12} color="var(--tj-theme-primary)" />
+                  <span>Theme Atmosphere ({activeTheme.toUpperCase()})</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('learning'); setActiveCategoryDrawer(null); }}>
+                  <Sparkles size={12} color="#a855f7" />
+                  <span>Self-Improvement Review</span>
+                </button>
+                <button type="button" onClick={() => { openFloating('approvals'); setActiveCategoryDrawer(null); }}>
+                  <ShieldAlert size={12} color="#f59e0b" />
+                  <span>Security Approvals Vault</span>
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             className="tj-cmd-tab"
             onClick={() => openFloating('add_room')}
-            style={{ marginLeft: 'auto', borderColor: 'rgba(0, 242, 254, 0.4)', color: '#00f2fe' }}
+            style={{ marginLeft: 'auto', borderColor: 'var(--tj-theme-primary)', color: 'var(--tj-theme-primary)' }}
           >
             <Plus size={13} />
             <span>+ ADD ROOM</span>
@@ -1148,146 +1606,182 @@ export const CommandCenter: React.FC<Props> = ({
         <LivingHQScene
           agentSouls={agentSouls}
           customRooms={customRooms}
+          departmentPositions={departmentPositions}
+          selectedRoomId={selectedRoomId}
+          isArchitectMode={isArchitectMode}
+          onSelectRoomForMove={(id) => {
+            setSelectedRoomId(id);
+            if (!isArchitectMode) {
+              const winKey = DEPARTMENT_WINDOW_MAP[id];
+              if (winKey) openFloating(winKey);
+            }
+          }}
           onSelectAgent={handleSelect3DAgent}
           onOpenAgentSoul={handleInspectSoul}
-          onOpenRoom={handleOpenRoom}
+          onOpenRoom={(dest) => {
+            if (dest === 'chat') {
+              setShowChatPopup(true);
+            } else {
+              handleOpenRoom(dest);
+            }
+          }}
           selectedAgentId={selectedSlotId}
           focusTarget={focusTarget}
           dayNightMode={dayNightMode}
           timeOfDay={timeOfDay}
           onToggleDayNight={cycleDayNight}
           onTimeOfDayChange={setTimeOfDay}
+          isAutoOrbit={isAutoOrbit}
           height="100%"
         />
       </div>
 
       {/* ====================================================================
-          BOTTOM-LEFT OVERLAYS: HYBRID CARD & SWITCHES (CLOSABLE)
+          THEME PICKER POPUP MODAL (10 DYNAMIC ATMOSPHERES)
           ==================================================================== */}
-      <div className="tj-cmd-bottom-left">
-        {showBottomLeft ? (
-          <>
-            <div className="tj-cmd-hybrid-card">
-              <div className="tj-cmd-hybrid-info">
-                <span className="tj-cmd-hybrid-title">Local Nexus</span>
-                <span className="tj-cmd-hybrid-val">HYBRID : ACTIVE</span>
-              </div>
-              <svg className="tj-cmd-hybrid-wave" viewBox="0 0 58 22" fill="none">
-                <path
-                  d="M1 11 L10 11 L15 3 L22 19 L28 6 L35 15 L40 11 L57 11"
-                  stroke="#00f2fe"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+      {showThemePicker && (
+        <div className="tj-theme-picker-modal">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Palette size={14} color="var(--tj-theme-primary)" />
+              <b style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: '#ffffff' }}>SELECT CAMPUS THEME</b>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowThemePicker(false)}
+              style={{ background: 'transparent', border: 0, color: '#94a3b8', cursor: 'pointer' }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 10px' }}>
+            Transform the command center lighting, atmosphere, glassmorphism, and neon palette instantly.
+          </p>
+          <div className="tj-theme-grid">
+            {THEMES.map((th) => (
               <button
+                key={th.id}
                 type="button"
-                className="tj-cmd-panel-close-btn"
-                onClick={() => setShowBottomLeft(false)}
-                title="Minimize Panel"
-                aria-label="Minimize Panel"
+                className={`tj-theme-card-btn ${activeTheme === th.id ? 'is-active' : ''}`}
+                onClick={() => handleSelectTheme(th.id)}
               >
-                <Minus size={13} />
+                <div className="tj-theme-chips">
+                  <div className="tj-theme-chip" style={{ background: th.colors[0] }} />
+                  <div className="tj-theme-chip" style={{ background: th.colors[1] }} />
+                  <div className="tj-theme-chip" style={{ background: th.colors[2] }} />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: '#ffffff', fontFamily: 'JetBrains Mono' }}>
+                    {th.name.toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: 8, color: '#94a3b8' }}>{th.description}</div>
+                </div>
               </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ====================================================================
+          ARCHITECT STUDIO HUD (MOVE & ALIGN CAMPUS BUILDINGS)
+          ==================================================================== */}
+      {isArchitectMode && (
+        <div className="tj-architect-hud">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Move size={14} color="var(--tj-theme-primary)" />
+              <b style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: '#ffffff' }}>ARCHITECT STUDIO</b>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsArchitectMode(false)}
+              style={{ background: 'transparent', border: 0, color: '#94a3b8', cursor: 'pointer' }}
+            >
+              <X size={14} />
+            </button>
+          </div>
 
-            <div className="tj-cmd-switches-group">
-              <div
-                className={`tj-cmd-switch-item ${switches.aiSystems ? 'is-on' : ''}`}
-                onClick={() => toggleSwitch('aiSystems')}
-              >
-                <span className="tj-cmd-switch-label">AI SYSTEMS</span>
-                <div className="tj-cmd-switch-track"><div className="tj-cmd-switch-thumb" /></div>
-              </div>
+          <p style={{ fontSize: 10, color: '#94a3b8', margin: '0 0 10px' }}>
+            Click any building in 3D or choose below to reposition. Interior workstations & assigned agents follow automatically.
+          </p>
 
-              <div
-                className={`tj-cmd-switch-item ${switches.studios ? 'is-on' : ''}`}
-                onClick={() => toggleSwitch('studios')}
-              >
-                <span className="tj-cmd-switch-label">STUDIOS</span>
-                <div className="tj-cmd-switch-track"><div className="tj-cmd-switch-thumb" /></div>
-              </div>
-
-              <div
-                className={`tj-cmd-switch-item ${switches.finance ? 'is-on' : ''}`}
-                onClick={() => toggleSwitch('finance')}
-              >
-                <span className="tj-cmd-switch-label">FINANCE</span>
-                <div className="tj-cmd-switch-track"><div className="tj-cmd-switch-thumb" /></div>
-              </div>
-
-              <div
-                className={`tj-cmd-switch-item ${switches.system ? 'is-on' : ''}`}
-                onClick={() => toggleSwitch('system')}
-              >
-                <span className="tj-cmd-switch-label">SYSTEM</span>
-                <div className="tj-cmd-switch-track"><div className="tj-cmd-switch-thumb" /></div>
-              </div>
-            </div>
-
-            {/* Category Drawer Popup (Opens floating windows!) */}
-            {activeCategoryDrawer === 'aiSystems' && (
-              <div className="tj-cmd-category-drawer">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <b style={{ fontSize: 9, color: '#00f2fe', letterSpacing: '0.1em' }}>AI SYSTEMS</b>
-                  <button type="button" onClick={() => setActiveCategoryDrawer(null)} style={{ padding: 0 }}><X size={12} /></button>
-                </div>
-                <button type="button" onClick={() => openFloating('models')}>AI Providers</button>
-                <button type="button" onClick={() => openFloating('connectors')}>Connectors</button>
-                <button type="button" onClick={() => openFloating('skills')}>Skills Engine</button>
-                <button type="button" onClick={() => openFloating('memory')}>Memory Core</button>
-                <button type="button" onClick={() => openFloating('graph')}>Knowledge Graph</button>
-              </div>
-            )}
-
-            {activeCategoryDrawer === 'studios' && (
-              <div className="tj-cmd-category-drawer">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <b style={{ fontSize: 9, color: '#00f2fe', letterSpacing: '0.1em' }}>STUDIOS</b>
-                  <button type="button" onClick={() => setActiveCategoryDrawer(null)} style={{ padding: 0 }}><X size={12} /></button>
-                </div>
-                <button type="button" onClick={() => openFloating('vision')}>Vision Studio</button>
-                <button type="button" onClick={() => openFloating('data')}>Data Intelligence</button>
-                <button type="button" onClick={() => openFloating('education')}>Education Plans</button>
-                <button type="button" onClick={() => openFloating('business')}>Business CRM</button>
-                <button type="button" onClick={() => openFloating('wellness')}>Wellness Trends</button>
-              </div>
-            )}
-
-            {activeCategoryDrawer === 'finance' && (
-              <div className="tj-cmd-category-drawer">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <b style={{ fontSize: 9, color: '#00f2fe', letterSpacing: '0.1em' }}>FINANCE</b>
-                  <button type="button" onClick={() => setActiveCategoryDrawer(null)} style={{ padding: 0 }}><X size={12} /></button>
-                </div>
-                <button type="button" onClick={() => openFloating('finance')}>Personal Finance</button>
-                <button type="button" onClick={() => openFloating('paper')}>Paper Trading</button>
-              </div>
-            )}
-
-            {activeCategoryDrawer === 'system' && (
-              <div className="tj-cmd-category-drawer">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <b style={{ fontSize: 9, color: '#00f2fe', letterSpacing: '0.1em' }}>SYSTEM</b>
-                  <button type="button" onClick={() => setActiveCategoryDrawer(null)} style={{ padding: 0 }}><X size={12} /></button>
-                </div>
-                <button type="button" onClick={() => openFloating('settings')}>Settings & Config</button>
-              </div>
-            )}
-          </>
-        ) : (
-          <button
-            type="button"
-            className="tj-cmd-pill-btn"
-            onClick={() => setShowBottomLeft(true)}
-            title="Restore Switches Panel"
+          <select
+            value={selectedRoomId || ''}
+            onChange={(e) => setSelectedRoomId(e.target.value || null)}
+            style={{
+              width: '100%',
+              background: 'rgba(15, 23, 42, 0.9)',
+              border: '1px solid var(--tj-theme-border)',
+              borderRadius: 6,
+              color: '#ffffff',
+              padding: '6px 8px',
+              fontFamily: 'JetBrains Mono',
+              fontSize: 10,
+              marginBottom: 10,
+            }}
           >
-            <Compass size={13} />
-            <span>HYBRID NEXUS</span>
-          </button>
-        )}
-      </div>
+            <option value="">-- Select Room to Move --</option>
+            {Object.entries(DEPARTMENT_ROOM_NAMES).map(([code, name]) => (
+              <option key={code} value={code}>
+                [{code}] {name}
+              </option>
+            ))}
+            {customRooms.map((r) => (
+              <option key={r.id} value={r.id}>
+                [EXP] {r.name}
+              </option>
+            ))}
+          </select>
+
+          {selectedRoomId && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--tj-theme-primary)', marginBottom: 8 }}>
+                <span>TARGET: {selectedRoomId}</span>
+                <span>
+                  COORD: [
+                  {departmentPositions[selectedRoomId]?.[0] ?? customRooms.find((r) => r.id === selectedRoomId)?.position[0] ?? 0},{' '}
+                  {departmentPositions[selectedRoomId]?.[2] ?? customRooms.find((r) => r.id === selectedRoomId)?.position[2] ?? 0}
+                  ]
+                </span>
+              </div>
+
+              <div className="tj-architect-dpad">
+                <div />
+                <button type="button" onClick={() => handleNudgeRoom(0, -1)} title="Nudge North">▲ North</button>
+                <div />
+                <button type="button" onClick={() => handleNudgeRoom(-1, 0)} title="Nudge West">◀ West</button>
+                <button type="button" onClick={handleSnapToGrid} title="Snap to 2m Grid" style={{ color: 'var(--tj-theme-primary)', fontWeight: 800 }}>SNAP 2M</button>
+                <button type="button" onClick={() => handleNudgeRoom(1, 0)} title="Nudge East">▶ East</button>
+                <div />
+                <button type="button" onClick={() => handleNudgeRoom(0, 1)} title="Nudge South">▼ South</button>
+                <div />
+              </div>
+            </>
+          )}
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={handleResetDepartmentPositions}
+              style={{
+                flex: 1,
+                padding: '6px 8px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: 6,
+                color: '#f87171',
+                fontSize: 10,
+                fontFamily: 'JetBrains Mono',
+                cursor: 'pointer',
+              }}
+            >
+              Reset Campus Layout
+            </button>
+          </div>
+        </div>
+      )}
+
+
 
       {/* ====================================================================
           BOTTOM-CENTER: LIVE ACTIVITY & THE LIVING PULSE (CLOSABLE)
@@ -1382,66 +1876,228 @@ export const CommandCenter: React.FC<Props> = ({
       </div>
 
       {/* ====================================================================
-          BOTTOM-RIGHT: TELEMETRY GRAPHS & METRICS (CLOSABLE)
+          BOTTOM-LEFT: NEXUS HYBRID STATUS BADGE
           ==================================================================== */}
-      <div className="tj-cmd-bottom-right">
-        {showBottomRight ? (
-          <>
-            <div className="tj-cmd-telemetry-header">
-              <span className="tj-cmd-telemetry-tab active">AGENT NETWORK</span>
-              <span className="tj-cmd-telemetry-tab">COMPONENTS</span>
-              <span className="tj-cmd-telemetry-tab">COMPUTE LOAD</span>
-              <button
-                type="button"
-                className="tj-cmd-panel-close-btn"
-                onClick={() => setShowBottomRight(false)}
-                title="Minimize Telemetry"
-                aria-label="Minimize Telemetry"
-              >
-                <Minus size={13} />
-              </button>
+      <div className="tj-cmd-bottom-left" style={{ pointerEvents: 'auto', zIndex: 25 }}>
+        <div className="tj-cmd-hybrid-card">
+          <div className="tj-cmd-hybrid-info">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="tj-cmd-privacy-dot" />
+              <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--tj-theme-primary)', fontWeight: 800, letterSpacing: '0.08em' }}>
+                NEXUS: HYBRID
+              </span>
+            </div>
+            <span style={{ fontSize: 9, color: '#8da6bd', fontFamily: 'JetBrains Mono' }}>
+              LOCAL MESH · ZERO LEAKAGE
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 8px #10b981' }} />
+            <span style={{ fontSize: 9, color: '#10b981', fontFamily: 'JetBrains Mono', fontWeight: 700 }}>SYNCHRONIZED</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ====================================================================
+          BOTTOM-RIGHT STACK: CHAT POPUP WINDOW & TRIGGER (ABOVE TELEMETRY)
+          ==================================================================== */}
+      <div className="tj-cmd-bottom-right-stack">
+        {/* CHAT POPUP WINDOW (ABOVE TELEMETRY WITH FULL CONVERSATION SYSTEM) */}
+        {showChatPopup && (
+          <div className="tj-cmd-chat-popup-window">
+            <div className="tj-cmd-chat-popup-header">
+              <div className="tj-cmd-chat-popup-title">
+                <Sparkles size={13} color="var(--tj-theme-primary)" />
+                <span>AI COMMAND CHAT · CONVERSATION SYSTEM</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button
+                  type="button"
+                  className="tj-floating-win-btn"
+                  onClick={() => {
+                    setShowChatPopup(false);
+                    openFloating('chat');
+                  }}
+                  title="Maximize to Full Window"
+                >
+                  <Maximize2 size={12} />
+                </button>
+                <button
+                  type="button"
+                  className="tj-floating-win-btn close"
+                  onClick={() => setShowChatPopup(false)}
+                  title="Close Chat Popup"
+                >
+                  <X size={13} />
+                </button>
+              </div>
             </div>
 
-            <div className="tj-cmd-telemetry-metrics">
-              <div className="tj-cmd-metric-row">
-                <span className="tj-cmd-metric-name">Active Human Agents</span>
-                <span className="tj-cmd-metric-val">{agentSouls.length} Deployed</span>
-              </div>
-
-              <svg className="tj-cmd-sparkline" viewBox="0 0 280 28" fill="none">
-                <path
-                  d="M0 16 Q20 4, 40 16 T80 16 T120 16 T160 8 T200 22 T240 14 T280 16"
-                  stroke="#00f2fe"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-
-              <div className="tj-cmd-metric-row">
-                <span className="tj-cmd-metric-name">Neural Mesh Latency</span>
-                <span className="tj-cmd-metric-val">1.2ms · 100% Operational</span>
-              </div>
+            <div className="tj-cmd-chat-popup-body">
+              <Suspense fallback={<div style={{ padding: 16, color: 'var(--tj-theme-primary)', fontFamily: 'JetBrains Mono', fontSize: 11 }}>Loading Conversation System...</div>}>
+                <ChatView personaName={persona.name} onNavigate={openFloating} />
+              </Suspense>
             </div>
+          </div>
+        )}
 
+        {/* VOICE CONTROL (OUTSIDE CHAT BOX) & CHAT POPUP TRIGGER */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end', width: '100%' }}>
+          {onOpenLiveVoice && (
             <button
               type="button"
-              className="tj-cmd-cam-reset"
-              onClick={handleResetCamera}
+              className="tj-cmd-live-voice-btn"
+              onClick={onOpenLiveVoice}
+              title="Start Real-time Live Voice Conversation"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+                padding: '6px 14px',
+                borderRadius: 20,
+                background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(56, 189, 248, 0.14))',
+                border: '1px solid rgba(56, 189, 248, 0.55)',
+                color: '#7dd3fc',
+                fontWeight: 700,
+                fontSize: 11,
+                letterSpacing: '0.04em',
+                cursor: 'pointer',
+                boxShadow: '0 0 15px rgba(56, 189, 248, 0.25)',
+              }}
             >
-              RESET CAMERA OVERVIEW
+              <Mic size={13} />
+              <span>🎙️ LIVE VOICE</span>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 6px #38bdf8' }} />
             </button>
-          </>
-        ) : (
+          )}
           <button
             type="button"
-            className="tj-cmd-pill-btn"
-            onClick={() => setShowBottomRight(true)}
-            title="Restore Telemetry"
+            className={`tj-cmd-chat-trigger-btn ${showChatPopup ? 'is-active' : ''}`}
+            onClick={() => setShowChatPopup(!showChatPopup)}
+            title="Toggle AI Command Chat Popup"
           >
-            <Activity size={13} />
-            <span>TELEMETRY</span>
+            <Sparkles size={13} />
+            <span>💬 AI COMMAND CHAT</span>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
           </button>
-        )}
+        </div>
+
+        {/* TELEMETRY GRAPHS & METRICS (CLOSABLE) */}
+        <div className="tj-cmd-bottom-right">
+          {showBottomRight ? (
+            <>
+              <div className="tj-cmd-telemetry-header">
+                <button
+                  type="button"
+                  className={`tj-cmd-telemetry-tab ${telemetryTab === 'agents' ? 'active' : ''}`}
+                  onClick={() => setTelemetryTab('agents')}
+                >
+                  AGENT NETWORK
+                </button>
+                <button
+                  type="button"
+                  className={`tj-cmd-telemetry-tab ${telemetryTab === 'components' ? 'active' : ''}`}
+                  onClick={() => setTelemetryTab('components')}
+                >
+                  COMPONENTS
+                </button>
+                <button
+                  type="button"
+                  className={`tj-cmd-telemetry-tab ${telemetryTab === 'compute' ? 'active' : ''}`}
+                  onClick={() => setTelemetryTab('compute')}
+                >
+                  COMPUTE LOAD
+                </button>
+                <button
+                  type="button"
+                  className="tj-cmd-panel-close-btn"
+                  onClick={() => setShowBottomRight(false)}
+                  title="Minimize Telemetry"
+                  aria-label="Minimize Telemetry"
+                >
+                  <Minus size={13} />
+                </button>
+              </div>
+
+              <div className="tj-cmd-telemetry-metrics">
+                {telemetryTab === 'agents' && (
+                  <>
+                    <div className="tj-cmd-metric-row">
+                      <span className="tj-cmd-metric-name">Active Human Agents</span>
+                      <span className="tj-cmd-metric-val">{agentSouls.length} Deployed</span>
+                    </div>
+
+                    <svg className="tj-cmd-sparkline" viewBox="0 0 280 28" fill="none">
+                      <path
+                        d="M0 16 Q20 4, 40 16 T80 16 T120 16 T160 8 T200 22 T240 14 T280 16"
+                        stroke="var(--tj-theme-primary)"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+
+                    <div className="tj-cmd-metric-row">
+                      <span className="tj-cmd-metric-name">Neural Mesh Latency</span>
+                      <span className="tj-cmd-metric-val">1.2ms · 100% Operational</span>
+                    </div>
+                  </>
+                )}
+
+                {telemetryTab === 'components' && (
+                  <>
+                    <div className="tj-cmd-metric-row">
+                      <span className="tj-cmd-metric-name">Ground Departments</span>
+                      <span className="tj-cmd-metric-val">15 Operational</span>
+                    </div>
+                    <div className="tj-cmd-metric-row">
+                      <span className="tj-cmd-metric-name">Custom Expansions</span>
+                      <span className="tj-cmd-metric-val">{customRooms.length} Built</span>
+                    </div>
+                    <div className="tj-cmd-metric-row">
+                      <span className="tj-cmd-metric-name">Fortress Perimeter</span>
+                      <span className="tj-cmd-metric-val" style={{ color: '#10b981' }}>Secured (4 Walls)</span>
+                    </div>
+                  </>
+                )}
+
+                {telemetryTab === 'compute' && (
+                  <>
+                    <div className="tj-cmd-metric-row">
+                      <span className="tj-cmd-metric-name">Neural Core Load</span>
+                      <span className="tj-cmd-metric-val" style={{ color: '#10b981' }}>14% Nominal</span>
+                    </div>
+                    <div className="tj-cmd-metric-row">
+                      <span className="tj-cmd-metric-name">Active Threads</span>
+                      <span className="tj-cmd-metric-val">24 Concurrent</span>
+                    </div>
+                    <div className="tj-cmd-metric-row">
+                      <span className="tj-cmd-metric-name">Subsystem Sync</span>
+                      <span className="tj-cmd-metric-val">99.9% Uptime</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="tj-cmd-cam-reset"
+                onClick={handleResetCamera}
+              >
+                RESET CAMERA OVERVIEW
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="tj-cmd-pill-btn"
+              onClick={() => setShowBottomRight(true)}
+              title="Restore Telemetry"
+            >
+              <Activity size={13} />
+              <span>TELEMETRY</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ====================================================================

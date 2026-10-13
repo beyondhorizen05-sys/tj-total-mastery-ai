@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiChatStream, apiFetch } from '../api';
-import { Send, Sparkles, AlertCircle, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
-import { VoiceControl } from '../components/VoiceControl';
+import { Send, Sparkles, AlertCircle, Trash2, Plus, History, ChevronDown, Paperclip, X, Mic } from 'lucide-react';
 
 interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  attachments?: Array<{ name: string; type?: string; size?: number }>;
   trace?: { routed_model_id?: string; routed_via?: string } | null;
 }
 
@@ -58,9 +58,11 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
   const [activeConvId, setActiveConvId] = useState<string | null>(initialConvId);
   const activeConvIdRef = useRef<string | null>(initialConvId);
   const hasSelectedConversation = useRef(false);
-  const [historyVisible, setHistoryVisible] = useState(true);
+  const [historyVisible, setHistoryVisible] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [attachedFile, setAttachedFile] = useState<{ name: string; type: string; mime?: string; base64: string; size: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<ChatMode>(() => readChatMode(initialConvId));
   const [improvement, setImprovement] = useState<ImprovementRun | null>(null);
   const [capabilityFlow, setCapabilityFlow] = useState<CapabilityWorkflow | null>(null);
@@ -138,7 +140,21 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
   useEffect(() => { loadConversations(); }, []);
   useEffect(() => {
     const id = localStorage.getItem('tj-capability-workflow');
-    if (id) void apiFetch<CapabilityWorkflow>(`/api/v1/chat/capability-workflows/${id}`).then(setCapabilityFlow).catch(() => {});
+    if (id) {
+      void apiFetch<CapabilityWorkflow>(`/api/v1/chat/capability-workflows/${id}`)
+        .then((flow) => {
+          if (!flow || ['completed', 'denied', 'failed'].includes(flow.status)) {
+            localStorage.removeItem('tj-capability-workflow');
+            setCapabilityFlow(null);
+          } else {
+            setCapabilityFlow(flow);
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('tj-capability-workflow');
+          setCapabilityFlow(null);
+        });
+    }
   }, []);
   useEffect(() => { if (activeConvId) loadMessages(activeConvId); }, [activeConvId]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
@@ -165,32 +181,89 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
     return () => window.clearInterval(timer);
   }, [improvement?.id, improvement?.state]);
   useEffect(() => {
-    if (!capabilityFlow || ['completed', 'denied', 'failed'].includes(capabilityFlow.status)) return;
+    if (!capabilityFlow) return;
+    if (['completed', 'denied', 'failed'].includes(capabilityFlow.status)) {
+      localStorage.removeItem('tj-capability-workflow');
+      setCapabilityFlow(null);
+      return;
+    }
     const timer = window.setInterval(async () => {
       try {
         const next = await apiFetch<CapabilityWorkflow>(`/api/v1/chat/capability-workflows/${capabilityFlow.approval_id}`);
-        setCapabilityFlow(next);
-        if (['completed', 'denied', 'failed'].includes(next.status)) localStorage.removeItem('tj-capability-workflow');
-        if (next.status === 'completed' && !reportedFlows.current.has(next.approval_id)) {
-          reportedFlows.current.add(next.approval_id);
-          const result = typeof next.result === 'string' ? next.result : next.result?.content;
-          setMessages((prev) => [...prev, { id: `capability-result-${next.approval_id}`, role: 'assistant', content: result || next.message }]);
+        if (!next || ['completed', 'denied', 'failed'].includes(next.status)) {
+          localStorage.removeItem('tj-capability-workflow');
+          setCapabilityFlow(null);
+          if (next?.status === 'completed' && !reportedFlows.current.has(next.approval_id)) {
+            reportedFlows.current.add(next.approval_id);
+            const result = typeof next.result === 'string' ? next.result : next.result?.content;
+            setMessages((prev) => [...prev, { id: `capability-result-${next.approval_id}`, role: 'assistant', content: result || next.message }]);
+          }
+        } else {
+          setCapabilityFlow(next);
         }
-      } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not read capability status'); }
+      } catch (reason) {
+        localStorage.removeItem('tj-capability-workflow');
+        setCapabilityFlow(null);
+      }
     }, 2000);
     return () => window.clearInterval(timer);
   }, [capabilityFlow?.approval_id, capabilityFlow?.status]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size exceeds 10MB limit.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+      setAttachedFile({
+        name: file.name,
+        type: file.type.startsWith('image/') ? 'image' : 'file',
+        mime: file.type || 'application/octet-stream',
+        base64,
+        size: file.size,
+      });
+      setError(null);
+    };
+    reader.onerror = () => {
+      setError('Failed to read selected file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeAttachedFile = () => {
+    setAttachedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || loading) return;
-    const userText = input;
+    if ((!input.trim() && !attachedFile) || loading) return;
+    const userText = input.trim() || (attachedFile ? `[Attached file: ${attachedFile.name}]` : '');
     const submittedMode = mode;
+    const currentAttachment = attachedFile;
+
     setInput('');
+    setAttachedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
     setError(null);
     setLoading(true);
+
     const responseId = `bot-${Date.now()}`;
-    setMessages((prev) => [...prev, { id: `user-${responseId}`, role: 'user', content: userText }, ...(submittedMode === 'improve' ? [] : [{ id: responseId, role: 'assistant' as const, content: '' }])]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `user-${responseId}`,
+        role: 'user',
+        content: userText,
+        attachments: currentAttachment ? [{ name: currentAttachment.name, type: currentAttachment.type, size: currentAttachment.size }] : undefined
+      },
+      ...(submittedMode === 'improve' ? [] : [{ id: responseId, role: 'assistant' as const, content: '' }])
+    ]);
 
     try {
       if (submittedMode === 'improve') {
@@ -199,7 +272,21 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
         return;
       }
       const conversationId = activeConvIdRef.current;
-      const res = await apiChatStream<any>({ conversation_id: conversationId ?? undefined, content: userText, mode: submittedMode }, (delta) => {
+      const payload: any = {
+        conversation_id: conversationId ?? undefined,
+        content: userText,
+        mode: submittedMode,
+      };
+      if (currentAttachment) {
+        payload.attachments = [{
+          type: currentAttachment.type,
+          name: currentAttachment.name,
+          mime: currentAttachment.mime,
+          data_base64: currentAttachment.base64,
+        }];
+      }
+
+      const res = await apiChatStream<any>(payload, (delta) => {
         setMessages((prev) => prev.map((message) => message.id === responseId ? { ...message, content: message.content + delta } : message));
       });
       if (!conversationId && res.conversation_id) {
@@ -222,27 +309,129 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
   };
 
   return (
-    <div className="tj-chat-view" style={{ display: 'flex', height: '100%', gap: 16 }}>
-      {/* Threads Sidebar */}
-      <div className="tj-chat-sidebar" style={{ width: historyVisible ? 260 : 46, flex: `0 0 ${historyVisible ? 260 : 46}px`, minWidth: 0, background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', padding: historyVisible ? 12 : 6, transition: 'width 160ms ease, flex-basis 160ms ease' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: historyVisible ? 'space-between' : 'center', gap: 6, marginBottom: historyVisible ? 10 : 0 }}>
-          {historyVisible && <button onClick={() => { selectConversation(null, mode); setMessages([]); }} style={{ flex: 1, padding: '8px 9px', background: 'var(--accent-blue)', border: 'none', borderRadius: 6, color: '#fff', fontWeight: 600, cursor: 'pointer' }}>+ New Chat</button>}
-          <button type="button" onClick={() => setHistoryVisible((visible) => !visible)} aria-label={historyVisible ? 'Hide chat history' : 'Show chat history'} title={historyVisible ? 'Hide chat history' : 'Show chat history'} style={{ display: 'grid', placeItems: 'center', flex: '0 0 30px', width: 30, height: 30, padding: 0, background: 'transparent', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-muted)', cursor: 'pointer' }}>
-            {historyVisible ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+    <div className="tj-chat-view" style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 10, position: 'relative' }}>
+      {/* Top Header Controls: New Chat, Chat History Dropdown, Active Thread Indicator */}
+      <div className="tj-chat-top-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: 8, flexShrink: 0, position: 'relative', zIndex: 30 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => { selectConversation(null, mode); setMessages([]); setAttachedFile(null); setHistoryVisible(false); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+              background: 'var(--accent-blue)', border: 'none', borderRadius: 6,
+              color: '#fff', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0, 100, 255, 0.25)', transition: 'background 0.15s'
+            }}
+            title="Start a new chat conversation"
+          >
+            <Plus size={14} /> New Chat
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setHistoryVisible((v) => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+              background: historyVisible ? 'var(--border-strong)' : 'var(--bg-card)',
+              border: '1px solid var(--border-subtle)', borderRadius: 6,
+              color: historyVisible ? 'var(--accent-cyan)' : 'var(--text-main)',
+              fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s'
+            }}
+            title="View conversation history"
+          >
+            <History size={14} /> Chat History ({conversations.length})
+            <ChevronDown size={14} style={{ transform: historyVisible ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('tj:open-live-voice'))}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(56, 189, 248, 0.16))',
+              border: '1px solid rgba(56, 189, 248, 0.5)', borderRadius: 6,
+              color: '#38bdf8', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+              boxShadow: '0 2px 10px rgba(56, 189, 248, 0.25)', transition: 'all 0.15s'
+            }}
+            title="Talk live to TJ with real-time neural voice (like ChatGPT / Gemini)"
+          >
+            <Mic size={14} /> Talk Live to TJ
           </button>
         </div>
-        {historyVisible && <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {conversations.map((c) => (
-            <div key={c.id} onClick={() => selectConversation(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 5px 4px 9px', borderRadius: 6, background: c.id === activeConvId ? 'var(--bg-card-hover)' : 'transparent', cursor: 'pointer', color: c.id === activeConvId ? 'var(--text-main)' : 'var(--text-muted)' }}>
-              <span title={c.title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.82rem' }}>{c.title}</span>
-              <button type="button" aria-label={`Delete chat ${c.title}`} title="Delete chat" onClick={(event) => { event.stopPropagation(); void deleteConversation(c); }} style={{ display: 'grid', placeItems: 'center', flex: '0 0 26px', width: 26, height: 26, padding: 0, border: 0, borderRadius: 5, background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}><Trash2 size={14} /></button>
+
+        {activeConvId && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, maxWidth: 220 }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', fontWeight: 700, textTransform: 'uppercase' }}>Active:</span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {conversations.find((c) => c.id === activeConvId)?.title || 'Current Thread'}
+            </span>
+          </div>
+        )}
+
+        {/* Floating Chat History Dropdown Drawer */}
+        {historyVisible && (
+          <div
+            className="tj-chat-history-dropdown"
+            style={{
+              position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 100,
+              background: 'rgba(10, 22, 38, 0.98)', backdropFilter: 'blur(20px)',
+              border: '1px solid var(--border-subtle)', borderRadius: 8,
+              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.75)', padding: 10, maxHeight: 280,
+              overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 6px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 6 }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Saved Conversations ({conversations.length})
+              </span>
+              <button type="button" onClick={() => setHistoryVisible(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}>
+                <X size={14} />
+              </button>
             </div>
-          ))}
-        </div>}
+
+            {conversations.length === 0 ? (
+              <div style={{ padding: 14, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                No saved conversations yet. Start a new chat below!
+              </div>
+            ) : (
+              conversations.map((c) => (
+                <div
+                  key={c.id}
+                  onClick={() => { selectConversation(c.id); setHistoryVisible(false); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+                    padding: '8px 10px', borderRadius: 6,
+                    background: c.id === activeConvId ? 'var(--border-strong)' : 'transparent',
+                    cursor: 'pointer', transition: 'background 0.15s'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.id === activeConvId ? 'var(--accent-cyan)' : 'var(--text-dim)', flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.82rem', color: c.id === activeConvId ? 'var(--accent-cyan)' : 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: c.id === activeConvId ? 600 : 400 }}>
+                      {c.title}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    title={`Delete chat “${c.title}”`}
+                    onClick={(e) => { e.stopPropagation(); void deleteConversation(c); }}
+                    style={{
+                      display: 'grid', placeItems: 'center', width: 26, height: 26,
+                      background: 'transparent', border: 'none', color: 'var(--text-muted)',
+                      cursor: 'pointer', borderRadius: 4, flexShrink: 0
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Main Stream */}
-      <div className="tj-chat-stream" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-subtle)', padding: 16, height: '100%' }}>
+      {/* Main Stream (Full width, no cramped sidebar) */}
+      <div className="tj-chat-stream" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--bg-secondary)', borderRadius: 8, border: '1px solid var(--border-subtle)', padding: 16, overflow: 'hidden' }}>
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, paddingRight: 8 }}>
           {messages.length === 0 && (
             <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -259,12 +448,22 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
                 key={m.id}
                 className="tj-chat-message"
                 style={{
-                  alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '75%',
+                  alignSelf: isUser ? 'flex-end' : 'flex-start', maxWidth: '85%',
                   background: isUser ? 'var(--accent-blue)' : 'var(--bg-card)',
                   color: isUser ? '#fff' : 'var(--text-main)', padding: '12px 16px', borderRadius: 8,
                   border: isUser ? 'none' : '1px solid var(--border-subtle)', whiteSpace: 'pre-wrap', fontSize: '0.9rem', lineHeight: 1.5,
                 }}
               >
+                {m.attachments && m.attachments.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {m.attachments.map((att, idx) => (
+                      <div key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 8px', background: 'rgba(255,255,255,0.2)', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>
+                        <Paperclip size={12} />
+                        <span>{att.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {m.content}
                 {m.trace?.routed_via && <div style={{ marginTop: 8, color: 'var(--text-dim)', fontSize: '0.7rem', fontFamily: 'JetBrains Mono' }}>Routed via {m.trace.routed_via}</div>}
               </div>
@@ -290,7 +489,29 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
             }} style={{ padding: '7px 12px', background: 'transparent', color: 'var(--text-main)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>Undo this change</button>}
           </div>}
           {improvement?.state === 'awaiting_approval' && <div role="status" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent-amber)', borderRadius: 10, padding: 14 }}><strong>Verification needs your decision</strong><p style={{ color: 'var(--text-muted)', margin: '7px 0' }}>TJ tried a repair. The change still failed a check; it has requested approval before restoring the previous source.</p><button type="button" onClick={() => onNavigate?.('approvals')} style={{ padding: '8px 12px', background: 'var(--accent-amber)', color: '#17120a', border: 0, borderRadius: 6, cursor: 'pointer' }}>Review rollback approval</button></div>}
-          {capabilityFlow && <div role="status" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glow)', borderRadius: 10, padding: 14 }}><strong>{capabilityFlow.capability_name}</strong><p style={{ color: 'var(--text-muted)', margin: '7px 0' }}>{capabilityFlow.message}</p><small style={{ color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>{capabilityFlow.status.replaceAll('_', ' ')}</small>{capabilityFlow.status === 'pending_approval' && <button type="button" onClick={() => onNavigate?.('approvals')} style={{ display: 'block', marginTop: 10, padding: '8px 12px', background: 'var(--accent-cyan)', color: '#061018', border: 0, borderRadius: 6, cursor: 'pointer' }}>Review ability approval</button>}</div>}
+          {capabilityFlow && (capabilityFlow.status === 'pending_approval' || capabilityFlow.status === 'adding_ability') && (
+            <div role="status" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-glow)', borderRadius: 10, padding: 14, position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('tj-capability-workflow');
+                  setCapabilityFlow(null);
+                }}
+                title="Dismiss"
+                style={{ position: 'absolute', top: 10, right: 10, background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}
+              >
+                <X size={14} />
+              </button>
+              <strong>{capabilityFlow.capability_name}</strong>
+              <p style={{ color: 'var(--text-muted)', margin: '7px 0' }}>{capabilityFlow.message}</p>
+              <small style={{ color: 'var(--accent-cyan)', textTransform: 'uppercase' }}>{capabilityFlow.status.replaceAll('_', ' ')}</small>
+              {capabilityFlow.status === 'pending_approval' && (
+                <button type="button" onClick={() => onNavigate?.('approvals')} style={{ display: 'block', marginTop: 10, padding: '8px 12px', background: 'var(--accent-cyan)', color: '#061018', border: 0, borderRadius: 6, cursor: 'pointer' }}>
+                  Review ability approval
+                </button>
+              )}
+            </div>
+          )}
 
           {error && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(244, 63, 94, 0.1)', color: '#fb7185', padding: '10px 14px', borderRadius: 6, fontSize: '0.85rem' }}>
@@ -300,9 +521,9 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <VoiceControl />
-        <form onSubmit={handleSend} style={{ marginTop: 16 }}>
+        {/* Input & Upload Controls */}
+        <form onSubmit={handleSend} style={{ marginTop: 14 }}>
+          {/* Mode Selector */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
             {(['auto', 'chat', 'build', 'improve'] as const).map((m) => (
               <button
@@ -318,18 +539,69 @@ export const ChatView: React.FC<{ personaName: string; onNavigate?: (tab: string
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* Attached File Preview Chip */}
+          {attachedFile && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'rgba(0, 242, 254, 0.1)', border: '1px solid var(--accent-cyan)', borderRadius: 6, marginBottom: 8, fontSize: '0.8rem', color: 'var(--accent-cyan)' }}>
+              <Paperclip size={14} />
+              <span style={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {attachedFile.name} ({(attachedFile.size / 1024).toFixed(1)} KB)
+              </span>
+              <button type="button" onClick={removeAttachedFile} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 }} title="Remove file">
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* Hidden File Input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
+
+          {/* Input Row with Upload Button */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload file (images, docs, code, data)"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 44, height: 44, background: attachedFile ? 'rgba(0, 242, 254, 0.2)' : 'var(--bg-card)',
+                border: attachedFile ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                borderRadius: 6, color: attachedFile ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s'
+              }}
+            >
+              <Paperclip size={18} />
+            </button>
             <input
               type="text" value={input} onChange={(e) => setInput(e.target.value)}
-              placeholder={mode === 'improve' ? 'Tell TJ what to improve in its own source...' : 'Give TJ a task or ask a question...'} disabled={loading}
+              placeholder={mode === 'improve' ? 'Tell TJ what to improve in its own source...' : 'Give TJ a task, ask a question, or attach files...'} disabled={loading}
               style={{ flex: 1, padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: 6, color: 'var(--text-main)', fontSize: '0.9rem', outline: 'none' }}
             />
             <button
-              type="submit" disabled={loading || !input.trim()}
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('tj:open-live-voice'))}
+              title="Start Live Voice Conversation (like ChatGPT / Gemini)"
               style={{
-                padding: '0 20px', background: 'var(--accent-cyan)', border: 'none', borderRadius: 6, color: '#000',
-                fontWeight: 600, cursor: loading || !input.trim() ? 'not-allowed' : 'pointer', opacity: loading || !input.trim() ? 0.5 : 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 44, height: 44, background: 'rgba(56, 189, 248, 0.15)',
+                border: '1px solid rgba(56, 189, 248, 0.45)',
+                borderRadius: 6, color: '#38bdf8',
+                cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s',
+              }}
+            >
+              <Mic size={18} />
+            </button>
+            <button
+              type="submit" disabled={loading || (!input.trim() && !attachedFile)}
+              style={{
+                padding: '0 20px', height: 44, background: 'var(--accent-cyan)', border: 'none', borderRadius: 6, color: '#000',
+                fontWeight: 600, cursor: loading || (!input.trim() && !attachedFile) ? 'not-allowed' : 'pointer',
+                opacity: loading || (!input.trim() && !attachedFile) ? 0.5 : 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}
             >
               <Send size={18} />

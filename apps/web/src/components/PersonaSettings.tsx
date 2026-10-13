@@ -2,7 +2,6 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { DEFAULT_TJ_PERSONA, type TJPersona } from '@tj/schemas';
 import { apiFetch } from '../api';
 const IdentityScene = lazy(() => import('./IdentityScene').then((m) => ({ default: m.IdentityScene })));
-import { VoiceSelector } from './VoiceSelector';
 
 export const PersonaSettings: React.FC = () => {
   const [persona, setPersona] = useState<TJPersona>(DEFAULT_TJ_PERSONA);
@@ -30,7 +29,6 @@ export const PersonaSettings: React.FC = () => {
       <label>Relationship<select value={persona.relationship} onChange={(e) => update('relationship', e.target.value as TJPersona['relationship'])}>{['professional', 'friendly', 'coach', 'girlfriend', 'boyfriend'].map((x) => <option key={x}>{x}</option>)}</select></label>
     </div>
     <div className="tj-traits">{(['warmth', 'directness', 'humor'] as const).map((trait) => <label key={trait}>{trait} <span>{persona[trait]}</span><input type="range" min="0" max="100" value={persona[trait]} onChange={(e) => update(trait, Number(e.target.value))} /></label>)}</div>
-    <VoiceSelector value={persona.voice_id} onChange={(voice) => update('voice_id', voice)} previewName={persona.name} />
     <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 14 }}><input type="checkbox" checked={persona.locked} onChange={(e) => update('locked', e.target.checked)} /> Lock identity changes to your explicit edits</label>
     {error && <p role="alert" style={{ color: 'var(--accent-rose)', fontSize: 12, marginBottom: 10 }}>{error}</p>}
     <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}><button onClick={save} disabled={busy || saved || !persona.name.trim()} style={chip(true)}>{busy ? 'Saving…' : saved ? 'Saved' : 'Save identity'}</button><button onClick={() => { window.location.href = `${window.location.pathname}?welcome`; }} style={chip(false)}>Replay welcome</button></div>

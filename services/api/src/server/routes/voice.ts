@@ -48,7 +48,8 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     if (saved) return saved;
     const persona = getPersona(deps.settings);
     const selected = persona.voice_id;
-    return persona.embodiment === 'female' && selected?.startsWith('fish:') ? selected : 'windows:female';
+    if (selected?.startsWith('fish:')) return selected;
+    return persona.embodiment === 'male' ? 'neural:guy' : 'neural:jenny';
   };
   const welcomePlayed = () => deps.settings.get<number>('welcome_greeting_version', 0) >= 2;
   const currentListener = () => handsfreeMode() ? asrProvider() === 'fish' ? fishListener : localListener : listener;
@@ -58,9 +59,10 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
   let activeSpeech: AbortController | null = null;
   let activeConversation: AbortController | null = null;
   const speak = (message: string, overrideVoice?: string) => {
-    if (browserVoiceActive) {
+    const selected = overrideVoice ?? getPersona(deps.settings).voice_id ?? 'neural:jenny';
+    if (browserVoiceActive || selected?.startsWith('neural:')) {
       browserSpeaking = true;
-      deps.bus.emit({ name: 'voice.response', summary: message, data: { speech_chunk: true } });
+      deps.bus.emit({ name: 'voice.response', summary: message, data: { speech_chunk: true, voice_id: selected } });
       return Promise.resolve();
     }
     const generation = speechGeneration;
@@ -72,16 +74,15 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       const handsfreeActive = handsfree instanceof FishHandsFreeListener && handsfree.status().listening;
       if (handsfreeActive) handsfree.suspend();
       try {
-        const selected = overrideVoice ?? getPersona(deps.settings).voice_id;
         const spoken = message.replace(/[{}[\]_*#]/g, ' ').trim();
         if (selected?.startsWith('fish:')) await fish.playStreaming(spoken, selected.slice(5), speechController.signal);
-        else if (!selected || selected.startsWith('windows:')) await speakLocally(spoken.replace(/\bT\s*J\b/gi, 'Tee Jay'), selected ?? undefined, speechController.signal);
-        else throw new Error('Selected voice is unavailable. Choose a Fish Audio or Windows voice in TJ settings.');
+        else if (selected?.startsWith('windows:')) await speakLocally(spoken.replace(/\bT\s*J\b/gi, 'Tee Jay'), selected, speechController.signal);
+        else {
+          deps.bus.emit({ name: 'voice.response', summary: message, data: { speech_chunk: true, voice_id: selected } });
+        }
       } catch (error) {
         if (speechController.signal.aborted) return;
         deps.bus.emit({ name: 'voice.error', severity: 'error', summary: error instanceof Error ? error.message : String(error) });
-        await speakLocally('Voice playback failed. Check Fish Audio in settings.');
-        throw error;
       } finally {
         if (activeSpeech === speechController) activeSpeech = null;
         if (handsfreeActive) handsfree.resume();
@@ -398,44 +399,43 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       return reply.status(502).send({ error: error instanceof Error ? error.message : 'Fish Audio speech generation failed.' });
     } finally { request.raw.off('aborted', abortSynthesis); }
   });
-  app.get('/api/v1/voice/windows/voices', async (_request, reply) => {
-    try { return { voices: await listLocalVoices() }; }
-    catch (error) { return reply.status(503).send({ error: error instanceof Error ? error.message : 'Could not list Windows voices.' }); }
+  app.get('/api/v1/voice/windows/voices', async () => {
+    try {
+      const voices = await listLocalVoices();
+      return { voices: Array.isArray(voices) ? voices : [] };
+    } catch {
+      return { voices: [] };
+    }
   });
   app.post('/api/v1/voice/windows/preview', async (request, reply) => {
     const parsed = z.object({ voice_id: z.string().max(120), text: z.string().trim().min(1).max(400) }).strict().safeParse(request.body);
-    if (!parsed.success) return reply.status(400).send({ error: 'Choose a Windows voice and preview text.' });
-    const voiceId = parsed.data.voice_id || 'windows:default';
+    if (!parsed.success) return reply.status(400).send({ error: 'Choose a voice and preview text.' });
+    const voiceId = parsed.data.voice_id || 'neural:jenny';
+    if (voiceId.startsWith('neural:')) return { ok: true, natural: true };
     if (!voiceId.startsWith('windows:')) return reply.status(400).send({ error: 'Choose a Windows voice.' });
     try {
       const name = voiceId.slice(8);
-      if (!['default', 'female'].includes(name) && !(await listLocalVoices()).some((voice) => voice.name === name)) {
+      const list = await listLocalVoices();
+      if (!['default', 'female'].includes(name) && !list.some((voice) => voice.name === name)) {
         return reply.status(404).send({ error: 'That Windows voice is not installed.' });
       }
       await speak(parsed.data.text, voiceId);
       return { ok: true };
     } catch (error) { return reply.status(502).send({ error: error instanceof Error ? error.message : 'Windows voice preview failed.' }); }
   });
-  let welcomePromise: Promise<void> | null = null;
   app.get('/api/v1/voice/welcome', async (request) => {
     const locale = z.object({ locale: z.string().max(35).optional() }).parse(request.query).locale ?? 'en-US';
-    return { text: welcomeText(locale), played: welcomePlayed() };
+    return { text: welcomeText(locale), played: welcomePlayed(), voice_hint: welcomeVoice() };
   });
   app.post('/api/v1/voice/welcome', async (request, reply) => {
     const parsed = z.object({ locale: z.string().max(35).optional(), replay: z.boolean().optional() }).strict().safeParse(request.body ?? {});
     if (!parsed.success) return reply.status(400).send({ error: 'Invalid welcome request.' });
     const text = welcomeText(parsed.data.locale ?? 'en-US');
-    if (!parsed.data.replay && welcomePlayed()) return { played: false, already_played: true, text };
-    if (!welcomePromise) {
-      const selectedVoice = welcomeVoice();
-      welcomePromise = speak(text, selectedVoice).then(() => {
-        deps.settings.set('welcome_voice_id', selectedVoice);
-        deps.settings.set('welcome_greeting_version', 2);
-      })
-        .finally(() => { welcomePromise = null; });
-    }
-    try { await welcomePromise; return { played: true, text }; }
-    catch (error) { return reply.status(502).send({ error: error instanceof Error ? error.message : 'Welcome voice playback failed.' }); }
+    const selectedVoice = welcomeVoice();
+    deps.settings.set('welcome_voice_id', selectedVoice);
+    deps.settings.set('welcome_greeting_version', 2);
+    // Return speech data immediately for seamless client-side human neural playback
+    return { played: true, text, speak_in_browser: true, voice_hint: selectedVoice };
   });
   app.post('/api/v1/voice/start', async (_request, reply) => {
     if (!voiceAvailable()) return reply.status(403).send({ error: 'Windows voice listening is unavailable on this host.' });
@@ -449,6 +449,56 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     return currentListener().status();
   });
   app.post('/api/v1/voice/command', async (request) => command(commandSchema.parse(request.body).text));
+
+  app.get('/api/v1/voice/live/config', async () => {
+    let apiKey: string | null = null;
+    const ref = deps.settings.get<string | null>('gemini_live_key_ref', null);
+    if (ref) {
+      try {
+        apiKey = deps.vault.get(ref, 'voice', 'gemini-live');
+      } catch {}
+    }
+    if (!apiKey) {
+      apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || null;
+    }
+    const voice = deps.settings.get<string>('gemini_live_voice', 'Puck');
+    return {
+      configured: Boolean(apiKey),
+      api_key: apiKey,
+      voice,
+    };
+  });
+
+  app.put('/api/v1/voice/live/config', async (request, reply) => {
+    const parsed = z.object({
+      api_key: z.string().trim().min(10).nullable().optional(),
+      voice: z.string().trim().min(1).max(50).optional(),
+    }).strict().safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'Invalid configuration data' });
+
+    if (parsed.data.api_key === null) {
+      deps.settings.set('gemini_live_key_ref', null);
+    } else if (parsed.data.api_key) {
+      const existingRef = deps.settings.get<string | null>('gemini_live_key_ref', null) ?? undefined;
+      const ref = deps.vault.put({
+        label: 'Gemini Live API Key',
+        scope: 'voice:gemini-live',
+        value: parsed.data.api_key,
+        ref: existingRef,
+      });
+      deps.settings.set('gemini_live_key_ref', ref);
+    }
+    if (parsed.data.voice) {
+      deps.settings.set('gemini_live_voice', parsed.data.voice);
+    }
+    const ref = deps.settings.get<string | null>('gemini_live_key_ref', null);
+    const configured = Boolean(ref || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+    return {
+      ok: true,
+      configured,
+      voice: deps.settings.get<string>('gemini_live_voice', 'Puck'),
+    };
+  });
 
   app.get('/api/v1/voice/fish/config', async () => ({ configured: fish.configured(), handsfree: handsfreeMode(), transcription: asrProvider() }));
   app.put('/api/v1/voice/fish/config', async (request, reply) => {

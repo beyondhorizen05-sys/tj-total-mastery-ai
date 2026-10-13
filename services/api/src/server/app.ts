@@ -83,7 +83,10 @@ export async function createServer(config: TJConfig) {
   const app = Fastify({ logger: false, bodyLimit: 50 * 1024 * 1024 });
 
   await app.register(cors, {
-    origin: (origin, cb) => cb(null, !origin || /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin) || ['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost'].includes(origin)),
+    origin: (origin, cb) => {
+      // Unconditionally allow all local, Tauri, Capacitor, and browser origins
+      cb(null, true);
+    },
     credentials: true,
   });
 
