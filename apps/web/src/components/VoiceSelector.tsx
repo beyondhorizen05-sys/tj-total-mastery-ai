@@ -18,6 +18,8 @@ export const VoiceSelector: React.FC<{ value: string | null; onChange: (voice: s
   const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [configured, setConfigured] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [fishApiKey, setFishApiKey] = useState('');
+  const [fishMessage, setFishMessage] = useState('');
 
   const loadFish = async () => {
     try {
@@ -135,6 +137,42 @@ export const VoiceSelector: React.FC<{ value: string | null; onChange: (voice: s
     }
   };
 
+  const connectFish = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!fishApiKey.trim()) return;
+    setBusy(true);
+    setFishMessage('Connecting to Fish Audio…');
+    try {
+      const result = await apiFetch<{ voices: FishVoice[] }>('/api/v1/voice/fish/config', {
+        method: 'PUT',
+        body: JSON.stringify({ api_key: fishApiKey.trim() }),
+      });
+      setConfigured(true);
+      setFishVoices(result.voices || []);
+      setFishApiKey('');
+      setFishMessage(`Fish Audio connected. ${result.voices?.length ?? 0} saved voice(s) found.`);
+    } catch (reason) {
+      setFishMessage(reason instanceof Error ? reason.message : 'Fish Audio connection failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const fetchFishVoices = async () => {
+    setBusy(true);
+    setFishMessage('Fetching your Fish Audio voices…');
+    try {
+      const result = await apiFetch<{ voices: FishVoice[] }>('/api/v1/voice/fish/voices');
+      const voices = result.voices || [];
+      setFishVoices(voices);
+      setFishMessage(voices.length ? `Fetched ${voices.length} Fish Audio voice(s).` : 'No saved voices found in this Fish Audio account yet.');
+    } catch (reason) {
+      setFishMessage(reason instanceof Error ? reason.message : 'Could not fetch Fish Audio voices.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const selectedVoiceValue = value || 'neural:jenny';
 
   return (
@@ -229,9 +267,27 @@ export const VoiceSelector: React.FC<{ value: string | null; onChange: (voice: s
         }}
       >
         <span>
-          ✨ Human Neural Voice Engine active · 100% Offline & Realistic
+          {configured ? 'Fish Audio connected · API key stored securely on this device' : 'Add Fish Audio to use your saved cloned voices and transcription'}
         </span>
       </div>
+      <form onSubmit={(event) => void connectFish(event)} style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <input
+          type="password"
+          value={fishApiKey}
+          onChange={(event) => setFishApiKey(event.target.value)}
+          placeholder={configured ? 'Replace Fish Audio API key' : 'Fish Audio API key'}
+          autoComplete="new-password"
+          aria-label="Fish Audio API key"
+          style={{ flex: 1, minWidth: 0, background: '#07192b', border: '1px solid rgba(130,188,221,.28)', borderRadius: 6, color: '#edf9ff', padding: '9px 11px', fontSize: 12 }}
+        />
+        <button type="submit" disabled={busy || !fishApiKey.trim()} style={{ padding: '9px 12px', background: 'rgba(65,166,213,.22)', border: '1px solid rgba(130,188,221,.45)', color: '#bceafd', cursor: busy || !fishApiKey.trim() ? 'not-allowed' : 'pointer', borderRadius: 6, fontSize: 12, opacity: busy || !fishApiKey.trim() ? .55 : 1 }}>
+          {busy ? 'Connecting…' : configured ? 'Update Fish key' : 'Connect Fish Audio'}
+        </button>
+      </form>
+      <button type="button" onClick={() => void fetchFishVoices()} disabled={!configured || busy} style={{ marginTop: 8, padding: '8px 11px', background: 'rgba(65,166,213,.12)', border: '1px solid rgba(130,188,221,.32)', color: '#bceafd', cursor: !configured || busy ? 'not-allowed' : 'pointer', borderRadius: 6, fontSize: 11, opacity: !configured || busy ? .55 : 1 }}>
+        {busy ? 'Fetching…' : `Fetch Fish Voices${fishVoices.length ? ` (${fishVoices.length})` : ''}`}
+      </button>
+      {fishMessage && <p role="status" style={{ margin: '7px 0 0', color: fishMessage.startsWith('Fish Audio connected') ? '#7de5b0' : '#9bb8cb', fontSize: 11 }}>{fishMessage}</p>}
     </div>
   );
 };

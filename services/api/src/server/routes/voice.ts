@@ -32,6 +32,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
   let conversing = false;
   let browserVoiceActive = false;
   let browserSpeaking = false;
+  let browserASRProvider: 'local' | 'fish' | null = null;
   const browserTurnGate = new VoiceTurnGate();
   const approvalCodes = new Map<string, string>();
   const languageContext = new AsyncLocalStorage<string | null>();
@@ -95,7 +96,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     if (!localized && language && !/^en(?:-|$)/i.test(language)) {
       try {
         const operatorModel = deps.agents.list().find((agent) => agent.template_id === 'computer_operator')?.model_id;
-        const useDefault = voiceUsesDefaultModel();
+        const useDefault = browserVoiceActive || voiceUsesDefaultModel();
         const replyModel = useDefault ? deps.settings.get<string | null>('default_model_id', null) : operatorModel;
         const translated = await deps.router.chat({ task_type: 'chat', complexity: 'low', needs_tools: false, prefer: 'cheapest', max_cost_class: useDefault ? undefined : 'free', model_id: replyModel }, {
           messages: [{ role: 'system', content: `Translate the following assistant reply into the user's language (${language}). Return only the translation. Preserve factual claims, IDs, and error meaning. Never add a new action or instruction.` }, { role: 'user', content: message }], max_tokens: 500, temperature: 0.1,
@@ -144,7 +145,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     const turnController = new AbortController();
     activeConversation = turnController;
     try {
-      const useDefault = voiceUsesDefaultModel();
+      const useDefault = browserVoiceActive || voiceUsesDefaultModel();
       const freeModels = useDefault ? [] : deps.router.candidates({ task_type: 'chat', complexity: 'low', max_cost_class: 'free' });
       const preferred = ['openrouter/nvidia/nemotron-3-super-120b-a12b:free', 'openrouter/cohere/north-mini-code:free', 'openrouter/apodex/apodex-1.1-mini:free'];
       const freeModel = preferred.map((id) => freeModels.find((item) => item.id === id)).find(Boolean) ?? freeModels[0];
@@ -342,15 +343,19 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     if (listenerNow instanceof FishHandsFreeListener) listenerNow.resume();
     return { ok: true, interrupted: true, voice: browserVoiceActive ? { available: true, listening: true, speaking: false, starting: false, transcribing: false, culture: 'auto', engine: 'browser-full-duplex', microphone: 'Browser microphone', last_transcription_ms: null, error: null } : listenerNow.status() };
   });
-  app.post('/api/v1/voice/browser/start', async (_request, reply) => {
+  app.post('/api/v1/voice/browser/start', async (request, reply) => {
     try {
+      const parsed = z.object({ provider: z.enum(['local', 'fish']).optional() }).strict().safeParse(request.body ?? {});
+      if (!parsed.success) return reply.status(400).send({ error: 'Choose a supported voice transcription provider.' });
+      const selectedProvider = parsed.data.provider ?? asrProvider();
       stopListening();
-      if (asrProvider() === 'fish') {
+      if (selectedProvider === 'fish') {
         if (!fish.configured()) return reply.status(503).send({ error: 'Configure Fish Audio transcription before starting browser voice.' });
       } else {
         if (!localASR.available()) return reply.status(503).send({ error: 'Install the local multilingual Whisper model before starting browser voice.' });
         await localASR.start();
       }
+      browserASRProvider = selectedProvider;
       browserVoiceActive = true;
       return { available: true, listening: true, speaking: false, starting: false, transcribing: false, culture: 'auto', engine: 'browser-full-duplex', microphone: 'Browser microphone', last_transcription_ms: null, error: null };
     } catch (error) { return reply.status(503).send({ error: error instanceof Error ? error.message : 'Browser voice could not start.' }); }
@@ -370,7 +375,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       const wav = Buffer.from(parsed.data.wav_base64, 'base64');
       if (wav.length < 1_000 || wav.length > 8_000_000 || wav.toString('ascii', 0, 4) !== 'RIFF') return reply.status(400).send({ error: 'Audio clip must be a bounded WAV recording.' });
       const turnStartedAt = Date.now();
-      const usingFish = asrProvider() === 'fish';
+      const usingFish = (browserASRProvider ?? asrProvider()) === 'fish';
       const result = usingFish ? await fish.transcribe(wav) : await localASR.transcribe(wav);
       const duration = Date.now() - turnStartedAt;
       if (!browserTurnGate.isCurrent(turnGeneration) || !browserVoiceActive) return { ok: true, ignored: true, interrupted: true, transcription_ms: duration };
@@ -383,9 +388,9 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
   });
   app.post('/api/v1/voice/browser/synthesize', async (request, reply) => {
     if (!browserVoiceActive) return reply.status(409).send({ error: 'Start a voice conversation before requesting speech.' });
-    const parsed = z.object({ text: z.string().trim().min(1).max(400) }).strict().safeParse(request.body);
+    const parsed = z.object({ text: z.string().trim().min(1).max(400), voice_id: z.string().trim().min(1).max(160).optional() }).strict().safeParse(request.body);
     if (!parsed.success) return reply.status(400).send({ error: 'Enter a short speech segment.' });
-    const selected = getPersona(deps.settings).voice_id;
+    const selected = parsed.data.voice_id ?? getPersona(deps.settings).voice_id;
     if (!selected?.startsWith('fish:')) return { type: 'browser-speech', voice_id: selected ?? 'windows:default' };
     const synthesisController = new AbortController();
     const abortSynthesis = () => synthesisController.abort();
@@ -445,7 +450,7 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
   app.post('/api/v1/voice/stop', async () => {
     deps.settings.set('voice_autostart', false);
     speechGeneration++; activeConversation?.abort(); activeSpeech?.abort();
-    browserVoiceActive = false; browserSpeaking = false; stopListening(); localASR.stop();
+    browserVoiceActive = false; browserSpeaking = false; browserASRProvider = null; stopListening(); localASR.stop();
     return currentListener().status();
   });
   app.post('/api/v1/voice/command', async (request) => command(commandSchema.parse(request.body).text));
@@ -500,6 +505,33 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
     };
   });
 
+  app.get('/api/v1/voice/live/voice-preferences', async () => {
+    const personaVoice = getPersona(deps.settings).voice_id;
+    const modelId = deps.settings.get<string | null>('default_model_id', null) ?? 'default';
+    const modelVoices = deps.settings.get<Record<string, string>>('live_voice_model_voices', {});
+    return {
+      chatgpt: modelVoices[modelId] ?? 'neural:jenny',
+      fish: deps.settings.get<string | null>('live_voice_fish_voice', personaVoice?.startsWith('fish:') ? personaVoice : null),
+    };
+  });
+
+  app.put('/api/v1/voice/live/voice-preferences', async (request, reply) => {
+    const parsed = z.object({ provider: z.enum(['chatgpt', 'fish']), voice_id: z.string().trim().min(1).max(160) }).strict().safeParse(request.body);
+    if (!parsed.success) return reply.status(400).send({ error: 'Choose a valid voice for this provider.' });
+    const validPrefix = parsed.data.provider === 'fish'
+      ? parsed.data.voice_id.startsWith('fish:')
+      : /^(fish:|neural:|windows:)/.test(parsed.data.voice_id);
+    if (!validPrefix) return reply.status(400).send({ error: 'That voice is not supported for this provider.' });
+    if (parsed.data.provider === 'fish') {
+      deps.settings.set('live_voice_fish_voice', parsed.data.voice_id);
+    } else {
+      const modelId = deps.settings.get<string | null>('default_model_id', null) ?? 'default';
+      const modelVoices = deps.settings.get<Record<string, string>>('live_voice_model_voices', {});
+      deps.settings.set('live_voice_model_voices', { ...modelVoices, [modelId]: parsed.data.voice_id });
+    }
+    return { ok: true, provider: parsed.data.provider, voice_id: parsed.data.voice_id };
+  });
+
   app.get('/api/v1/voice/fish/config', async () => ({ configured: fish.configured(), handsfree: handsfreeMode(), transcription: asrProvider() }));
   app.put('/api/v1/voice/fish/config', async (request, reply) => {
     const parsed = z.object({ api_key: z.string().min(20) }).strict().safeParse(request.body);
@@ -508,8 +540,6 @@ export function registerVoiceRoutes(app: FastifyInstance, deps: Deps) {
       const voices = await fish.configure(parsed.data.api_key);
       deps.settings.set('voice_handsfree_mode', localASR.available());
       deps.settings.set('voice_asr_provider', localASR.available() ? 'local' : 'fish');
-      deps.settings.set('voice_autostart', true);
-      if (voiceAvailable()) await startCurrent();
       return { ok: true, configured: true, voices };
     } catch (error) { return reply.status(502).send({ error: error instanceof Error ? error.message : 'Fish Audio connection failed' }); }
   });

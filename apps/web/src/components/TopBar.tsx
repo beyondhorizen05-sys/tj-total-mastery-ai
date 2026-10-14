@@ -11,7 +11,7 @@ interface TopBarProps {
   onOpenLiveVoice?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onNavigate, activeTab }) => {
+export const TopBar: React.FC<TopBarProps> = ({ status, stopping, onStopAll, onNavigate, activeTab, onOpenLiveVoice }) => {
   const isHealthy = status?.components.every((c) => c.state === 'healthy');
   const isStopped = status?.stop_all_engaged;
   const modelHealth = status?.components.find((component) => component.component === 'model_router')?.state;

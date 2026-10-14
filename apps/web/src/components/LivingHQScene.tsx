@@ -183,6 +183,23 @@ function CameraRig({
   return null;
 }
 
+/** Stop spending GPU time while the browser tab is in the background. */
+function PauseSceneWhenHidden() {
+  const setFrameloop = useThree((state) => state.setFrameloop);
+
+  useEffect(() => {
+    const updateFrameloop = () => {
+      setFrameloop(document.visibilityState === 'hidden' ? 'never' : 'always');
+    };
+
+    updateFrameloop();
+    document.addEventListener('visibilitychange', updateFrameloop);
+    return () => document.removeEventListener('visibilitychange', updateFrameloop);
+  }, [setFrameloop]);
+
+  return null;
+}
+
 // --------------------------------------------------------------------------
 // POWERFUL MULTI-SOURCE ARCHITECTURAL LIGHTING (NOT PITCH BLACK!)
 // --------------------------------------------------------------------------
@@ -3035,9 +3052,12 @@ export function LivingHQScene({
     <div style={{ width: '100%', height, position: 'relative', overflow: 'hidden' }}>
       <Canvas
         camera={{ position: [18.0, 14.0, 19.0], fov: 42, near: 0.1, far: 140 }}
-        dpr={[1, 1.6]}
-        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        // The HQ has a large, detailed scene. Capping DPR avoids multiplying
+        // its pixel workload on high-density displays while keeping it crisp.
+        dpr={[0.75, 1]}
+        gl={{ antialias: false, powerPreference: 'low-power' }}
       >
+        <PauseSceneWhenHidden />
         <HQWorld
           agentSouls={agentSouls}
           customRooms={customRooms}
